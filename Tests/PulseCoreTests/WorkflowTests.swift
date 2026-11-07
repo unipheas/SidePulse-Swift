@@ -275,3 +275,14 @@ extension WorkflowTests {
       try Programs.program(.working, count: 8, settings: [:]))
   }
 }
+
+extension WorkflowTests {
+  func testDisabledRelayReturnsWithoutNetworkResolution() async throws {
+    XCTAssertFalse(Machine.name.isEmpty)
+    let relay = Relay()
+    let start = ProcessInfo.processInfo.systemUptime
+    try await relay.sync([])
+    XCTAssertLessThan(ProcessInfo.processInfo.systemUptime - start, 1)
+    await relay.stop()
+  }
+}

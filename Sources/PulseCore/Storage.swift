@@ -167,3 +167,13 @@ public enum SystemCommand {
     return output
   }
 }
+
+/// gethostname reads the local kernel name without waiting for DNS resolution.
+public enum Machine {
+  public static var name: String {
+    var bytes = [CChar](repeating: 0, count: 256)
+    guard gethostname(&bytes, bytes.count) == 0 else { return "Mac" }
+    bytes[bytes.count - 1] = 0
+    return String(cString: bytes)
+  }
+}

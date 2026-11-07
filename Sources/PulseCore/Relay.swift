@@ -20,7 +20,7 @@ public struct RelayConfiguration: Codable, Equatable {
     guard let url else {
       return Self(
         server: Bridge.server, receiverChannel: "", outboundChannel: "",
-        machineName: ProcessInfo.processInfo.hostName)
+        machineName: Machine.name)
     }
     let values = try object(url)
     guard values["version"] as? Int == 1 else {
@@ -30,7 +30,7 @@ public struct RelayConfiguration: Codable, Equatable {
       server: values["server"] as? String ?? Bridge.server,
       receiverChannel: values["receiver_channel"] as? String ?? "",
       outboundChannel: values["outbound_channel"] as? String ?? "",
-      machineName: values["machine_name"] as? String ?? ProcessInfo.processInfo.hostName)
+      machineName: values["machine_name"] as? String ?? Machine.name)
   }
   public func save() throws {
     guard version == 1 else { throw PulseError("Unsupported relay settings version.") }

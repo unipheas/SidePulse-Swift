@@ -229,7 +229,7 @@ public enum Bridge {
     }
     let body: JSONObject = [
       "v": 1, "type": "agent_event", "event_id": UUID().uuidString,
-      "source": ["name": ProcessInfo.processInfo.hostName], "provider": provider, "line": row,
+      "source": ["name": Machine.name], "provider": provider, "line": row,
     ]
     try await post(body, url: address(origin ?? server, channel: channel))
   }
