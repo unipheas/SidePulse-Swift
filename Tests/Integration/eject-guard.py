@@ -32,8 +32,17 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         attached[disk] = image
         return disk, mount
 
+    def require_owned(disk, image):
+        mounted = plistlib.loads(subprocess.check_output(["hdiutil", "info", "-plist"]))["images"]
+        owned = any(Path(item.get("image-path", "")).resolve() == image.resolve()
+                    and any(row.get("dev-entry") == disk for row in item.get("system-entities", []))
+                    for item in mounted)
+        assert owned, "Fixture disk identity changed before eject"
+
     def require_ejected(disk, context):
-        result = eject_disk(disk, allow_settle=True)
+        image = attached[disk]
+        result = eject_disk(disk, allow_settle=True,
+                            before_attempt=lambda: require_owned(disk, image))
         assert result.returncode == 0, context + ": " + result.stdout + result.stderr
         attached.pop(disk)
 
@@ -51,7 +60,7 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         time.sleep(0.5)
         assert guard.poll() is None, "Native guard did not remain running"
-        denied = eject_disk(protected)
+        denied = eject_disk(protected, before_attempt=lambda: require_owned(protected, protected_image))
         assert denied.returncode != 0, "The native guard allowed the simulated Pro to eject"
         deadline = time.monotonic() + 8
         while not (protected_mount / "STATUS.TXT").exists() and time.monotonic() < deadline:
@@ -81,14 +90,10 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         # never cause cleanup to touch another disk. Try every owned fixture.
         for disk, image in attached.items():
             try:
-                mounted = plistlib.loads(subprocess.check_output(
-                    ["hdiutil", "info", "-plist"]))["images"]
-                owned = any(Path(item.get("image-path", "")).resolve() == image.resolve()
-                            and any(row.get("dev-entry") == disk for row in item.get("system-entities", []))
-                            for item in mounted)
                 if Path(disk).exists():
-                    assert owned, "Fixture disk identity changed before cleanup"
-                    subprocess.run(["hdiutil", "detach", disk], check=True)
+                    result = eject_disk(disk, allow_settle=True,
+                                        before_attempt=lambda: require_owned(disk, image))
+                    assert result.returncode == 0, result.stdout + result.stderr
             except Exception as error:
                 cleanup_errors.append(image.name + ": " + str(error))
         if cleanup_errors:

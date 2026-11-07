@@ -40,6 +40,23 @@ class EjectRetryTests(unittest.TestCase):
         self.assertLessEqual(len(calls), 27)
         self.assertGreaterEqual(sum(waits), 5)
 
+    def test_ownership_is_verified_before_every_retry(self):
+        events = []
+        now = [0.0]
+        def before():
+            events.append("verify")
+            if len(events) == 3:
+                raise RuntimeError("identity changed")
+        def run(*args, **kwargs):
+            events.append("eject")
+            return SimpleNamespace(returncode=1)
+        def wait(delay):
+            now[0] += delay
+        with self.assertRaisesRegex(RuntimeError, "identity changed"):
+            eject_disk('/dev/fixture', allow_settle=True, before_attempt=before,
+                       run=run, clock=lambda: now[0], wait=wait)
+        self.assertEqual(events, ["verify", "eject", "verify"])
+
     def test_immediate_success_does_not_wait(self):
         result, calls, waits = self.exercise([0], allow_settle=True)
         self.assertEqual(result.returncode, 0)
