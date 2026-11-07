@@ -118,7 +118,7 @@
   "full_suite_revision": "09491e7377bdb62654a8a3aa9e672e0b2e5b961d",
   "ui_workflows": 21,
   "native_test_methods": 220,
-  "native_validation": "Full 219-method suite passed, with one opt-in physical check skipped; focused 24-method run passed after adding the service retry test and replacing yield-count waits with asynchronous expectations. All 220 unique methods were exercised across these runs.",
+  "native_validation": "Full 219-method suite passed, with one opt-in physical check skipped; a focused 24-method run passed after adding the service retry test and replacing yield-count waits with asynchronous expectations. Across these runs, 219 unique methods executed successfully and one opt-in physical method was skipped.",
   "classifier_tests": 2,
   "profile_note": "Production source hashes are identical across full-suite, focused native, and installation profiles. The focused run updates two test-only function counters; test source files are excluded from production coverage.",
   "installed_acceptance": {
