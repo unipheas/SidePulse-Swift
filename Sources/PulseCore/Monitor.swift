@@ -192,45 +192,50 @@ public final class Monitor {
   }
   private let transcripts = TranscriptReader()
   private var tails = [URL: Tail]()
-  public init() {}
+  private let sources: [(String, URL)]
+  public init(logs: [String: URL] = [:]) {
+    sources =
+      [Paths.legacyState, Paths.support.appendingPathComponent("events")].flatMap { directory in
+        providers.filter { logs[$0] == nil }.map {
+          ($0, directory.appendingPathComponent($0 + ".jsonl"))
+        }
+      } + logs.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
+  }
   public func sessions() -> [Session] {
     var latest = [String: Session]()
-    for directory in [Paths.legacyState, Paths.support.appendingPathComponent("events")] {
-      for provider in providers {
-        let url = directory.appendingPathComponent(provider + ".jsonl")
-        guard let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
-          let size = attr[.size] as? UInt64, let inode = attr[.systemFileNumber] as? UInt64
-        else {
-          tails[url] = nil
-          continue
-        }
-        var tail = tails[url] ?? Tail()
-        if inode != tail.inode || size < tail.offset { tail = Tail(inode: inode) }
-        if size > tail.offset, let file = try? FileHandle(forReadingFrom: url) {
-          defer { try? file.close() }
-          var start = tail.offset
-          if size - start > 2_097_152 {
-            start = size - 2_097_152
-            tail.partial = Data()
-          }
-          do {
-            try file.seek(toOffset: start)
-            let chunk = try file.read(upToCount: Int(size - start)) ?? Data()
-            tail.offset = start + UInt64(chunk.count)
-            var lines = (tail.partial + chunk).split(
-              separator: 10, omittingEmptySubsequences: false)
-            tail.partial = Data(lines.popLast() ?? Data())
-            for line in lines {
-              guard let row = (try? JSONSerialization.jsonObject(with: line)) as? JSONObject,
-                let session = Events.parse(provider: provider, row: row)
-              else { continue }
-              tail.ingest(session, row: row)
-            }
-            tails[url] = tail
-          } catch { continue }
-        }
-        latest.merge(tail.sessions) { $0.date > $1.date ? $0 : $1 }
+    for (provider, url) in sources {
+      guard let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
+        let size = attr[.size] as? UInt64, let inode = attr[.systemFileNumber] as? UInt64
+      else {
+        tails[url] = nil
+        continue
       }
+      var tail = tails[url] ?? Tail()
+      if inode != tail.inode || size < tail.offset { tail = Tail(inode: inode) }
+      if size > tail.offset, let file = try? FileHandle(forReadingFrom: url) {
+        defer { try? file.close() }
+        var start = tail.offset
+        if size - start > 2_097_152 {
+          start = size - 2_097_152
+          tail.partial = Data()
+        }
+        do {
+          try file.seek(toOffset: start)
+          let chunk = try file.read(upToCount: Int(size - start)) ?? Data()
+          tail.offset = start + UInt64(chunk.count)
+          var lines = (tail.partial + chunk).split(
+            separator: 10, omittingEmptySubsequences: false)
+          tail.partial = Data(lines.popLast() ?? Data())
+          for line in lines {
+            guard let row = (try? JSONSerialization.jsonObject(with: line)) as? JSONObject,
+              let session = Events.parse(provider: provider, row: row)
+            else { continue }
+            tail.ingest(session, row: row)
+          }
+          tails[url] = tail
+        } catch { continue }
+      }
+      latest.merge(tail.sessions) { $0.date > $1.date ? $0 : $1 }
     }
     for row in transcripts.read(settings: (try? Settings.read()) ?? [:])
     where latest[row.id].map({ $0.date < row.date }) ?? true { latest[row.id] = row }
@@ -247,6 +252,8 @@ public final class Monitor {
       var mode = item.mode
       if mode == .working && item.event.lowercased() == "posttooluse" && age > 120 { mode = .done }
       if mode == .done { return age < done ? mode : nil }
+      let toolTimeout = Settings.seconds(settings, "tool_running_timeout_seconds", default: 0)
+      if mode == .tool && toolTimeout > 0 && age > toolTimeout { return nil }
       return age < stale ? mode : nil
     }.min { $0.rank < $1.rank } ?? .idle
   }

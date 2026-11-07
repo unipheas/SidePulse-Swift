@@ -289,43 +289,4 @@ enum Args {
       print("\(provider): \(install ? "installed" : "removed")")
     }
   }
-  static func monitor(_ sub: String) async throws {
-    let json = Args.flag("--json")
-    try Args.end()
-    let monitor = Monitor()
-    let output = Output()
-    var lastPhoneMode: Mode?
-    repeat {
-      let settings = try Settings.read()
-      let rows = monitor.sessions()
-      let mode = Monitor.aggregate(rows, settings: settings)
-      if sub == "leds" {
-        guard !Output.legacyRunning() else {
-          throw PulseError("The existing SidePulse service owns LED output.")
-        }
-        try output.sync(
-          devices: Device.discover(), mode: mode, settings: settings, battery: Battery.read())
-        if settings["swift_phone_mirror"] as? Bool == true, lastPhoneMode != mode {
-          let program = try Programs.program(mode, count: 8, settings: settings)
-          for phone in try Bridge.phones() {
-            try await Bridge.push(to: phone.id, program: program, title: nil, message: nil)
-          }
-          lastPhoneMode = mode
-        }
-      } else if json {
-        struct Report: Encodable {
-          let mode: Mode
-          let sessions: [Session]
-        }
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        print(
-          String(decoding: try encoder.encode(Report(mode: mode, sessions: rows)), as: UTF8.self))
-      } else {
-        print(mode.label)
-      }
-      if sub == "status" { return }
-      try await Task.sleep(for: .seconds(1))
-    } while !Task.isCancelled
-  }
 }

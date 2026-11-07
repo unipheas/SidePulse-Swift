@@ -9,11 +9,16 @@ swift test --enable-code-coverage
 bin=$(swift build --show-bin-path)
 export LLVM_PROFILE_FILE="$work/cli-%m-%p.profraw"
 python3 Tests/Integration/cli.py "$bin/sidepulsectl"
+python3 Tests/Integration/disk-image.py "$bin/sidepulsectl"
 unset LLVM_PROFILE_FILE
 report=.build/coverage-report
 mkdir -p "$report"
 xcrun llvm-profdata merge -sparse "$bin/codecov/default.profdata" "$work"/*.profraw -o "$work/all.profdata"
-testbinary=$(find "$bin" -path '*.xctest/Contents/MacOS/*' -type f | head -1)
+testbinary=""
+for candidate in "$bin"/*.xctest/Contents/MacOS/*; do
+  if [[ -f "$candidate" && -x "$candidate" ]]; then testbinary="$candidate"; break; fi
+done
+test -n "$testbinary"
 # SwiftPM names the XCTest binary differently between the Xcode and native build systems.
 coverage=("$testbinary" -object "$bin/SidePulse" -object "$bin/sidepulsectl" -instr-profile "$work/all.profdata")
 sources=()
