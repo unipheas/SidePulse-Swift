@@ -199,3 +199,15 @@ name. The chart smoke test uses layout rather than GPU rasterization because an
 Intel CI runner's Metal backend aborted during bitmap rendering. The revised Intel
 native test step passed. The new exact-100% workflow is a gate to validate, not a
 claim that it has passed before its result is available.
+
+
+### Merge checkpoint and separate 100% follow-up
+
+At b07228c, the complete same-runner ARM job passed all functional tests, including
+233 native tests, 21 UI workflows, classifier integrations and real installed-bundle
+lifecycle acceptance. It measured **10,336/10,360 production lines (99.77%)**, leaving
+24 lines unexecuted. Its only failure was the newly introduced exact-100% gate.
+The user explicitly approved merging with the repository's original 80% gate while
+100% work continues separately. The merge candidate restores that original gate,
+retains the stronger test suite and installed acceptance, and does not claim 100%.
+The exact-equality check remains available when MIN_COVERAGE=100 is selected.
