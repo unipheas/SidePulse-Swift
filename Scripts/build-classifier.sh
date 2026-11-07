@@ -3,9 +3,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 root="$PWD"
 configuration="${CLASSIFIER_CONFIGURATION:-Release}"
-coverage=(-enableCodeCoverage "${CLASSIFIER_COVERAGE:-NO}")
+coverage=('OTHER_SWIFT_FLAGS=$(inherited)' 'OTHER_LDFLAGS=$(inherited)')
 if [[ "${CLASSIFIER_COVERAGE:-NO}" == YES ]]; then
-  coverage+=('OTHER_SWIFT_FLAGS=$(inherited) -profile-generate -profile-coverage-mapping'
+  coverage=('OTHER_SWIFT_FLAGS=$(inherited) -profile-generate -profile-coverage-mapping'
     'OTHER_LDFLAGS=$(inherited) -profile-generate')
 fi
 cd Classifier
