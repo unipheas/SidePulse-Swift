@@ -302,7 +302,12 @@ extension MacActionTests {
     let model = Dashboard(
       discover: { [device] }, outputInUse: { false }, poll: false, phoneOutput: phoneOutput)
     XCTAssertTrue(model.problem?.contains("Notch lights") == true)
-    for _ in 0..<10 { await Task.yield() }
+    let failure = expectation(description: "Phone failure reaches the dashboard")
+    let observation = model.$problem.first { $0 == "Pairing data unreadable" }.sink { _ in
+      failure.fulfill()
+    }
+    await fulfillment(of: [failure], timeout: 5)
+    withExtendedLifetime(observation) {}
     XCTAssertEqual(model.problem, "Pairing data unreadable")
     XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
     model.change { $0["virtual_status_device_enabled"] = false }
@@ -316,7 +321,12 @@ extension MacActionTests {
     try Settings.update { $0["sleep_prevention_policy"] = "never" }
     try saveObject(["version": 99], to: RelayConfiguration.file)
     let model = Dashboard(discover: { [device] }, outputInUse: { false }, poll: false)
-    for _ in 0..<10 { await Task.yield() }
+    let failure = expectation(description: "Relay failure reaches the dashboard")
+    let observation = model.$problem.first { $0 == "Unsupported relay configuration." }.sink { _ in
+      failure.fulfill()
+    }
+    await fulfillment(of: [failure], timeout: 5)
+    withExtendedLifetime(observation) {}
     XCTAssertEqual(model.problem, "Unsupported relay configuration.")
     XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
   }
