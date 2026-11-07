@@ -79,10 +79,12 @@ public actor Relay {
     self.send = send
     self.receive = receive
   }
-  public func stop() {
-    receiver?.cancel()
+  public func stop() async {
+    let stopping = receiver
     receiver = nil
     configuration = nil
+    stopping?.cancel()
+    await stopping?.value
   }
   public func sync(_ sessions: [Session]) async throws {
     let config = try RelayConfiguration.read()

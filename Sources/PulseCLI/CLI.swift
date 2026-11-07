@@ -336,7 +336,7 @@ enum Args {
     }
     let selected = Args.pop() ?? "all"
     try Args.end()
-    let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
+    let executable = Bundle.main.executableURL!
     for provider in selected == "all" ? providers : [selected] {
       guard providers.contains(provider) else { throw PulseError("Unknown provider.") }
       if dry {

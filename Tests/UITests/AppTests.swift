@@ -548,3 +548,31 @@ extension AppTests {
     app.buttons["Save animation"].click()
   }
 }
+
+extension AppTests {
+  func testMissingTimingSettingsAndRevealFolder() throws {
+    var value = try settings()
+    value.removeValue(forKey: "agent_list")
+    try JSONSerialization.data(withJSONObject: value).write(
+      to: root.appendingPathComponent("settings.json"), options: .atomic)
+    app.terminate()
+    app.launch()
+    select("Settings")
+    let field = app.textFields["idle_timeout_seconds"]
+    reveal(field)
+    replace(field, with: "600")
+    app.buttons["idle_timeout_seconds-apply"].click()
+    XCTAssertEqual(
+      (try settings()["agent_list"] as? [String: Any])?["idle_timeout_seconds"] as? Int, 600)
+    select("Diagnostics")
+    let revealFolder = app.buttons["Show settings folder"]
+    reveal(revealFolder)
+    revealFolder.click()
+    let finder = XCUIApplication(bundleIdentifier: "com.apple.finder")
+    let folder = finder.windows[root.lastPathComponent]
+    XCTAssertTrue(folder.waitForExistence(timeout: 8), finder.debugDescription)
+    folder.typeKey("w", modifierFlags: .command)
+    app.activate()
+    XCTAssertTrue(app.windows["Diagnostics"].exists)
+  }
+}

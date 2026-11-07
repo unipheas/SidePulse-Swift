@@ -46,97 +46,104 @@ extension CLI {
       output.keepAwake(false)
     }
     let relay = Relay()
-    defer { Task { await relay.stop() } }
-    repeat {
-      var settings = try Settings.read()
-      var timing = settings["agent_list"] as? JSONObject ?? [:]
-      for (key, value) in [("idle_timeout_seconds", stale), ("tool_running_timeout_seconds", tool)]
-      {
-        if let value {
-          guard let seconds = Double(value), seconds.isFinite, seconds >= 0 else {
-            throw PulseError("Enter a finite timeout of zero or more.")
+    do {
+      repeat {
+        var settings = try Settings.read()
+        var timing = settings["agent_list"] as? JSONObject ?? [:]
+        for (key, value) in [
+          ("idle_timeout_seconds", stale), ("tool_running_timeout_seconds", tool),
+        ] {
+          if let value {
+            guard let seconds = Double(value), seconds.isFinite, seconds >= 0 else {
+              throw PulseError("Enter a finite timeout of zero or more.")
+            }
+            timing[key] = seconds
           }
-          timing[key] = seconds
         }
-      }
-      settings["agent_list"] = timing
-      let rows = monitor.sessions()
-      let mode = Monitor.aggregate(rows, settings: settings)
-      if sub == "leds" {
-        guard dry || !legacyRunning() else {
-          throw PulseError("The existing SidePulse service owns LED output.")
-        }
-        var discovered = false
-        do {
-          let devices =
-            try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
-            ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
-          discovered = true
-          if dry {
-            for device in devices {
-              print(
-                device.id + "\n"
-                  + (try Programs.program(mode, count: device.count, settings: settings)))
-            }
-          } else {
-            settings = try Settings.remember(devices, settings: settings)
-            let battery = Battery.read()
-            do {
-              try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
-            } catch { report("Sleep control: " + error.localizedDescription) }
-            output.updateAwake(mode: mode, settings: settings, battery: battery)
-            var failure: Error?
-            do {
-              try output.sync(
-                devices: devices, mode: mode, settings: settings, battery: battery,
-                agentsActive: Monitor.hasActive(rows, settings: settings))
-            } catch { failure = error }
-            do {
-              try History.record(
-                mode, battery: battery?.percent, snapshot: battery,
-                keepingAwake: output.isKeepingAwake, power: PowerSnapshot.read())
-              try await relay.sync(rows)
-            } catch {
-              report(error.localizedDescription)
-              if failure == nil { failure = error }
-            }
-            do {
-              try await phoneOutput.sync(mode: mode, settings: settings, battery: battery)
-            } catch {
-              report(error.localizedDescription)
-              if failure == nil { failure = error }
-            }
-            if let failure { throw failure }
+        settings["agent_list"] = timing
+        let rows = monitor.sessions()
+        let mode = Monitor.aggregate(rows, settings: settings)
+        if sub == "leds" {
+          guard dry || !legacyRunning() else {
+            throw PulseError("The existing SidePulse service owns LED output.")
           }
-        } catch {
-          if once { throw error }
-          if !discovered { output.reset() }
-          report(error.localizedDescription)
+          var discovered = false
+          do {
+            let devices =
+              try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
+              ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
+            discovered = true
+            if dry {
+              for device in devices {
+                print(
+                  device.id + "\n"
+                    + (try Programs.program(mode, count: device.count, settings: settings)))
+              }
+            } else {
+              settings = try Settings.remember(devices, settings: settings)
+              let battery = Battery.read()
+              do {
+                try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
+              } catch { report("Sleep control: " + error.localizedDescription) }
+              output.updateAwake(mode: mode, settings: settings, battery: battery)
+              var failure: Error?
+              do {
+                try output.sync(
+                  devices: devices, mode: mode, settings: settings, battery: battery,
+                  agentsActive: Monitor.hasActive(rows, settings: settings))
+              } catch { failure = error }
+              do {
+                try History.record(
+                  mode, battery: battery?.percent, snapshot: battery,
+                  keepingAwake: output.isKeepingAwake, power: PowerSnapshot.read())
+                try await relay.sync(rows)
+              } catch {
+                report(error.localizedDescription)
+                if failure == nil { failure = error }
+              }
+              do {
+                try await phoneOutput.sync(mode: mode, settings: settings, battery: battery)
+              } catch {
+                report(error.localizedDescription)
+                if failure == nil { failure = error }
+              }
+              if let failure { throw failure }
+            }
+          } catch {
+            if once { throw error }
+            if !discovered { output.reset() }
+            report(error.localizedDescription)
+          }
+        } else if json {
+          struct Report: Encodable {
+            let mode: Mode
+            let sessions: [Session]
+          }
+          let encoder = JSONEncoder()
+          encoder.dateEncodingStrategy = .iso8601
+          print(
+            String(decoding: try encoder.encode(Report(mode: mode, sessions: rows)), as: UTF8.self))
+        } else {
+          let ageLimit =
+            sub == "status"
+            ? Settings.seconds(settings, "idle_timeout_seconds", default: 3600) : recent
+          let visible = rows.filter { all || Date().timeIntervalSince($0.date) < ageLimit }
+          if redraw { print("\u{1B}[2J\u{1B}[H", terminator: "") }
+          print(
+            ConsoleSnapshot.render(
+              mode: mode, sessions: visible,
+              color: interactive && !noColor
+                && ProcessInfo.processInfo.environment["NO_COLOR"] == nil
+            ))
+          fflush(stdout)
         }
-      } else if json {
-        struct Report: Encodable {
-          let mode: Mode
-          let sessions: [Session]
-        }
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        print(
-          String(decoding: try encoder.encode(Report(mode: mode, sessions: rows)), as: UTF8.self))
-      } else {
-        let ageLimit =
-          sub == "status"
-          ? Settings.seconds(settings, "idle_timeout_seconds", default: 3600) : recent
-        let visible = rows.filter { all || Date().timeIntervalSince($0.date) < ageLimit }
-        if redraw { print("\u{1B}[2J\u{1B}[H", terminator: "") }
-        print(
-          ConsoleSnapshot.render(
-            mode: mode, sessions: visible,
-            color: interactive && !noColor && ProcessInfo.processInfo.environment["NO_COLOR"] == nil
-          ))
-        fflush(stdout)
-      }
-      if sub == "status" || once { return }
-      try await wait(interval)
-    } while !Task.isCancelled
+        if sub == "status" || once { break }
+        try await wait(interval)
+      } while !Task.isCancelled
+    } catch {
+      await relay.stop()
+      throw error
+    }
+    await relay.stop()
   }
 }

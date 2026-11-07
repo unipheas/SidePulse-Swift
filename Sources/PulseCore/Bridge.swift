@@ -276,8 +276,9 @@ public enum Bridge {
         }
         if once { return }
       } catch {
-        if once || Task.isCancelled { throw error }
-        try await Task.sleep(for: .seconds(1))
+        if Task.isCancelled { return }
+        if once { throw error }
+        try? await Task.sleep(for: .seconds(1))
       }
     } while !Task.isCancelled
   }

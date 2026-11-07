@@ -8,6 +8,15 @@ import XCTest
 private final class DefaultNetworkResponse: URLProtocol {
   private static let lock = NSLock()
   private static var responses: [String: Data] = [:]
+  private static var hold = false
+  private static var starts = 0
+  static func holdStream(_ enabled: Bool) {
+    lock.withLock {
+      hold = enabled
+      starts = 0
+    }
+  }
+  static var started: Bool { lock.withLock { starts > 0 } }
   static func fixture(_ values: [String: Data]) { lock.withLock { responses = values } }
   override class func canInit(with request: URLRequest) -> Bool {
     ["api.github.com", "raw.githubusercontent.com", "site.api.espn.com", "bridge.sidepulse.io"]
@@ -15,6 +24,12 @@ private final class DefaultNetworkResponse: URLProtocol {
   }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func startLoading() {
+    if Self.lock.withLock({
+      Self.starts += 1
+      return Self.hold
+    }) {
+      return
+    }
     let data = Self.lock.withLock { Self.responses[request.url!.absoluteString] ?? Data("[]".utf8) }
     let response = HTTPURLResponse(
       url: request.url!, statusCode: 200, httpVersion: nil,
@@ -90,5 +105,29 @@ extension DefaultNetworkTests {
     XCTAssertFalse(
       FileManager.default.fileExists(
         atPath: device.root.appendingPathComponent("FIRMWARE.BIN").path))
+  }
+}
+
+extension DefaultNetworkTests {
+  func testRelayStopWaitsForCancelledDefaultReceiver() async throws {
+    DefaultNetworkResponse.holdStream(true)
+    XCTAssertTrue(URLProtocol.registerClass(DefaultNetworkResponse.self))
+    defer {
+      URLProtocol.unregisterClass(DefaultNetworkResponse.self)
+      DefaultNetworkResponse.holdStream(false)
+    }
+    try RelayConfiguration(
+      server: "https://bridge.sidepulse.io", receiverChannel: "fixture_receiver",
+      outboundChannel: "", machineName: "Fixture"
+    ).save()
+    let relay = Relay()
+    try await relay.sync([])
+    for _ in 0..<100 {
+      if DefaultNetworkResponse.started { break }
+      try await Task.sleep(for: .milliseconds(10))
+    }
+    XCTAssertTrue(DefaultNetworkResponse.started)
+    await relay.stop()
+    await relay.stop()
   }
 }
