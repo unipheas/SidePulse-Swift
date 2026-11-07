@@ -109,6 +109,15 @@ def main():
         raise RuntimeError(f'Installed app lifecycle timed out (expected running={expected}; '
                            f'fixture app PIDs={pids})')
 
+    def await_job_stopped(label):
+        # launchctl bootout returns before the job is fully removed. Do not race
+        # a second stop/uninstall or setup against that asynchronous teardown.
+        for _ in range(100):
+            if run('launchctl', 'print', f'{domain}/{label}', check=False).returncode != 0:
+                return
+            time.sleep(.1)
+        raise RuntimeError('Fixture launch job did not stop: ' + label)
+
     def owned_job(label):
         name = label.removeprefix(prefix)
         executable = contents / 'MacOS' / ('SidePulse' if name == 'app' else 'sidepulsectl')
@@ -195,18 +204,23 @@ def main():
         time.sleep(7)  # Production Dashboard discovery is asynchronous.
         cli('status-bar', 'stop')
         await_app(False)
+        await_job_stopped(prefix + 'app')
         cli('service', 'start', '--scope', 'user')
         require(owned_job(prefix + 'service'), 'Unexpected service executable')
         cli('service', 'stop', '--scope', 'user')
+        await_job_stopped(prefix + 'service')
         cli('service', 'uninstall', '--scope', 'user')
+        await_job_stopped(prefix + 'service')
         cli('setup', '--sd-eject-guard-scope', 'user')
         for label in labels:
             require(owned_job(label), 'Unexpected setup executable: ' + label)
         await_app(True)
         cli('status-bar', 'stop')
         await_app(False)
+        await_job_stopped(prefix + 'app')
         for name in ('service', 'sdejectguard'):
             cli(name, 'uninstall', '--scope', 'user')
+            await_job_stopped(prefix + name)
         await_fixture_exit()
         require(any(p.stat().st_size > 0 for p in profiles.glob('installed-*.profraw')),
                 'No installed coverage profiles produced')
