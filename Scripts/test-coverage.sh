@@ -11,6 +11,9 @@ export LLVM_PROFILE_FILE="$work/cli-%m-%p.profraw"
 python3 Tests/Integration/cli.py "$bin/sidepulsectl"
 python3 Tests/Integration/disk-image.py "$bin/sidepulsectl"
 python3 Tests/Integration/eject-guard.py "$bin/sidepulsectl"
+if [[ "${RUN_INSTALLED_TESTS:-0}" == 1 ]]; then
+  python3 Scripts/test-installed.py "$bin" "$work"
+fi
 unset LLVM_PROFILE_FILE
 classifier_binary=""
 if [[ "${RUN_CLASSIFIER_TESTS:-0}" == 1 ]]; then
@@ -61,6 +64,7 @@ for f in data["files"]:
     print(f'{Path(f["filename"]).name:25} {lines["covered"]:4}/{lines["count"]:<4} {lines["percent"]:6.2f}%')
 lines = data["totals"]["lines"]
 print(f'Measured production sources: {lines["covered"]}/{lines["count"]} lines ({lines["percent"]:.2f}%)')
-if lines["percent"] < float(sys.argv[2]):
+minimum = float(sys.argv[2])
+if (minimum == 100 and lines["covered"] != lines["count"]) or lines["percent"] < minimum:
     raise SystemExit("Coverage below required minimum of " + sys.argv[2] + "%")
 PY

@@ -12,10 +12,15 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Prepare full coverage UI host
+        if: matrix.os == 'macos-15'
+        run: command -v xcodegen || brew install xcodegen
       - name: Test macOS app, hardware protocols, and CLI
         run: Scripts/test-coverage.sh
         env:
-          MIN_COVERAGE: 80
+          MIN_COVERAGE: ${{ matrix.os == 'macos-15' && '100' || '80' }}
+          RUN_UI_TESTS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
+          RUN_INSTALLED_TESTS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
           RUN_CLASSIFIER_TESTS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
       - uses: actions/upload-artifact@v4
         if: always()

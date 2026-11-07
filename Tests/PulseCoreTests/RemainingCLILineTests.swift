@@ -4,6 +4,18 @@ import XCTest
 @testable import PulseCore
 
 final class RemainingCLILineTests: IsolatedTests {
+  func testApprovalAllowsDiskWithoutBSDName() throws {
+    let session = try XCTUnwrap(DASessionCreate(nil))
+    let disk = try XCTUnwrap(DADiskCreateFromBSDName(nil, session, "/dev/disk99999999"))
+    let context = GuardContext(session: session)
+    var lookups = 0
+    XCTAssertNil(context.approve(disk, bsdName: { _ in
+      lookups += 1
+      return nil
+    }))
+    XCTAssertEqual(lookups, 1)
+  }
+
   func testMissingRequiredArgumentHasUsefulError() {
     Args.words = []
     XCTAssertThrowsError(try Args.require("volume")) {

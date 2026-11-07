@@ -177,3 +177,25 @@ Both latest Intel CI runs at commit 0a0a24b passed unchanged. The earlier failed
 run also reported an OS `Resource busy` disk-image eject; the failure alone does
 not establish a native eject-guard defect. New changes still require their own CI.
 The requested 100% acceptance condition remains unmet, so the PR stays draft.
+
+### Reproducible complete CI measurement
+
+The GitHub ARM artifact for f33e67b measured Examples.swift at 198/198, including
+its already-authorized microphone adapter tests. Nova does not need new microphone
+permission to use that separate evidence. Do not merge raw profiles across its
+Swift toolchain and Nova's different toolchain: counter mismatches were observed.
+
+The ARM workflow now requests native, classifier, UI, and explicit installed-bundle
+acceptance on one runner and enforces covered lines equal total lines at 100%.
+`RUN_INSTALLED_TESTS=1` is deliberately restricted to disposable GitHub-hosted Macs
+with no existing SidePulse installation, jobs, or settings. It signs/registers a
+fixture bundle using the same instrumented debug binaries, runs actual app/service/
+setup lifecycles, confines relay traffic to loopback, restores launchctl environment,
+and removes only verified owned jobs after their processes exit. Tokens and child
+output are not printed. This harness must not run on a developer Mac.
+
+Additional defensive tests cover a failed lock-file open and a disk without a BSD
+name. The chart smoke test uses layout rather than GPU rasterization because an
+Intel CI runner's Metal backend aborted during bitmap rendering. The revised Intel
+native test step passed. The new exact-100% workflow is a gate to validate, not a
+claim that it has passed before its result is available.
