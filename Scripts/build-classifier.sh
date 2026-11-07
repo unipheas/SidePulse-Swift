@@ -3,7 +3,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 root="$PWD"
 configuration="${CLASSIFIER_CONFIGURATION:-Release}"
-coverage=()
+coverage=(-enableCodeCoverage "${CLASSIFIER_COVERAGE:-NO}")
 if [[ "${CLASSIFIER_COVERAGE:-NO}" == YES ]]; then
   coverage+=('OTHER_SWIFT_FLAGS=$(inherited) -profile-generate -profile-coverage-mapping'
     'OTHER_LDFLAGS=$(inherited) -profile-generate')
