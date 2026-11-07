@@ -95,3 +95,18 @@ extension LaunchTests {
     XCTAssertEqual(attempts, 2)
   }
 }
+
+extension LaunchTests {
+  func testLogTailHandlesEmptyMissingAndOversizedFiles() throws {
+    let file = root.appendingPathComponent("service.log")
+    XCTAssertEqual(try Jobs.logTail(file, lines: 5), "")
+    try Data("first\n\nsecond\nthird\n".utf8).write(to: file)
+    XCTAssertEqual(try Jobs.logTail(file, lines: 2), "second\nthird\n")
+    XCTAssertEqual(try Jobs.logTail(file, lines: 0), "")
+    XCTAssertThrowsError(try Jobs.logTail(file, lines: -1))
+    try Data().write(to: file)
+    XCTAssertEqual(try Jobs.logTail(file, lines: 10), "")
+    try Data((String(repeating: "x", count: 1_048_580) + "\nlast").utf8).write(to: file)
+    XCTAssertEqual(try Jobs.logTail(file, lines: 10), "last\n")
+  }
+}

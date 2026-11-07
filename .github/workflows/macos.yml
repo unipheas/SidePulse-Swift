@@ -49,3 +49,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check memory safety and concurrent access
         run: swift test --sanitize=${{ matrix.sanitizer }}
+  interface:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare UI test host
+        run: command -v xcodegen || brew install xcodegen
+      - name: Exercise settings, profiles, and live status in the Mac app
+        run: Scripts/test-ui.sh
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SidePulse-interface-tests
+          path: .build/ui-tests

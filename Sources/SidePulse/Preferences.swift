@@ -13,7 +13,8 @@ struct Preferences: View {
         HStack {
           Text("Show Done for")
           Spacer()
-          TextField("Seconds", text: $seconds).frame(width: 70)
+          TextField("Seconds", text: $seconds).frame(width: 70).accessibilityIdentifier(
+            "done-seconds")
           Text("seconds")
           Button("Apply") {
             guard let value = Double(seconds) else {
@@ -73,6 +74,7 @@ struct Preferences: View {
           }
         }
       }
+      BatteryPreferences()
       Section("Linked phones") {
         Toggle(
           "Mirror LED states to paired phones",

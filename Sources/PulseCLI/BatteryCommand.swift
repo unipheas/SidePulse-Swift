@@ -19,22 +19,10 @@ extension CLI {
       let change = try Args.option("--show-on-power-change")
       let preview = try Args.option("--power-change-preview-seconds")
       try Args.end()
-      if let display, !["agent", "battery", "custom"].contains(display) {
-        throw PulseError("Use agent, battery or custom display.")
-      }
       if let change, !["yes", "no"].contains(change) { throw PulseError("Use yes or no.") }
-      let seconds = preview.flatMap(Double.init)
-      if preview != nil, seconds == nil || seconds!.isFinite == false || seconds! < 0 {
-        throw PulseError("Enter a finite preview duration of zero or more.")
-      }
-      try Settings.update { settings in
-        var battery = settings["battery_monitoring"] as? JSONObject ?? [:]
-        if full != nil { battery["full_charge_watts"] = fullWatts }
-        if let change { battery["show_on_power_change"] = change == "yes" }
-        if let seconds { battery["power_change_preview_seconds"] = seconds }
-        if let display { settings["led_display"] = display }
-        settings["battery_monitoring"] = battery
-      }
+      try Settings.configureBattery(
+        display: display, fullWatts: full,
+        showOnPowerChange: change.map { $0 == "yes" }, previewSeconds: preview)
       return
     }
     let json = Args.flag("--json")
@@ -53,10 +41,13 @@ extension CLI {
       guard let battery = Battery.read() else { throw PulseError("No internal battery found.") }
       if action == "status" {
         if json {
-          try jsonPrint([
-            "percent": battery.percent, "is_charging": battery.charging,
-            "is_plugged": battery.plugged, "adapter_watts": battery.watts,
-          ])
+          try jsonPrint(
+            BatteryDiagnostics.read(
+              fullWatts: fullWatts ?? (try Settings.read()["battery_monitoring"] as? JSONObject)?[
+                "full_charge_watts"] as? Double ?? PowerRegistry.fullChargeWatts)?.values ?? [
+                "percent": battery.percent, "is_charging": battery.charging,
+                "is_plugged": battery.plugged, "adapter_watts": battery.watts,
+              ])
         } else {
           print(
             "\(battery.percent)% · \(battery.charging ? "charging" : "on battery or fully charged")"
@@ -70,7 +61,7 @@ extension CLI {
       let settings = try Settings.read()
       let baseline =
         fullWatts ?? (settings["battery_monitoring"] as? JSONObject)?["full_charge_watts"]
-        as? Double ?? 100
+        as? Double ?? PowerRegistry.fullChargeWatts
       let program = battery.program(count: device.count, fullWatts: baseline)
       if dry { print(program) } else { try device.write(program) }
       if once { return }

@@ -4,7 +4,7 @@
 
 A native macOS companion for the SidePulse Pro SD card and SidePulse Dot USB device. Follow coding sessions from the menu bar, preview an animation on a virtual LED strip, or drive the lights on your desk. Requires macOS 14 or later.
 
-[Download the Mac app](https://github.com/unipheas/SidePulse-Swift/releases) · [LED programming language](LEDS_FORMAT.md) · [Port coverage](PORTING.md)
+[Download the Mac app](https://github.com/unipheas/SidePulse-Swift/releases) · [LED programming language](LEDS_FORMAT.md) · [Port coverage](PORTING.md) · [Testing](TESTING.md)
 
 ## Try it
 
@@ -35,7 +35,7 @@ pulse="/Applications/SidePulse.app/Contents/MacOS/sidepulsectl"
 - **Hardware.** Mounted-volume LED writes, Pro READ2ME and Dot SPC2 fallback for read-only volumes, battery display, and model-specific firmware package verification. `sdejectguard start` installs an optional per-user eject guard; stop it before intentionally ejecting the Pro.
 - **Mobile.** `link` displays a pairing QR code for the SidePulse mobile app. Use `links`, `push --to ID` and `unlink ID` to manage destinations. `relay send` and `relay receive` exchange agent events through a bridge channel.
 - **Examples.** `audio-meter` animates input level from the microphone. `fifa-final --score 2-1 --dry-run` previews the scoreboard animation.
-- **History.** Export status changes with `history history.csv` or `history history.html`.
+- **History.** Export status changes with `history history.csv` or `history history.html`. Export individual hook events and their interpreted status with `audit events.csv` or `audit events.html`.
 - **Reply classification.** On supported Macs with Apple Intelligence available, `classify` uses Apple's on-device Foundation Models framework.
 
 ## Build
@@ -44,6 +44,8 @@ Open `Package.swift` in Xcode or use a Mac with Xcode 16 or later.
 
 ```sh
 swift test
+# Full local suite, including UI automation (requires XcodeGen):
+RUN_UI_TESTS=1 Scripts/test-coverage.sh
 Scripts/package.sh --universal
 open "dist/SidePulse.app"
 ```

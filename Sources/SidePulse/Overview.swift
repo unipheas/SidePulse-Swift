@@ -9,7 +9,8 @@ struct Overview: View {
       VStack(alignment: .leading, spacing: 20) {
         HStack(alignment: .firstTextBaseline) {
           Image(systemName: "waveform.path.ecg").foregroundStyle(.teal)
-          Text(model.mode.label).font(.system(size: 32, weight: .semibold, design: .rounded))
+          Text(model.mode.label).accessibilityIdentifier("current-state").font(
+            .system(size: 32, weight: .semibold, design: .rounded))
           Spacer()
           if let first = model.sessions.first {
             Text(first.provider.capitalized).foregroundStyle(.secondary)

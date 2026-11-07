@@ -215,6 +215,7 @@ public final class Monitor {
   }
   public func sessions() -> [Session] {
     var latest = [String: Session]()
+    var audit = [Audit.Input]()
     for (provider, url) in sources {
       guard let attr = try? FileManager.default.attributesOfItem(atPath: url.path),
         let size = attr[.size] as? UInt64, let inode = attr[.systemFileNumber] as? UInt64
@@ -243,12 +244,14 @@ public final class Monitor {
               let session = Events.parse(provider: provider, row: row)
             else { continue }
             tail.ingest(session, row: row)
+            audit.append((provider, row, tail.sessions[session.id]))
           }
           tails[url] = tail
         } catch { continue }
       }
       latest.merge(tail.sessions) { $0.date > $1.date ? $0 : $1 }
     }
+    try? Audit.records(audit)
     for row in transcripts.read(settings: (try? Settings.read()) ?? [:])
     where latest[row.id].map({ $0.date < row.date }) ?? true { latest[row.id] = row }
     return latest.values.sorted { $0.date > $1.date }

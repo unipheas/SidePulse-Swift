@@ -107,3 +107,22 @@ public enum EjectGuard {
     withExtendedLifetime(session) { CFRunLoopRun() }
   }
 }
+
+extension Jobs {
+  public static func logTail(_ file: URL, lines: Int) throws -> String {
+    guard lines >= 0, lines <= 10000 else { throw PulseError("Use 0–10000 log lines.") }
+    guard lines > 0, FileManager.default.fileExists(atPath: file.path) else { return "" }
+    let handle = try FileHandle(forReadingFrom: file)
+    defer { try? handle.close() }
+    let size = try handle.seekToEnd()
+    // Bound memory use even for a pathological single-line service error.
+    let start = size > 1_048_576 ? size - 1_048_576 : 0
+    try handle.seek(toOffset: start)
+    let data = try handle.read(upToCount: Int(size - start)) ?? Data()
+    var entries = String(decoding: data, as: UTF8.self).split(
+      separator: "\n", omittingEmptySubsequences: false)
+    if entries.last?.isEmpty == true { entries.removeLast() }
+    if start > 0, !entries.isEmpty { entries.removeFirst() }
+    return entries.suffix(lines).joined(separator: "\n") + (entries.isEmpty ? "" : "\n")
+  }
+}

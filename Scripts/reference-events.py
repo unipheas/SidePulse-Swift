@@ -38,3 +38,26 @@ for count in [2, 8]:
             batteries.append(dict(count=count, percent=percent, watts=watts, plugged=plugged, charging=charging,
                                   program=program_for_battery(snapshot, led_count=count, full_charge_watts=96)))
 target.with_name("reference-battery.json").write_text(json.dumps(batteries, indent=2) + "\n")
+
+# Registry conversion fixtures cover missing keys, invalid values, charger families,
+# alternate capacity units, and negotiated PD fallback independently of this Mac.
+from sidepulse.battery import snapshot_from_ioreg_props, snapshot_with_full_charge_watts
+properties = [{}, {"BatteryInstalled":False},
+    {"CurrentCapacity":6543,"StateOfCharge":76,"AppleRawMaxCapacity":7000,"AppleRawCurrentCapacity":5432,
+     "DesignCapacity":8000,"Voltage":12000,"Amperage":-1500,"Temperature":3200,"CycleCount":42,
+     "AvgTimeToEmpty":120,"PermanentFailureStatus":1},
+    {"CurrentCapacity":80,"IsCharging":True,"FullyCharged":True,"ExternalConnected":True,
+     "Amperage":0,"InstantAmperage":1500,"Voltage":12000,"AvgTimeToFull":20},
+    {"CurrentCapacity":-1,"StateOfCharge":120,"Temperature":"unknown","MaxCapacity":100},
+]
+for family in [-1, 3, 4, 65280, 0xE0004001, 99]:
+    properties.append({"AdapterDetails":{"FamilyCode":family,"Watts":70,"AdapterVoltage":20000,
+        "Current":3500,"Name":"Adapter","Manufacturer":"Maker","Model":"A1","SerialString":"fixture"}})
+properties += [{"AdapterDetails":{"Voltage":20000,"Current":3000}},
+    {"AdapterDetails":{"UsbHvcMenu":[None,{}, {"MaxVoltage":20000,"MaxCurrent":5000},
+        {"MaxVoltage":5000,"MaxCurrent":3000}, {"MaxVoltage":-1,"MaxCurrent":1000}]}},
+    {"AdapterDetails":{"UsbHvcMenu":"invalid","SerialNumber":123}},
+    {"AdapterDetails":None,"Temperature":0,"AppleRawMaxCapacity":1,"DesignCapacity":8},
+]
+records = [dict(properties=p, expected=snapshot_with_full_charge_watts(snapshot_from_ioreg_props(p),96).to_dict()) for p in properties]
+target.with_name("reference-power.json").write_text(json.dumps(records, indent=2) + "\n")

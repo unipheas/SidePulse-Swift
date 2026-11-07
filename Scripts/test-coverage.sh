@@ -13,7 +13,12 @@ python3 Tests/Integration/disk-image.py "$bin/sidepulsectl"
 unset LLVM_PROFILE_FILE
 report=.build/coverage-report
 mkdir -p "$report"
-xcrun llvm-profdata merge -sparse "$bin/codecov/default.profdata" "$work"/*.profraw -o "$work/all.profdata"
+profiles=("$bin/codecov/default.profdata" "$work"/*.profraw)
+if [[ "${RUN_UI_TESTS:-0}" == 1 ]]; then
+  Scripts/test-ui.sh
+  profiles+=(".build/ui-tests/coverage.profdata")
+fi
+xcrun llvm-profdata merge -sparse "${profiles[@]}" -o "$work/all.profdata"
 testbinary=""
 for candidate in "$bin"/*.xctest/Contents/MacOS/*; do
   if [[ -f "$candidate" && -x "$candidate" ]]; then testbinary="$candidate"; break; fi

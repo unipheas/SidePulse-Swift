@@ -3,6 +3,8 @@ import IOKit.ps
 
 public struct Battery: Sendable {
   public let percent: Int, charging: Bool, plugged: Bool, watts: Int
+  public var charged = false
+  public var adapterPower: Double? = nil
   public static func read() -> Battery? {
     guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
       let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
@@ -15,18 +17,22 @@ public struct Battery: Sendable {
         let capacity = data["Current Capacity"] as? Int,
         let maxCapacity = data["Max Capacity"] as? Int, maxCapacity > 0
       else { continue }
+      let diagnostics = BatteryDiagnostics.read()
       return Battery(
         percent: min(100, max(0, capacity * 100 / maxCapacity)),
         charging: data["Is Charging"] as? Bool == true,
         plugged: data["Power Source State"] as? String == "AC Power",
         watts: (IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? JSONObject)?["Watts"]
-          as? Int ?? 0)
+          as? Int ?? 0, charged: diagnostics?.charged ?? false,
+        adapterPower: diagnostics?.adapterPower)
     }
     return nil
   }
-  public func program(count requested: Int, fullWatts: Double = 100) -> String {
+  public func program(count requested: Int, fullWatts: Double = PowerRegistry.fullChargeWatts)
+    -> String
+  {
     let count = min(8, max(1, requested))
-    let percent = min(100, max(0, self.percent))
+    let percent = charged ? 100 : min(100, max(0, self.percent))
     let fill = Double(count) * (Double(percent) / 100)
     let pulsing = plugged && charging && percent < 100
     let color =
@@ -38,7 +44,7 @@ public struct Battery: Sendable {
       colors.enumerated().map { "\($0.offset):\($0.element) 360ms ease" }.joined(separator: ";")
     ]
     if pulsing {
-      let speed = min(1, max(0, Double(watts) / max(1, fullWatts)))
+      let speed = min(1, max(0, (adapterPower ?? Double(watts)) / max(1, fullWatts)))
       let pulse = Int((180 + 1220 * speed).rounded(.toNearestOrEven))
       let cycle = Int((max(0.9, 3 - 2.1 * speed) * 1000).rounded(.toNearestOrEven))
       let frontier = min(count - 1, Int(fill))

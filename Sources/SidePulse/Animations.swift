@@ -33,6 +33,7 @@ struct Animations: View {
       }
       HStack {
         TextField("New profile name", text: $profileName)
+          .accessibilityLabel("New profile name").accessibilityIdentifier("profile-name")
         Button("Save profile") {
           do {
             try Profiles.save(name: profileName)

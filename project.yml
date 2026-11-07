@@ -1,0 +1,48 @@
+name: SidePulse
+options:
+  bundleIdPrefix: com.unipheas
+  deploymentTarget:
+    macOS: '14.0'
+packages:
+  SidePulseCore:
+    path: .
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    CODE_SIGNING_ALLOWED: YES
+    CODE_SIGN_IDENTITY: "-"
+    MACOSX_DEPLOYMENT_TARGET: '14.0'
+targets:
+  SidePulseApp:
+    type: application
+    platform: macOS
+    sources: [Sources/SidePulse]
+    resources: [Artwork/SidePulse.icns]
+    dependencies:
+      - package: SidePulseCore
+        product: PulseCore
+    settings:
+      base:
+        PRODUCT_NAME: SidePulse
+        PRODUCT_BUNDLE_IDENTIFIER: com.unipheas.SidePulseSwift.UITestHost
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: SidePulse
+        INFOPLIST_KEY_CFBundleIconFile: SidePulse
+        ENABLE_APP_SANDBOX: NO
+  SidePulseUITests:
+    type: bundle.ui-testing
+    platform: macOS
+    sources: [Tests/UITests]
+    dependencies:
+      - target: SidePulseApp
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  SidePulse:
+    build:
+      targets:
+        SidePulseApp: all
+    test:
+      gatherCoverageData: true
+      targets: [SidePulseUITests]

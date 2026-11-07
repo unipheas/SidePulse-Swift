@@ -237,3 +237,51 @@ extension HardwareTests {
     XCTAssertFalse(output.isKeepingAwake)
   }
 }
+
+extension HardwareTests {
+  func testPreviewCannotRestoreBackgroundServiceSleepOverride() throws {
+    var disabled = false
+    var changes = [Bool]()
+    let system = SleepOverride.System(
+      helperInstalled: { true }, disabled: { disabled },
+      lidClosed: { false }, externalDisplay: { false },
+      disable: { value in
+        disabled = value
+        changes.append(value)
+      }, sleepDisplay: {})
+    let service = SleepOverride(system: system)
+    let preview = SleepOverride(system: system)
+    try service.update(
+      mode: .working, settings: ["swift_closed_lid": "always"], battery: nil, owner: true)
+    try preview.update(mode: .idle, settings: [:], battery: nil, owner: false)
+    try preview.restore()
+    XCTAssertTrue(disabled)
+    // Even a stale ownership observation cannot bypass the service's lease.
+    try preview.update(mode: .idle, settings: [:], battery: nil, owner: true)
+    XCTAssertTrue(disabled)
+    try service.update(mode: .idle, settings: [:], battery: nil, owner: false)
+    XCTAssertFalse(disabled)
+    try preview.update(
+      mode: .working, settings: ["swift_closed_lid": "always"], battery: nil, owner: true)
+    XCTAssertTrue(disabled)
+    try preview.restore()
+    XCTAssertEqual(changes, [true, false, true, false])
+  }
+  func testRestartedOwnerRestoresAbandonedSleepMarker() throws {
+    var changes = [Bool]()
+    let system = SleepOverride.System(
+      helperInstalled: { true }, disabled: { false },
+      lidClosed: { false }, externalDisplay: { false }, disable: { changes.append($0) },
+      sleepDisplay: {})
+    var old: SleepOverride? = SleepOverride(system: system)
+    try old?.update(
+      mode: .working, settings: ["swift_closed_lid": "always"], battery: nil, owner: true)
+    old = nil  // Simulate process exit without a graceful restore.
+    let replacement = SleepOverride(system: system)
+    try replacement.update(mode: .idle, settings: [:], battery: nil, owner: true)
+    XCTAssertEqual(changes, [true, false])
+    XCTAssertFalse(
+      FileManager.default.fileExists(
+        atPath: Paths.support.appendingPathComponent("owns-disablesleep").path))
+  }
+}

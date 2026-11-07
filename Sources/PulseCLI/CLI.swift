@@ -61,7 +61,7 @@ enum Args {
       battery status | leds [--device PATH]
       migrate | settings [done SECONDS] | animations | service run|start|stop|status
       sdejectguard run|start|stop|status | classify MESSAGE
-      profile import|export FILE | history FILE.csv|FILE.html
+      profile import|export FILE | history|audit FILE.csv|FILE.html
       link [TOKEN] | links | unlink ID | push [--to ID] [--title TEXT] [--message TEXT] [PROGRAM]
       relay receive CHANNEL | send CHANNEL PROVIDER < event.json
     """
@@ -146,21 +146,7 @@ enum Args {
       case "live", "watch", "status", "leds": try await monitor(sub)
       default: throw PulseError("Unknown agent-monitor command.")
       }
-    case "service", "sdejectguard":
-      let action = Args.pop() ?? "status"
-      if command == "service", action == "code" {
-        try Args.end()
-        print("sidepulsectl link " + (try RelayConfiguration.receiver()).receiverChannel)
-        return
-      }
-      switch action {
-      case "status": print(Jobs.running(Jobs.prefix + command) ? "running" : "stopped")
-      case "start": try Jobs.configure(command, executable: Bundle.main.executableURL!, start: true)
-      case "stop": try Jobs.configure(command, executable: Bundle.main.executableURL!, start: false)
-      case "run":
-        if command == "service" { try await monitor("leds") } else { try EjectGuard.run() }
-      default: throw PulseError("Choose run, start, stop or status.")
-      }
+    case "service", "sdejectguard": try await serviceCommand(command)
     case "classify":
       let message =
         Args.words.isEmpty
@@ -211,10 +197,14 @@ enum Args {
         try Settings.setDone(value)
         print("Done duration: \(value) seconds")
       }
-    case "history":
+    case "history", "audit":
       let file = try Args.require("output file")
       try Args.end()
-      try History.export(to: URL(fileURLWithPath: file))
+      if command == "audit" {
+        try Audit.export(to: URL(fileURLWithPath: file))
+      } else {
+        try History.export(to: URL(fileURLWithPath: file))
+      }
     case "profile":
       let action = try Args.require("import or export")
       let url = URL(fileURLWithPath: try Args.require("profile file"))

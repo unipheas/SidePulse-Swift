@@ -77,6 +77,17 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     run("agent-monitor","uninstall","all")
     run("profile","export",root/"profile.json")
     run("profile","import",root/"profile.json")
+    run("audit", root/"audit.csv")
+    assert '"audited_at"' in (root/"audit.csv").read_text()
+    assert '"completed"' in (root/"audit.csv").read_text()
+    for job in ["service", "sdejectguard"]:
+        run(job, "start", "--dry-run")
+        run(job, "uninstall", "--dry-run")
+        run(job, "status", "--invalid", ok=False)
+        (root/"native"/(job + ".err.log")).write_text("one\ntwo\nthree\n")
+        output = run(job, "logs", "--lines", "2")
+        assert "two\nthree" in output and "one" not in output
+        run(job, "logs", "--lines", "-1", ok=False)
     run("history", root/"history.csv")
     assert (root/"history.csv").read_text().startswith("time_utc")
     run("link",ios.upper(),"--name","Test iPhone")

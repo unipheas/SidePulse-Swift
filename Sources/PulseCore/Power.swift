@@ -28,6 +28,8 @@ public final class SleepOverride {
   private var lastLid: Bool?
   private let marker = Paths.support.appendingPathComponent("owns-disablesleep")
   private var requested: Bool?
+  private var lease: Int32 = -1
+  deinit { if lease >= 0 { close(lease) } }
   struct System {
     var now: () -> Date = Date.init
     var helperInstalled = {
@@ -48,6 +50,30 @@ public final class SleepOverride {
   public convenience init() { self.init(system: System()) }
   init(system: System) { self.system = system }
   public func update(mode: Mode, settings: JSONObject, battery: Battery?, owner: Bool) throws {
+    // A preview window must never restore a sleep override owned by the service.
+    // The advisory lease is released by the kernel after a crash; a new writer can
+    // then recover the persistent marker left by the previous process.
+    if !owner {
+      if lease >= 0 {
+        try restore()
+        close(lease)
+        lease = -1
+        requested = nil
+      }
+      return
+    }
+    if lease < 0 {
+      try Paths.directory(Paths.support)
+      let fd = open(
+        Paths.support.appendingPathComponent("sleep-owner.lock").path,
+        O_CREAT | O_RDWR | O_NOFOLLOW, 0o600)
+      guard fd >= 0 else { throw POSIXError(.EACCES) }
+      guard flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+        close(fd)
+        return
+      }
+      lease = fd
+    }
     let policy = settings["swift_closed_lid"] as? String ?? "never"
     if lastMode != mode {
       if [.done, .blocked, .waiting].contains(mode) {
@@ -93,7 +119,7 @@ public final class SleepOverride {
     lastLid = lid
   }
   public func restore() throws {
-    guard FileManager.default.fileExists(atPath: marker.path) else { return }
+    guard lease >= 0, FileManager.default.fileExists(atPath: marker.path) else { return }
     try system.disable(false)
     try FileManager.default.removeItem(at: marker)
   }

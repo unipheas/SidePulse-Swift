@@ -29,7 +29,10 @@ import SwiftUI
       systemImage: model.mode == .idle ? "waveform" : "waveform.circle.fill",
       isInserted: Binding(
         get: { model.settings["show_menu_bar_icon"] as? Bool ?? true },
-        set: { value in model.change { $0["show_menu_bar_icon"] = value } })
+        set: { value in
+          guard (model.settings["show_menu_bar_icon"] as? Bool ?? true) != value else { return }
+          Task { @MainActor in model.change { $0["show_menu_bar_icon"] = value } }
+        })
     ) {
       MenuPanel().environmentObject(model)
     }

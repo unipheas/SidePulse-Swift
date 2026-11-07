@@ -99,7 +99,7 @@ public final class Output {
           }
         } else if display == "battery" || now() < previewUntil, let battery {
           source = battery.program(
-            count: device.count, fullWatts: batterySettings["full_charge_watts"] as? Double ?? 100)
+            count: device.count, fullWatts: batterySettings["full_charge_watts"] as? Double ?? PowerRegistry.fullChargeWatts)
         } else {
           source = try Programs.program(mode, count: device.count, settings: settings)
         }

@@ -286,3 +286,28 @@ extension WorkflowTests {
     await relay.stop()
   }
 }
+
+extension WorkflowTests {
+  func testBatteryPreferencesValidateBeforeSavingAndPreserveOtherSettings() throws {
+    try Settings.setDone(15)
+    try Settings.configureBattery(
+      display: "battery", fullWatts: "96", showOnPowerChange: false, previewSeconds: "4.5")
+    let saved = try Settings.read()
+    XCTAssertEqual(saved["led_display"] as? String, "battery")
+    XCTAssertEqual(
+      (saved["battery_monitoring"] as? JSONObject)?["full_charge_watts"] as? Double, 96)
+    XCTAssertEqual(
+      (saved["battery_monitoring"] as? JSONObject)?["power_change_preview_seconds"] as? Double, 4.5)
+    XCTAssertEqual(Settings.seconds(saved, "completed_visible_seconds", default: 0), 15)
+    for watts in ["0", "-1", "nan", "inf", "invalid"] {
+      XCTAssertThrowsError(try Settings.configureBattery(fullWatts: watts))
+    }
+    for seconds in ["-1", "nan", "inf", "invalid"] {
+      XCTAssertThrowsError(try Settings.configureBattery(previewSeconds: seconds))
+    }
+    XCTAssertThrowsError(try Settings.configureBattery(display: "invalid"))
+    XCTAssertEqual(try Settings.read() as NSDictionary, saved as NSDictionary)
+    try Settings.configureBattery(fullWatts: "auto", previewSeconds: "0")
+    XCTAssertNil((try Settings.read()["battery_monitoring"] as? JSONObject)?["full_charge_watts"])
+  }
+}

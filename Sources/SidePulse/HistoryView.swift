@@ -73,11 +73,46 @@ struct DiagnosticsView: View {
         Text(Settings.url.path).font(.caption).textSelection(.enabled)
         Button("Show settings folder") { NSWorkspace.shared.open(Paths.support) }
       }
+      Section("Battery and charger") {
+        if let diagnostic = BatteryDiagnostics.read() {
+          let values = diagnostic.values
+          ForEach(
+            [
+              ("Health", "health_percent", "%"), ("Cycle count", "cycle_count", ""),
+              ("Temperature", "temperature_c", " °C"), ("Charger power", "adapter_power", " W"),
+              ("Charge baseline", "full_charge_watts", " W"), ("Condition", "condition", ""),
+              ("Adapter", "adapter_name", ""), ("Connection", "adapter_family", ""),
+            ], id: \.0
+          ) { label, key, unit in
+            LabeledContent(
+              label, value: values[key].map { String(describing: $0) + unit } ?? "Unavailable")
+          }
+        } else {
+          Text("No internal battery found.")
+        }
+      }
+      Section("Event debug log") {
+        HStack {
+          Button("Export event CSV…") { exportAudit("csv") }
+          Button("Export event HTML…") { exportAudit("html") }
+        }
+        Text(
+          "Includes hook payload previews and session details. Review the file before sharing it."
+        )
+        .font(.caption).foregroundStyle(.secondary)
+      }
       Section("Recent hook events") {
         ForEach(model.sessions.prefix(20)) { session in
           LabeledContent(session.name, value: session.event + " · " + session.mode.label)
         }
       }
     }.formStyle(.grouped)
+  }
+  private func exportAudit(_ format: String) {
+    let panel = NSSavePanel()
+    panel.nameFieldStringValue = "SidePulse Events." + format
+    if panel.runModal() == .OK, let url = panel.url {
+      do { try Audit.export(to: url) } catch { model.problem = error.localizedDescription }
+    }
   }
 }
