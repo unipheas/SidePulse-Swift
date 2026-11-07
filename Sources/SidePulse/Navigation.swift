@@ -1,6 +1,5 @@
 import AppKit
 import PulseCore
-import ServiceManagement
 import SwiftUI
 
 enum SectionName: String, CaseIterable, Identifiable {

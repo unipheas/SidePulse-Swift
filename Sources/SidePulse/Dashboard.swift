@@ -30,6 +30,7 @@ import SwiftUI
   ) {
     self.discover = discover
     self.outputInUse = outputInUse
+    do { try Settings.migrate() } catch { problem = error.localizedDescription }
     history = History.recent().suffix(500).map { ($0.date, $0.mode) }
     NotificationCenter.default.addObserver(
       forName: NSApplication.willTerminateNotification, object: nil, queue: .main
@@ -51,7 +52,9 @@ import SwiftUI
         legacy = outputInUse()
       }
       ticks += 1
-      sessions = monitor.sessions()
+      let retention = Settings.seconds(
+        settings, "recent_session_retention_seconds", default: 172800)
+      sessions = monitor.sessions().filter { Date().timeIntervalSince($0.date) <= retention }
       mode = Monitor.aggregate(sessions, settings: settings)
       if history.last?.1 != mode {
         try History.record(mode, battery: Battery.read()?.percent)
@@ -71,9 +74,7 @@ import SwiftUI
             }
           }
         }
-        output.keepAwake(
-          settings["swift_keep_awake"] as? Bool == true
-            && [.working, .tool, .progress].contains(mode) && (battery?.percent ?? 100) >= 20)
+        output.updateAwake(mode: mode, settings: settings, battery: battery)
         try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
         if settings["swift_phone_mirror"] as? Bool == true, !sending, lastPhoneMode != mode {
           let current = mode

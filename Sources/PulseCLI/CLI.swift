@@ -150,7 +150,7 @@ enum Args {
       let action = Args.pop() ?? "status"
       if command == "service", action == "code" {
         try Args.end()
-        print("sidepulsectl link " + (try RelayConfiguration.receiver()).receiver_channel)
+        print("sidepulsectl link " + (try RelayConfiguration.receiver()).receiverChannel)
         return
       }
       switch action {

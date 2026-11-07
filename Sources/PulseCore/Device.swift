@@ -4,7 +4,7 @@ import Foundation
 import IOKit.ps
 import JavaScriptCore
 
-public struct Device: Identifiable, Equatable {
+public struct Device: Identifiable, Equatable, Sendable {
   public let root: URL, model: String, firmware: String, serial: String
   public var id: String { root.path }
   public var count: Int { model == "Dot" ? 2 : 8 }
@@ -13,6 +13,8 @@ public struct Device: Identifiable, Equatable {
     let url = root.appendingPathComponent("STATUS.TXT")
     let handle = try FileHandle(forReadingFrom: url)
     defer { try? handle.close() }
+    _ = fcntl(handle.fileDescriptor, F_NOCACHE, 1)
+    _ = fcntl(handle.fileDescriptor, F_RDAHEAD, 0)
     let data = try handle.read(upToCount: 65536) ?? Data()
     var fields = [String: String]()
     for line in String(decoding: data, as: UTF8.self).replacingOccurrences(of: "\0", with: "")

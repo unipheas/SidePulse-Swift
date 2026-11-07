@@ -214,3 +214,26 @@ extension HardwareTests {
     XCTAssertThrowsError(try ReadChannel.upload(payload, root: root))
   }
 }
+
+extension HardwareTests {
+  func testNativeAwakeAssertionHonorsGraceAndBatteryLimit() {
+    var now = Date()
+    let output = Output(now: { now })
+    defer { output.keepAwake(false) }
+    let full = Battery(percent: 90, charging: false, plugged: false, watts: 0)
+    output.updateAwake(
+      mode: .working, settings: ["sleep_prevention_policy": "never"], battery: full)
+    XCTAssertFalse(output.isKeepingAwake)
+    output.updateAwake(mode: .working, settings: [:], battery: full)
+    XCTAssertTrue(output.isKeepingAwake)
+    output.updateAwake(mode: .done, settings: [:], battery: full)
+    XCTAssertTrue(output.isKeepingAwake)
+    now.addTimeInterval(301)
+    output.updateAwake(mode: .idle, settings: [:], battery: full)
+    XCTAssertFalse(output.isKeepingAwake)
+    output.updateAwake(
+      mode: .working, settings: [:],
+      battery: Battery(percent: 10, charging: false, plugged: false, watts: 0))
+    XCTAssertFalse(output.isKeepingAwake)
+  }
+}

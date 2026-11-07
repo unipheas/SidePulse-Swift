@@ -135,7 +135,46 @@ struct Preferences: View {
           }
         }
       }
+      Section("Session timing") {
+        ForEach(
+          [
+            ("idle_timeout_seconds", "Mark activity stale after"),
+            ("recent_session_retention_seconds", "Keep recent sessions for"),
+          ], id: \.0
+        ) { key, label in
+          HStack {
+            Text(label)
+            TextField(
+              "Seconds",
+              value: Binding(
+                get: {
+                  Settings.seconds(
+                    model.settings, key, default: key == "idle_timeout_seconds" ? 3600 : 172800)
+                },
+                set: { value in
+                  guard value.isFinite && value >= 0 else { return }
+                  model.change {
+                    var timing = $0["agent_list"] as? JSONObject ?? [:]
+                    timing[key] = value
+                    $0["agent_list"] = timing
+                  }
+                }), format: .number
+            ).frame(width: 90)
+            Text("seconds").foregroundStyle(.secondary)
+          }
+        }
+      }
+      Section("Lid animations") {
+        ForEach(["lid_open", "lid_closed"], id: \.self) { state in
+          LidAnimationEditor(state: state)
+        }
+      }
       Section("Mac") {
+        Toggle(
+          "Show menu bar icon",
+          isOn: Binding(
+            get: { model.settings["show_menu_bar_icon"] as? Bool ?? true },
+            set: { value in model.change { $0["show_menu_bar_icon"] = value } }))
         Toggle(
           "Open at login",
           isOn: Binding(
@@ -153,7 +192,10 @@ struct Preferences: View {
         Toggle(
           "Keep Mac awake during active work",
           isOn: Binding(
-            get: { model.settings["swift_keep_awake"] as? Bool ?? false },
+            get: {
+              model.settings["swift_keep_awake"] as? Bool
+                ?? ((model.settings["sleep_prevention_policy"] as? String ?? "agents") != "never")
+            },
             set: { value in model.change { $0["swift_keep_awake"] = value } }))
       }
       Section("Closed-lid operation") {

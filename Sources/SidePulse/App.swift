@@ -1,6 +1,5 @@
 import AppKit
 import PulseCore
-import ServiceManagement
 import SwiftUI
 
 @main struct SidePulseApp: App {
@@ -27,7 +26,10 @@ import SwiftUI
     }.defaultSize(width: 420, height: 100).windowResizability(.contentSize)
     MenuBarExtra(
       "SidePulse · \(model.mode.label)",
-      systemImage: model.mode == .idle ? "waveform" : "waveform.circle.fill"
+      systemImage: model.mode == .idle ? "waveform" : "waveform.circle.fill",
+      isInserted: Binding(
+        get: { model.settings["show_menu_bar_icon"] as? Bool ?? true },
+        set: { value in model.change { $0["show_menu_bar_icon"] = value } })
     ) {
       MenuPanel().environmentObject(model)
     }

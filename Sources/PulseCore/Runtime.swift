@@ -11,6 +11,8 @@ public final class Output {
   private var previewUntil = Date.distantPast
   private var lidUntil = Date.distantPast
   private var lidState = "lid_open"
+  private var lastMode: Mode?
+  private var awakeUntil = Date.distantPast
   private var assertion: IOPMAssertionID = 0
   public init(
     now: @escaping () -> Date = Date.init, lidClosed: @escaping () -> Bool? = Power.lidClosed
@@ -23,6 +25,22 @@ public final class Output {
     sent.removeAll()
     failed.removeAll()
   }
+  public func updateAwake(mode: Mode, settings: JSONObject, battery: Battery?) {
+    if [.done, .waiting, .blocked].contains(mode), lastMode != mode {
+      awakeUntil = now().addingTimeInterval(300)
+    }
+    if [.working, .tool, .progress].contains(mode) { awakeUntil = .distantPast }
+    lastMode = mode
+    let minimum =
+      (settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Int ?? 20
+    let safeBattery = battery.map { $0.plugged || $0.percent >= minimum } ?? true
+    let policy = settings["sleep_prevention_policy"] as? String ?? "agents"
+    let enabled = settings["swift_keep_awake"] as? Bool ?? (policy != "never")
+    let active =
+      policy == "always" || [.working, .tool, .progress].contains(mode) || now() < awakeUntil
+    keepAwake(enabled && safeBattery && active)
+  }
+  public var isKeepingAwake: Bool { assertion != 0 }
   public func keepAwake(_ active: Bool) {
     if active && assertion == 0 {
       IOPMAssertionCreateWithName(
@@ -70,9 +88,15 @@ public final class Output {
         let source: String
         if now() < lidUntil {
           let entry = (settings["agent_animations"] as? [String: JSONObject])?[lidState] ?? [:]
-          source = try Programs.resolve(
-            style: entry["style"] as? String ?? lidState.replacingOccurrences(of: "_", with: "-"),
-            entry: entry, count: device.count, settings: settings)
+          if let saved = (settings[lidState + "_animation"] as? JSONObject)?["program"] as? String,
+            !saved.isEmpty
+          {
+            source = try Programs.normalize(saved)
+          } else {
+            source = try Programs.resolve(
+              style: entry["style"] as? String ?? lidState.replacingOccurrences(of: "_", with: "-"),
+              entry: entry, count: device.count, settings: settings)
+          }
         } else if display == "battery" || now() < previewUntil, let battery {
           source = battery.program(
             count: device.count, fullWatts: batterySettings["full_charge_watts"] as? Double ?? 100)

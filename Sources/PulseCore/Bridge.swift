@@ -236,6 +236,10 @@ public enum Bridge {
   public static func receive(channel: String, once: Bool = false, origin: String? = nil)
     async throws
   {
+    guard channel.range(of: #"^[A-Za-z0-9_-]{11,128}$"#, options: .regularExpression) != nil else {
+      throw PulseError("Invalid relay channel.")
+    }
+    _ = try address(origin ?? server, channel: channel)
     var seen = Set<String>()
     repeat {
       do {

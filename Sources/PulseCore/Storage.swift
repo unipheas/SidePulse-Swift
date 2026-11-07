@@ -116,6 +116,14 @@ public enum Settings {
     guard let value = value?.doubleValue, value.isFinite, value >= 0 else { return fallback }
     return value
   }
+  public static func setLidAnimation(_ state: String, program: String, duration: Double) throws {
+    guard ["lid_open", "lid_closed"].contains(state), duration.isFinite, duration >= 0 else {
+      throw PulseError("Enter a valid lid state and finite duration of zero or more.")
+    }
+    let source = try Programs.normalize(program)
+    _ = try LEDPreview(program: source, count: 8)
+    try update { $0[state + "_animation"] = ["program": source, "duration_seconds": duration] }
+  }
   public static func setDone(_ seconds: Double) throws {
     guard seconds.isFinite, seconds >= 0 else {
       throw PulseError("Enter a finite duration of zero seconds or more.")

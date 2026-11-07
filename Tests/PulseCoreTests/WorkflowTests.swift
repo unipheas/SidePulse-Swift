@@ -185,8 +185,8 @@ extension WorkflowTests {
       ["version": 1, "ios": [["token": token, "name": "Original", "server": Bridge.standard]]],
       to: Paths.legacyConfig.appendingPathComponent("links.json"))
     let relay = RelayConfiguration(
-      server: Bridge.standard, receiver_channel: "abcdefghijk", outbound_channel: "",
-      machine_name: "Fixture")
+      server: Bridge.standard, receiverChannel: "abcdefghijk", outboundChannel: "",
+      machineName: "Fixture")
     try Paths.directory(Paths.legacyConfig)
     try JSONEncoder().encode(relay).write(
       to: Paths.legacyConfig.appendingPathComponent("relay.json"))
@@ -196,8 +196,82 @@ extension WorkflowTests {
     XCTAssertEqual(try RelayConfiguration.read(), relay)
     XCTAssertEqual(try RelayConfiguration.receiver(), relay)
     try RelayConfiguration.link("receiver2345")
-    XCTAssertEqual(try RelayConfiguration.read().outbound_channel, "receiver2345")
+    XCTAssertEqual(try RelayConfiguration.read().outboundChannel, "receiver2345")
     XCTAssertThrowsError(try RelayConfiguration.link("../bad"))
-    XCTAssertEqual(try RelayConfiguration.read().outbound_channel, "receiver2345")
+    XCTAssertEqual(try RelayConfiguration.read().outboundChannel, "receiver2345")
+  }
+}
+
+extension WorkflowTests {
+  func testMonitorKeepsSessionMetadataWhenLaterHooksOmitIt() throws {
+    let monitor = Monitor()
+    try Events.record(
+      provider: "codex",
+      raw: [
+        "session_id": "id", "cwd": "/tmp/project", "session_title": "Build application",
+        "agent_origin": "Codex CLI",
+      ], named: "UserPromptSubmit")
+    _ = monitor.sessions()
+    try Events.record(provider: "codex", raw: ["session_id": "id"], named: "Stop")
+    let session = try XCTUnwrap(monitor.sessions().first)
+    XCTAssertEqual(session.name, "Build application")
+    XCTAssertEqual(session.cwd, "/tmp/project")
+    XCTAssertEqual(session.origin, "Codex CLI")
+  }
+  func testTranscriptDiscoveryUsesPrivateHomeAndClearsDisabledSources() throws {
+    let folder = Paths.home.appendingPathComponent(".claude/projects/project")
+    try Paths.directory(folder)
+    let file = folder.appendingPathComponent("11111111-1111-4111-a111-111111111111.jsonl")
+    let payload: JSONObject = [
+      "timestamp": Events.timestamp(Date()), "type": "assistant",
+      "message": ["stop_reason": "end_turn", "content": [["type": "text", "text": "Done."]]],
+    ]
+    try JSONSerialization.data(withJSONObject: payload).write(to: file)
+    let reader = TranscriptReader()
+    XCTAssertEqual(
+      reader.read(settings: ["transcript_monitoring": ["claude": true]]).first?.mode, .done)
+    XCTAssertEqual(
+      reader.read(settings: ["transcript_monitoring": ["claude": true]]).first?.threadID,
+      "11111111-1111-4111-a111-111111111111")
+    XCTAssertTrue(TranscriptReader().read(settings: [:]).isEmpty)
+  }
+}
+
+extension WorkflowTests {
+  func testRelayDefaultsAndInvalidConfiguration() throws {
+    let empty = try RelayConfiguration.read()
+    XCTAssertTrue(empty.receiverChannel.isEmpty)
+    let receiver = try RelayConfiguration.receiver()
+    XCTAssertEqual(receiver.receiverChannel.count, 32)
+    var invalid = receiver
+    invalid.version = 2
+    XCTAssertThrowsError(try invalid.save())
+    invalid = receiver
+    invalid.server = "https://user@example.com/path"
+    XCTAssertThrowsError(try invalid.save())
+    try saveObject(["version": 1], to: RelayConfiguration.file)
+    XCTAssertEqual(try RelayConfiguration.read().server, Bridge.server)
+  }
+}
+
+extension WorkflowTests {
+  func testLidAnimationValidationAndOutputPreserveSavedProgram() throws {
+    let device = try volume()
+    var closed = false
+    var now = Date()
+    let output = Output(now: { now }, lidClosed: { closed })
+    try Settings.setLidAnimation("lid_closed", program: "#123456 1s", duration: 3)
+    try output.sync(devices: [device], mode: .working, settings: Settings.read(), battery: nil)
+    closed = true
+    try output.sync(devices: [device], mode: .working, settings: Settings.read(), battery: nil)
+    let file = device.root.appendingPathComponent("LEDS.LED")
+    XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "#123456 1s")
+    XCTAssertThrowsError(
+      try Settings.setLidAnimation("lid_closed", program: "invalid", duration: 3))
+    now.addTimeInterval(4)
+    try output.sync(devices: [device], mode: .working, settings: Settings.read(), battery: nil)
+    XCTAssertEqual(
+      try String(contentsOf: file, encoding: .utf8),
+      try Programs.program(.working, count: 8, settings: [:]))
   }
 }

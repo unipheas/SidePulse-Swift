@@ -3,6 +3,7 @@ import PulseCore
 
 extension CLI {
   static func monitor(_ sub: String) async throws {
+    try Settings.migrate()
     let json = Args.flag("--json")
     let once = Args.flag("--once")
     let dry = Args.flag("--dry-run")
@@ -62,9 +63,7 @@ extension CLI {
         } else {
           let battery = Battery.read()
           try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
-          output.keepAwake(
-            settings["swift_keep_awake"] as? Bool == true
-              && [.working, .tool, .progress].contains(mode))
+          output.updateAwake(mode: mode, settings: settings, battery: battery)
           try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
           try History.record(mode, battery: battery?.percent)
           try await relay.sync(rows)

@@ -1,6 +1,6 @@
 import Foundation
 
-public enum Mode: String, Codable, CaseIterable {
+public enum Mode: String, Codable, CaseIterable, Sendable {
   case blocked = "blocked_error"
   case waiting = "waiting_for_input"
   case tool = "tool_running"
@@ -25,8 +25,10 @@ public enum Mode: String, Codable, CaseIterable {
 }
 
 public let providers = ["codex", "claude", "cursor", "grok", "junie"]
-public struct Session: Codable, Identifiable, Equatable {
-  public let provider: String, session: String, name: String, event: String
+public struct Session: Codable, Identifiable, Equatable, Sendable {
+  public let provider: String, session: String
+  public var name: String
+  public let event: String
   public let date: Date
   public var cwd: String? = nil, origin: String? = nil, threadID: String? = nil
   public var mode: Mode
@@ -91,7 +93,10 @@ public enum Events {
       (raw["agent_id"] ?? raw["session_id"] ?? raw["sessionId"] ?? raw["conversation_id"])
       as? String ?? "default"
     let cwd = (raw["cwd"] as? String).map { URL(fileURLWithPath: $0).lastPathComponent }
-    let name = (raw["session_title"] as? String) ?? cwd ?? provider.capitalized
+    let prompt = (raw["prompt"] as? String)?.components(separatedBy: .newlines).first
+    let name =
+      (raw["session_title"] as? String) ?? prompt.map { String($0.prefix(72)) } ?? cwd
+      ?? provider.capitalized
     let message = (raw["last_assistant_message"] ?? raw["message"]) as? String ?? ""
     let mode: Mode
     if event.lowercased() == "interrupt" {
@@ -165,7 +170,8 @@ public final class Monitor {
     var partial = Data()
     var sessions = [String: Session]()
     var permissions = [String: Set<String>]()
-    mutating func ingest(_ session: Session, row: JSONObject) {
+    mutating func ingest(_ incoming: Session, row: JSONObject) {
+      var session = incoming
       let key = session.id
       let previous = sessions[key]
       if let previous, previous.date > session.date { return }
@@ -180,6 +186,12 @@ public final class Monitor {
       case "Stop", "Interrupt", "SessionEnd", "UserPromptSubmit":
         permissions.removeValue(forKey: key)
       default: break
+      }
+      if let previous {
+        session.cwd = session.cwd ?? previous.cwd
+        session.origin = session.origin ?? previous.origin
+        session.threadID = session.threadID ?? previous.threadID
+        if session.name == session.provider.capitalized { session.name = previous.name }
       }
       if previous?.mode == .done && session.event == "Notification" { return }
       if previous?.event == "PermissionRequest", session.event != "PermissionRequest",

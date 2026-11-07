@@ -25,7 +25,9 @@ final class TranscriptReader {
           else { continue }
           recent.append((url, date, info.fileSize ?? 0))
         }
-        for (url, date, size) in recent.sorted(by: { $0.1 > $1.1 }).prefix(12) {
+        for (url, date, size) in recent.sorted(by: { $0.1 > $1.1 }).prefix(
+          provider == "claude" ? 24 : 12)
+        {
           if let entry = files[url], entry.date == date, entry.size == size {
             next[url] = entry
           } else {
@@ -59,19 +61,27 @@ final class TranscriptReader {
       let msg = row["message"] as? JSONObject ?? [:]
       cwd = (p["cwd"] ?? row["cwd"]) as? String ?? cwd
       let content = (p["content"] ?? msg["content"]) as? [JSONObject] ?? []
-      var raw: JSONObject = ["session_id": id]
+      var raw: JSONObject = ["session_id": id, "agent_origin": provider.capitalized + " app"]
       if let cwd { raw["cwd"] = cwd }
       switch (p["type"] ?? row["type"]) as? String {
       case "task_started", "user_message", "user":
         raw["hook_event_name"] =
           content.contains { $0["type"] as? String == "tool_result" }
           ? "PostToolUse" : "UserPromptSubmit"
+        if content.contains(where: {
+          $0["type"] as? String == "tool_result" && $0["is_error"] as? Bool == true
+        }) {
+          raw["tool_response"] = ["success": false]
+        }
+        raw["prompt"] = content.compactMap { $0["text"] as? String }.joined(separator: "\n")
       case "task_complete", "task_completed":
         raw["hook_event_name"] = "Stop"
         raw["last_assistant_message"] = p["last_agent_message"]
       case "turn_aborted": raw["hook_event_name"] = "Interrupt"
       case "function_call", "custom_tool_call": raw["hook_event_name"] = "PreToolUse"
-      case "function_call_output", "custom_tool_call_output": raw["hook_event_name"] = "PostToolUse"
+      case "function_call_output", "custom_tool_call_output":
+        raw["hook_event_name"] = "PostToolUse"
+        raw["tool_response"] = p["output"]
       case "message", "assistant":
         if content.contains(where: { $0["type"] as? String == "tool_use" }) {
           raw["hook_event_name"] = "PreToolUse"

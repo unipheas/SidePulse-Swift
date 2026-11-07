@@ -1,7 +1,7 @@
 import Foundation
 import IOKit.ps
 
-public struct Battery {
+public struct Battery: Sendable {
   public let percent: Int, charging: Bool, plugged: Bool, watts: Int
   public static func read() -> Battery? {
     guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),

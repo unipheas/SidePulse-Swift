@@ -3,9 +3,15 @@ import Foundation
 public struct RelayConfiguration: Codable, Equatable {
   public var version = 1
   public var server: String
-  public var receiver_channel: String
-  public var outbound_channel: String
-  public var machine_name: String
+  public var receiverChannel: String
+  public var outboundChannel: String
+  public var machineName: String
+  enum CodingKeys: String, CodingKey {
+    case version, server
+    case receiverChannel = "receiver_channel"
+    case outboundChannel = "outbound_channel"
+    case machineName = "machine_name"
+  }
   static var file: URL { Paths.support.appendingPathComponent("relay.json") }
   public static func read() throws -> Self {
     let url = [file, Paths.legacyConfig.appendingPathComponent("relay.json")].first {
@@ -13,15 +19,23 @@ public struct RelayConfiguration: Codable, Equatable {
     }
     guard let url else {
       return Self(
-        server: Bridge.server, receiver_channel: "", outbound_channel: "",
-        machine_name: ProcessInfo.processInfo.hostName)
+        server: Bridge.server, receiverChannel: "", outboundChannel: "",
+        machineName: ProcessInfo.processInfo.hostName)
     }
-    return try JSONDecoder().decode(Self.self, from: Data(contentsOf: url))
+    let values = try object(url)
+    guard values["version"] as? Int == 1 else {
+      throw PulseError("Unsupported relay configuration.")
+    }
+    return Self(
+      server: values["server"] as? String ?? Bridge.server,
+      receiverChannel: values["receiver_channel"] as? String ?? "",
+      outboundChannel: values["outbound_channel"] as? String ?? "",
+      machineName: values["machine_name"] as? String ?? ProcessInfo.processInfo.hostName)
   }
   public func save() throws {
     guard version == 1 else { throw PulseError("Unsupported relay settings version.") }
     _ = try Bridge.address(server, channel: "validation")
-    for channel in [receiver_channel, outbound_channel] where !channel.isEmpty {
+    for channel in [receiverChannel, outboundChannel] where !channel.isEmpty {
       guard channel.range(of: #"^[A-Za-z0-9_-]{11,128}$"#, options: .regularExpression) != nil
       else {
         throw PulseError(
@@ -34,15 +48,15 @@ public struct RelayConfiguration: Codable, Equatable {
   }
   public static func receiver() throws -> Self {
     var config = try read()
-    if config.receiver_channel.isEmpty {
-      config.receiver_channel = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+    if config.receiverChannel.isEmpty {
+      config.receiverChannel = UUID().uuidString.replacingOccurrences(of: "-", with: "")
       try config.save()
     }
     return config
   }
   public static func link(_ channel: String) throws {
     var config = try read()
-    config.outbound_channel = channel
+    config.outboundChannel = channel
     try config.save()
   }
 }
@@ -62,15 +76,15 @@ public actor Relay {
     if config != configuration {
       receiver?.cancel()
       receiver = nil
-      if !config.receiver_channel.isEmpty {
+      if !config.receiverChannel.isEmpty {
         receiver = Task {
-          try? await Bridge.receive(channel: config.receiver_channel, origin: config.server)
+          try? await Bridge.receive(channel: config.receiverChannel, origin: config.server)
         }
       }
       forwarded = [:]
       configuration = config
     }
-    guard !config.outbound_channel.isEmpty else { return }
+    guard !config.outboundChannel.isEmpty else { return }
     for item in sessions where !item.session.hasPrefix("relay:") && forwarded[item.id] != item.date
     {
       // Expired activity must not awaken the receiving device after restarting the sender.
@@ -84,7 +98,7 @@ public actor Relay {
         ],
       ]
       try await Bridge.send(
-        channel: config.outbound_channel, provider: item.provider, row: row, origin: config.server)
+        channel: config.outboundChannel, provider: item.provider, row: row, origin: config.server)
       forwarded[item.id] = item.date
     }
     forwarded = forwarded.filter { key, _ in sessions.contains { $0.id == key } }

@@ -1,6 +1,5 @@
 import AppKit
 import PulseCore
-import ServiceManagement
 import SwiftUI
 
 struct Overview: View {
