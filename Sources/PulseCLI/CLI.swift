@@ -66,7 +66,19 @@ enum Args {
       relay receive CHANNEL | send CHANNEL PROVIDER < event.json
     """
   static func main() async {
-    do { try await run() } catch {
+    let task = Task { try await run() }
+    var signals = [DispatchSourceSignal]()
+    for number in [SIGINT, SIGTERM] {
+      signal(number, SIG_IGN)
+      let source = DispatchSource.makeSignalSource(signal: number, queue: .global())
+      source.setEventHandler { task.cancel() }
+      source.resume()
+      signals.append(source)
+    }
+    defer { signals.forEach { $0.cancel() } }
+    do { try await task.value } catch is CancellationError {
+      return
+    } catch {
       FileHandle.standardError.write(Data(("SidePulse: " + error.localizedDescription + "\n").utf8))
       exit(1)
     }
@@ -135,7 +147,13 @@ enum Args {
       default: throw PulseError("Unknown agent-monitor command.")
       }
     case "service", "sdejectguard":
-      switch Args.pop() ?? "status" {
+      let action = Args.pop() ?? "status"
+      if command == "service", action == "code" {
+        try Args.end()
+        print("sidepulsectl link " + (try RelayConfiguration.receiver()).receiver_channel)
+        return
+      }
+      switch action {
       case "status": print(Jobs.running(Jobs.prefix + command) ? "running" : "stopped")
       case "start": try Jobs.configure(command, executable: Bundle.main.executableURL!, start: true)
       case "stop": try Jobs.configure(command, executable: Bundle.main.executableURL!, start: false)
@@ -155,17 +173,21 @@ enum Args {
       }
       let event = try Args.option("--event")
       try Args.end()
+      defer { if provider == "cursor" { print("{}") } }
       var data = Data()
       while let chunk = try FileHandle.standardInput.read(upToCount: 65536), !chunk.isEmpty {
         guard data.count + chunk.count <= 2_097_152 else {
-          throw PulseError("Hook payload exceeds 2 MiB.")
+          return
         }
         data.append(chunk)
       }
       if let raw = (try? JSONSerialization.jsonObject(with: data)) as? JSONObject {
-        try Events.record(provider: provider, raw: raw, named: event)
+        do { try Events.record(provider: provider, raw: raw, named: event) } catch {
+          FileHandle.standardError.write(
+            Data(("SidePulse hook logging failed: " + error.localizedDescription + "\n").utf8))
+        }
       }
-      if provider == "cursor" { print("{}") }
+
     case "migrate":
       try Args.end()
       try Settings.migrate()
@@ -205,18 +227,7 @@ enum Args {
         throw PulseError("Choose profile import or export.")
       }
     case "animations": print(Programs.animationNames.joined(separator: "\n"))
-    case "battery":
-      guard let battery = Battery.read() else { throw PulseError("No internal battery found.") }
-      switch Args.pop() ?? "status" {
-      case "status":
-        print(
-          "\(battery.percent)% · \(battery.charging ? "charging" : "on battery or fully charged")")
-      case "leds":
-        let device = try Args.one(Args.devices())
-        try Args.end()
-        try device.write(battery.program(count: device.count))
-      default: throw PulseError("Use battery status or leds.")
-      }
+    case "battery": try await batteryCommand()
     case "links": for phone in try Bridge.phones() { print("\(phone.id)  \(phone.name)") }
     case "unlink":
       if let id = Args.pop() {
@@ -227,7 +238,16 @@ enum Args {
       }
     case "link":
       if let token = Args.pop() {
-        try Bridge.store(token: token, name: try Args.option("--name") ?? "Phone")
+        let name = try Args.option("--name")
+        try Args.end()
+        if name == nil
+          && token.range(of: #"^[A-Za-z0-9_-]{11,63}$"#, options: .regularExpression) != nil
+        {
+          try RelayConfiguration.link(token)
+          print("Remote receiver linked.")
+        } else {
+          try Bridge.store(token: token, name: name ?? "Phone")
+        }
       } else {
         try await Bridge.pair()
       }

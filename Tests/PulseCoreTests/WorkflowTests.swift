@@ -177,3 +177,27 @@ extension WorkflowTests {
     XCTAssertThrowsError(try Profiles.save(name: "   "))
   }
 }
+
+extension WorkflowTests {
+  func testMigrationCarriesPhoneAndRelaySettings() throws {
+    let token = String(repeating: "a", count: 64)
+    try saveObject(
+      ["version": 1, "ios": [["token": token, "name": "Original", "server": Bridge.standard]]],
+      to: Paths.legacyConfig.appendingPathComponent("links.json"))
+    let relay = RelayConfiguration(
+      server: Bridge.standard, receiver_channel: "abcdefghijk", outbound_channel: "",
+      machine_name: "Fixture")
+    try Paths.directory(Paths.legacyConfig)
+    try JSONEncoder().encode(relay).write(
+      to: Paths.legacyConfig.appendingPathComponent("relay.json"))
+    try Settings.migrate()
+    try FileManager.default.removeItem(at: Paths.legacyConfig)
+    XCTAssertEqual(try Bridge.phones().first?.name, "Original")
+    XCTAssertEqual(try RelayConfiguration.read(), relay)
+    XCTAssertEqual(try RelayConfiguration.receiver(), relay)
+    try RelayConfiguration.link("receiver2345")
+    XCTAssertEqual(try RelayConfiguration.read().outbound_channel, "receiver2345")
+    XCTAssertThrowsError(try RelayConfiguration.link("../bad"))
+    XCTAssertEqual(try RelayConfiguration.read().outbound_channel, "receiver2345")
+  }
+}

@@ -78,6 +78,15 @@ public enum Settings {
   /// Materialize legacy file-backed programs before the previous installation is removed.
   public static func migrate() throws {
     try withLock(Paths.support.appendingPathComponent("settings.lock")) {
+      for filename in ["links.json", "relay.json"] {
+        let source = Paths.legacyConfig.appendingPathComponent(filename)
+        let destination = Paths.support.appendingPathComponent(filename)
+        if FileManager.default.fileExists(atPath: source.path),
+          !FileManager.default.fileExists(atPath: destination.path)
+        {
+          try saveObject(object(source), to: destination)
+        }
+      }
       var settings = try read()
       guard !settings.isEmpty else { return }
       var registry = settings["custom_agent_animations"] as? [String: JSONObject] ?? [:]

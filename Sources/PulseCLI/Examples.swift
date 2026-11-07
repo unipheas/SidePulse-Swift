@@ -72,7 +72,9 @@ enum Scoreboard {
       let goals: [Int]
       if let score {
         let parts = score.components(separatedBy: "-").compactMap(Int.init)
-        guard parts.count == 2, parts.allSatisfy({ $0 >= 0 }) else {
+        guard score.range(of: #"^[0-9]+-[0-9]+$"#, options: .regularExpression) != nil,
+          parts.count == 2, parts.allSatisfy({ $0 >= 0 })
+        else {
           throw PulseError("Use a score such as 2-1.")
         }
         goals = parts

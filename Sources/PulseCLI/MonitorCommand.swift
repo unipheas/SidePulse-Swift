@@ -29,6 +29,8 @@ extension CLI {
       try? sleep.restore()
       output.keepAwake(false)
     }
+    let relay = Relay()
+    defer { Task { await relay.stop() } }
     var lastPhoneMode: Mode?
     repeat {
       var settings = try Settings.read()
@@ -65,6 +67,7 @@ extension CLI {
               && [.working, .tool, .progress].contains(mode))
           try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
           try History.record(mode, battery: battery?.percent)
+          try await relay.sync(rows)
           if settings["swift_phone_mirror"] as? Bool == true, lastPhoneMode != mode {
             let program = try Programs.program(mode, count: 8, settings: settings)
             for phone in try Bridge.phones() {

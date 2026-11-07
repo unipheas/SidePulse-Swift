@@ -7,6 +7,8 @@ enum SectionName: String, CaseIterable, Identifiable {
   case overview = "Overview"
   case sessions = "Sessions"
   case animations = "Animations"
+  case history = "History"
+  case diagnostics = "Diagnostics"
   case devices = "Devices"
   case settings = "Settings"
   var id: Self { self }
@@ -15,6 +17,8 @@ enum SectionName: String, CaseIterable, Identifiable {
     case .overview: return "dot.radiowaves.left.and.right"
     case .sessions: return "clock.arrow.circlepath"
     case .animations: return "light.beacon.max"
+    case .history: return "chart.bar.xaxis"
+    case .diagnostics: return "stethoscope"
     case .devices: return "externaldrive"
     case .settings: return "slider.horizontal.3"
     }
@@ -35,6 +39,8 @@ struct DashboardView: View {
         case .overview: Overview()
         case .sessions: SessionList()
         case .animations: Animations()
+        case .history: HistoryView()
+        case .diagnostics: DiagnosticsView()
         case .devices: DeviceManagement()
         case .settings: Preferences()
         }

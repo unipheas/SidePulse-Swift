@@ -80,6 +80,61 @@ struct Preferences: View {
             get: { model.settings["swift_phone_mirror"] as? Bool ?? false },
             set: { value in model.change { $0["swift_phone_mirror"] = value } }))
       }
+      Section("Opening sessions") {
+        Picker(
+          "Terminal",
+          selection: Binding(
+            get: {
+              (model.settings["session_terminal"] as? JSONObject)?["app"] as? String ?? "terminal"
+            },
+            set: { value in
+              model.change {
+                var terminal = $0["session_terminal"] as? JSONObject ?? [:]
+                terminal["app"] = value
+                $0["session_terminal"] = terminal
+              }
+            }
+          )
+        ) { ForEach(Terminal.choices, id: \.self) { Text($0.capitalized).tag($0) } }
+        if (model.settings["session_terminal"] as? JSONObject)?["app"] as? String == "custom" {
+          TextField(
+            "Application path",
+            text: Binding(
+              get: {
+                (model.settings["session_terminal"] as? JSONObject)?["custom_path"] as? String ?? ""
+              },
+              set: { value in
+                model.change {
+                  var terminal = $0["session_terminal"] as? JSONObject ?? [:]
+                  terminal["custom_path"] = value
+                  $0["session_terminal"] = terminal
+                }
+              }))
+        }
+        ForEach(["codex", "claude", "grok", "junie"], id: \.self) { provider in
+          Picker(
+            provider.capitalized,
+            selection: Binding(
+              get: {
+                (model.settings["session_open_preferences"] as? [String: String])?[provider]
+                  ?? "automatic"
+              },
+              set: { value in
+                model.change {
+                  var preferences = $0["session_open_preferences"] as? [String: String] ?? [:]
+                  preferences[provider] = value == "automatic" ? nil : value
+                  $0["session_open_preferences"] = preferences
+                }
+              }
+            )
+          ) {
+            Text("Automatic").tag("automatic")
+            Text("Terminal").tag("terminal")
+            if ["codex", "claude"].contains(provider) { Text("App").tag("app") }
+            if provider == "claude" { Text("VS Code").tag("vscode") }
+          }
+        }
+      }
       Section("Mac") {
         Toggle(
           "Open at login",

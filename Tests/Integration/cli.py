@@ -54,6 +54,14 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     run("write","--device",volume,"--to","phone","off",ok=False)
     run("write","--device",volume,"--title","Message",ok=False)
     run("migrate")
+    run("battery","configure","--display","agent","--full-watts","96","--show-on-power-change","no","--power-change-preview-seconds","2")
+    config = json.loads((root/"native/settings.json").read_text())
+    assert config["battery_monitoring"]["full_charge_watts"] == 96
+    run("battery","configure","--full-watts","auto")
+    run("battery","configure","--display","invalid",ok=False)
+    run("agent-monitor","leds","--device",volume,"--once","--dry-run")
+    run("fifa-final","--score","2-1","--dry-run")
+    run("fifa-final","--score","-1-2","--dry-run",ok=False)
     run("settings","done","15")
     assert json.loads((root/"native/settings.json").read_text())["agent_list"]["completed_visible_seconds"] == 15
     run("agent-monitor","install","all","--dry-run")
@@ -96,5 +104,11 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
                  ("raw-write","invalid","off"),("settings","done","nan"),("unknown",),("hook-log","--provider"),
                  ("agent-monitor","install","none"),("classify",""),("relay","send","bad","badprovider")]:
         run(*args,ok=False)
+    process = subprocess.Popen([cli,"agent-monitor","live","--interval","0.05"],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    import time
+    time.sleep(0.3)
+    process.terminate()
+    process.communicate(timeout=5)
+    assert process.returncode == 0
     server.shutdown()
 print("Native CLI, simulated volume, hook lifecycle, phone pairing, push and relay passed.")

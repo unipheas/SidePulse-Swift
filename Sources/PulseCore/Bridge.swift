@@ -135,11 +135,13 @@ public enum Bridge {
     try await post(
       payload, url: address(phone.server, channel: (phone.android ? "" : "apns_") + phone.token))
   }
-  static func events(_ channel: String, consume: (JSONObject) throws -> Bool) async throws {
+  static func events(_ channel: String, origin: String? = nil, consume: (JSONObject) throws -> Bool)
+    async throws
+  {
     guard channel.range(of: #"^[A-Za-z0-9_-]{11,128}$"#, options: .regularExpression) != nil else {
       throw PulseError("Invalid bridge channel.")
     }
-    var req = URLRequest(url: try address(server, channel: channel))
+    var req = URLRequest(url: try address(origin ?? server, channel: channel))
     req.timeoutInterval = 300
     req.setValue("text/event-stream", forHTTPHeaderField: "Accept")
     let (bytes, response) = try await URLSession.shared.bytes(for: req)
@@ -219,7 +221,9 @@ public enum Bridge {
       return true
     }
   }
-  public static func send(channel: String, provider: String, row: JSONObject) async throws {
+  public static func send(channel: String, provider: String, row: JSONObject, origin: String? = nil)
+    async throws
+  {
     guard channel.range(of: #"^[A-Za-z0-9_-]{11,128}$"#, options: .regularExpression) != nil else {
       throw PulseError("Invalid relay channel.")
     }
@@ -227,23 +231,33 @@ public enum Bridge {
       "v": 1, "type": "agent_event", "event_id": UUID().uuidString,
       "source": ["name": ProcessInfo.processInfo.hostName], "provider": provider, "line": row,
     ]
-    try await post(body, url: address(server, channel: channel))
+    try await post(body, url: address(origin ?? server, channel: channel))
   }
-  public static func receive(channel: String, once: Bool = false) async throws {
+  public static func receive(channel: String, once: Bool = false, origin: String? = nil)
+    async throws
+  {
     var seen = Set<String>()
-    try await events(channel) { value in
-      guard value["v"] as? Int == 1, value["type"] as? String == "agent_event",
-        let provider = value["provider"] as? String,
-        providers.contains(provider), let row = value["line"] as? JSONObject,
-        let id = value["event_id"] as? String, !seen.contains(id)
-      else { return false }
-      var raw = row["event"] as? JSONObject ?? row
-      let source = (value["source"] as? JSONObject)?["name"] as? String ?? "remote"
-      raw["agent_id"] = "relay:\(source):\(raw["agent_id"] ?? raw["session_id"] ?? "default")"
-      try Events.record(provider: provider, raw: raw)
-      if seen.count >= 2048 { seen.removeAll() }
-      seen.insert(id)
-      return once
-    }
+    repeat {
+      do {
+        try await events(channel, origin: origin) { value in
+          guard value["v"] as? Int == 1, value["type"] as? String == "agent_event",
+            let provider = value["provider"] as? String,
+            providers.contains(provider), let row = value["line"] as? JSONObject,
+            let id = value["event_id"] as? String, !seen.contains(id)
+          else { return false }
+          var raw = row["event"] as? JSONObject ?? row
+          let source = (value["source"] as? JSONObject)?["name"] as? String ?? "remote"
+          raw["agent_id"] = "relay:\(source):\(raw["agent_id"] ?? raw["session_id"] ?? "default")"
+          try Events.record(provider: provider, raw: raw)
+          if seen.count >= 2048 { seen.removeAll() }
+          seen.insert(id)
+          return once
+        }
+        if once { return }
+      } catch {
+        if once || Task.isCancelled { throw error }
+        try await Task.sleep(for: .seconds(1))
+      }
+    } while !Task.isCancelled
   }
 }

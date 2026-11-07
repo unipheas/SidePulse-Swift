@@ -7,37 +7,51 @@ public enum Jobs {
   static func plist(_ label: String) -> URL {
     Paths.home.appendingPathComponent("Library/LaunchAgents/" + label + ".plist")
   }
-  public static func running(_ label: String) -> Bool {
-    (try? SystemCommand.run("/bin/launchctl", ["print", domain + "/" + label])) != nil
+  static func command(_ tool: String, _ arguments: [String]) throws -> Data {
+    try SystemCommand.run(tool, arguments)
+  }
+  public static func running(_ label: String) -> Bool { isRunning(label, run: command) }
+  private static func isRunning(_ label: String, run: (String, [String]) throws -> Data) -> Bool {
+    (try? run("/bin/launchctl", ["print", domain + "/" + label])) != nil
   }
   public static func configure(_ job: String, executable: URL, start: Bool) throws {
+    try configure(job, executable: executable, start: start, run: command)
+  }
+  static func configure(
+    _ job: String, executable: URL, start: Bool, run: (String, [String]) throws -> Data
+  ) throws {
     guard ["service", "sdejectguard"].contains(job) else { throw PulseError("Unknown job.") }
     let label = prefix + job
     let file = plist(label)
-    if running(label) {
-      try SystemCommand.run("/bin/launchctl", ["bootout", domain + "/" + label])
+    if isRunning(label, run: run) {
+      _ = try run("/bin/launchctl", ["bootout", domain + "/" + label])
     }
     if start {
       try Paths.directory(file.deletingLastPathComponent())
+      try Paths.directory(Paths.support)
       let config: JSONObject = [
         "Label": label, "ProgramArguments": [executable.path, job, "run"], "RunAtLoad": true,
         "KeepAlive": true, "ThrottleInterval": 10,
+        "StandardOutPath": Paths.support.appendingPathComponent(job + ".out.log").path,
+        "StandardErrorPath": Paths.support.appendingPathComponent(job + ".err.log").path,
       ]
       try PropertyListSerialization.data(fromPropertyList: config, format: .xml, options: 0).write(
         to: file, options: .atomic)
-      try SystemCommand.run("/bin/launchctl", ["bootstrap", domain, file.path])
+      _ = try run("/bin/launchctl", ["bootstrap", domain, file.path])
     } else if FileManager.default.fileExists(atPath: file.path) {
       try FileManager.default.removeItem(at: file)
     }
   }
-  public static func takeControl() throws {
+  public static func takeControl() throws { try takeControl(run: command) }
+  static func takeControl(run: (String, [String]) throws -> Data) throws {
     var stopped = [String]()
     do {
-      for label in ["io.sidepulse.agentstatus", "io.sidepulse.service"] where running(label) {
+      for label in ["io.sidepulse.agentstatus", "io.sidepulse.service"]
+      where isRunning(label, run: run) {
         guard FileManager.default.fileExists(atPath: plist(label).path) else {
           throw PulseError("Cannot locate existing login job.")
         }
-        try SystemCommand.run("/bin/launchctl", ["bootout", domain + "/" + label])
+        _ = try run("/bin/launchctl", ["bootout", domain + "/" + label])
         stopped.append(label)
       }
       try Settings.update {
@@ -45,21 +59,22 @@ public enum Jobs {
         $0["swift_mirror"] = true
       }
     } catch {
-      for label in stopped { try? resume(label) }
+      for label in stopped { try? resume(label, run: run) }
       throw error
     }
   }
-  private static func resume(_ label: String) throws {
+  private static func resume(_ label: String, run: (String, [String]) throws -> Data) throws {
     guard ["io.sidepulse.agentstatus", "io.sidepulse.service"].contains(label) else {
       throw PulseError("Unknown login job.")
     }
-    if !running(label) {
-      try SystemCommand.run("/bin/launchctl", ["bootstrap", domain, plist(label).path])
+    if !isRunning(label, run: run) {
+      _ = try run("/bin/launchctl", ["bootstrap", domain, plist(label).path])
     }
   }
-  public static func giveBack() throws {
+  public static func giveBack() throws { try giveBack(run: command) }
+  static func giveBack(run: (String, [String]) throws -> Data) throws {
     let labels = try Settings.read()["swift_paused_jobs"] as? [String] ?? []
-    for label in labels.reversed() { try resume(label) }
+    for label in labels.reversed() { try resume(label, run: run) }
     try Settings.update { $0.removeValue(forKey: "swift_paused_jobs") }
   }
 }

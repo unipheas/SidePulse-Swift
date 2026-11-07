@@ -14,6 +14,8 @@ import SwiftUI
   @Published var history = [(Date, Mode)]()
   let monitor = Monitor(), output = Output(), sleepOverride = SleepOverride()
   var timer: Timer?
+  private let relay = Relay()
+  private var relaying = false
   private var ticks = 0
   private var lastPhoneMode: Mode?
   private var sending = false
@@ -59,6 +61,16 @@ import SwiftUI
       let battery = Battery.read()
       try sleepOverride.update(mode: mode, settings: settings, battery: battery, owner: !legacy)
       if mirror && !legacy {
+        if !relaying {
+          relaying = true
+          let currentSessions = sessions
+          Task {
+            defer { relaying = false }
+            do { try await relay.sync(currentSessions) } catch {
+              problem = error.localizedDescription
+            }
+          }
+        }
         output.keepAwake(
           settings["swift_keep_awake"] as? Bool == true
             && [.working, .tool, .progress].contains(mode) && (battery?.percent ?? 100) >= 20)

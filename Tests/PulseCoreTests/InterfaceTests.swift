@@ -22,7 +22,8 @@ final class InterfaceTests: IsolatedTests {
       backing: .buffered, defer: false)
     for screen in [
       AnyView(DashboardView()), AnyView(Overview()), AnyView(SessionList()), AnyView(Animations()),
-      AnyView(Preferences()),
+      AnyView(Preferences()), AnyView(DeviceManagement()), AnyView(MenuPanel()),
+      AnyView(HistoryView()), AnyView(DiagnosticsView()),
     ] {
       let host = NSHostingView(rootView: screen.environmentObject(dashboard))
       window.contentView = host

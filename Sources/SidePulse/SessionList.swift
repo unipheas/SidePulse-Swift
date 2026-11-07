@@ -50,13 +50,7 @@ struct SessionList: View {
       }
     case .terminal(let command):
       do {
-        try SystemCommand.run(
-          "/usr/bin/osascript",
-          [
-            "-e", "on run argv", "-e",
-            "tell application \"Terminal\" to do script (item 1 of argv)", "-e",
-            "tell application \"Terminal\" to activate", "-e", "end run", "--", command,
-          ])
+        try Terminal.open(command, settings: model.settings)
       } catch { model.problem = error.localizedDescription }
     case nil: break
     }
