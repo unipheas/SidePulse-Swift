@@ -59,6 +59,10 @@ final class TerminalIntegrationTests: IsolatedTests {
     XCTAssertEqual(Array(received.prefix(3)), ["-e", "/bin/zsh", "-lc"])
     XCTAssertTrue(received.last?.hasSuffix("; fixture-command") == true)
     XCTAssertTrue(received.last?.contains("SidePulse Codex Test") == true)
+    try FileManager.default.removeItem(at: arguments)
+    try MacActions().openSession(.link(app), session, settings)
+    let opened = try await waitForArguments()
+    XCTAssertEqual(opened, [])
     let unhandled = URL(
       string: "sidepulse-unregistered-" + UUID().uuidString.lowercased() + "://test")!
     XCTAssertThrowsError(try MacActions().openSession(.link(unhandled), session, settings))

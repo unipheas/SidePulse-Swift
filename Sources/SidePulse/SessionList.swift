@@ -62,7 +62,9 @@ struct SessionOpenMenu<Label: View>: View {
 @MainActor enum SessionOpening {
   static func open(
     _ target: SessionTarget?, session: Session, settings: JSONObject,
-    link: (URL) -> Bool = { NSWorkspace.shared.open($0) },
+    link: (URL) -> Bool = {
+      NSWorkspace.shared.urlForApplication(toOpen: $0) != nil && NSWorkspace.shared.open($0)
+    },
     terminal: (String, JSONObject, Session) throws -> Void = {
       try Terminal.open($0, settings: $1, session: $2)
     }
