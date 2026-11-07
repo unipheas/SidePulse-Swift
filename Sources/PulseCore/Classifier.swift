@@ -13,8 +13,10 @@ public enum ReplyClassifier {
       case rawOutput = "raw_output"
     }
   }
-  public static func classify(_ text: String) async throws -> String {
-    try await result(text).label
+  public static func classify(
+    _ text: String, generate: (String) async throws -> String = generate
+  ) async throws -> String {
+    try await result(text, generate: generate).label
   }
   public static func result(
     _ text: String,

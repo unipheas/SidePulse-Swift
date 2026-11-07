@@ -24,9 +24,11 @@ struct LidAnimationEditor: View {
         DevicePreviewMenu(source: source)
         Button("Reset to default") {
           do {
-            source = try Programs.preset(state.replacingOccurrences(of: "_", with: "-"), count: 8)
-            duration = state == "lid_open" ? 1 : 1.3
-            try Settings.setLidAnimation(state, program: source, duration: duration)
+            let preset = try Programs.preset(state.replacingOccurrences(of: "_", with: "-"), count: 8)
+            let seconds = state == "lid_open" ? 1.0 : 1.3
+            try Settings.setLidAnimation(state, program: preset, duration: seconds)
+            source = preset
+            duration = seconds
             model.refresh()
           } catch { model.problem = error.localizedDescription }
         }.accessibilityIdentifier(state + "-reset")

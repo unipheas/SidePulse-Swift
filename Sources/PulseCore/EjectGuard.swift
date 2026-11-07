@@ -95,12 +95,13 @@ final class GuardContext {
     }
   }
   func approve(
-    _ disk: DADisk, bsdName: (DADisk) -> UnsafePointer<CChar>? = DADiskGetBSDName
+    _ disk: DADisk, bsdName: (DADisk) -> UnsafePointer<CChar>? = DADiskGetBSDName,
+    describe: (DADisk) -> CFDictionary? = DADiskCopyDescription
   ) -> Unmanaged<DADissenter>? {
     let whole = DADiskCopyWholeDisk(disk) ?? disk
     guard let rawName = bsdName(whole) else { return nil }
     let name = String(cString: rawName)
-    let description = DADiskCopyDescription(whole) as NSDictionary? ?? [:]
+    let description = describe(whole) as NSDictionary? ?? [:]
     guard protected[name] != nil || Self.builtInSD(description) else { return nil }
     pending[name] = protected[name] ?? disk
     return Unmanaged.passRetained(
