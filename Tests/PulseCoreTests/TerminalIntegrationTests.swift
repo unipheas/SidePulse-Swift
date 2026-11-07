@@ -34,12 +34,14 @@ final class TerminalIntegrationTests: IsolatedTests {
     try SystemCommand.run("/usr/bin/xcrun", ["swiftc", source.path, "-o", executable.path])
     let registrar =
       "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
+    try SystemCommand.run(registrar, ["-f", app.path])
     defer { _ = try? SystemCommand.run(registrar, ["-u", app.path]) }
     let arguments = root.appendingPathComponent("arguments.json")
     func waitForArguments() async throws -> [String] {
       for _ in 0..<100 {
         if let data = try? Data(contentsOf: arguments),
-          let values = try? JSONSerialization.jsonObject(with: data) as? [String]
+          let values = try? JSONSerialization.jsonObject(with: data) as? [String],
+          NSRunningApplication.runningApplications(withBundleIdentifier: identifier).isEmpty
         {
           return values
         }
