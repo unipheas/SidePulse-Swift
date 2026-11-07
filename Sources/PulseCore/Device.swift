@@ -196,7 +196,7 @@ public final class LEDPreview {
 }
 
 public struct Battery {
-  public let percent: Int, charging: Bool
+  public let percent: Int, charging: Bool, plugged: Bool, watts: Int
   public static func read() -> Battery? {
     guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
       let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
@@ -211,14 +211,26 @@ public struct Battery {
       else { continue }
       return Battery(
         percent: min(100, max(0, capacity * 100 / maxCapacity)),
-        charging: data["Is Charging"] as? Bool == true)
+        charging: data["Is Charging"] as? Bool == true,
+        plugged: data["Power Source State"] as? String == "AC Power",
+        watts: (IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? JSONObject)?["Watts"]
+          as? Int ?? 0)
     }
     return nil
   }
   public func program(count: Int) -> String {
-    let lit = (percent * count + 99) / 100
-    let color = percent < 20 ? "#FF453A" : charging ? "#30D158" : "#00B8DC"
-    return (0..<count).map { "\($0):\($0 < lit ? color : "#030504")" }.joined(separator: " ")
-      + " 1s"
+    let fill = Double(percent * count) / 100
+    let full = Int(fill)
+    let color =
+      charging ? "#80FFC8" : percent < 20 ? "#FF2600" : percent < 50 ? "#FFB000" : "#00FF66"
+    var program = (0..<count).map { i in
+      let scale = Int(255 * max(0, min(1, fill - Double(i))))
+      return "\(i):\(Programs.dim(color,brightness:scale)) 360ms ease"
+    }.joined(separator: ";")
+    if charging && percent < 100 {
+      let duration = max(300, 1600 - min(100, watts) * 11)
+      program += "\n\(min(count-1,full)):#80FFC8 \(duration)ms pulse\nrepeat"
+    }
+    return program
   }
 }

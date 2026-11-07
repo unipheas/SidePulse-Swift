@@ -5,6 +5,10 @@ import IOKit.pwr_mgt
 public final class Output {
   private var sent = [String: String]()
   private var failed = [String: String]()
+  private var previousPower: Bool?, previousLid: Bool?
+  private var previewUntil = Date.distantPast
+  private var lidUntil = Date.distantPast
+  private var lidState = "lid_open"
   private var assertion: IOPMAssertionID = 0
   public init() {}
   deinit { if assertion != 0 { IOPMAssertionRelease(assertion) } }
@@ -26,6 +30,24 @@ public final class Output {
   public func sync(devices: [Device], mode: Mode, settings: JSONObject, battery: Battery?) throws {
     sent = sent.filter { key, _ in devices.contains { $0.id == key } }
     failed = failed.filter { key, _ in devices.contains { $0.id == key } }
+    let batterySettings = settings["battery_monitoring"] as? JSONObject ?? [:]
+    if let plugged = battery?.plugged {
+      if let previousPower, previousPower != plugged,
+        batterySettings["show_on_power_change"] as? Bool != false
+      {
+        previewUntil = Date().addingTimeInterval(
+          batterySettings["power_change_preview_seconds"] as? Double ?? 7)
+      }
+      previousPower = plugged
+    }
+    if let closed = Power.lidClosed() {
+      if let previousLid, previousLid != closed {
+        lidState = closed ? "lid_closed" : "lid_open"
+        let animation = settings[lidState + "_animation"] as? JSONObject
+        lidUntil = Date().addingTimeInterval(animation?["duration_seconds"] as? Double ?? 1.3)
+      }
+      previousLid = closed
+    }
     var failures = [String]()
     for device in devices {
       let config = (settings["devices"] as? [JSONObject])?.first {
@@ -39,7 +61,12 @@ public final class Output {
       }
       do {
         let source: String
-        if display == "battery", let battery {
+        if Date() < lidUntil {
+          let entry = (settings["agent_animations"] as? [String: JSONObject])?[lidState] ?? [:]
+          source = try Programs.resolve(
+            style: entry["style"] as? String ?? lidState.replacingOccurrences(of: "_", with: "-"),
+            entry: entry, count: device.count, settings: settings)
+        } else if display == "battery" || Date() < previewUntil, let battery {
           source = battery.program(count: device.count)
         } else {
           source = try Programs.program(mode, count: device.count, settings: settings)

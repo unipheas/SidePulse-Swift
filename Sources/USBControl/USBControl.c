@@ -56,3 +56,16 @@ int pulse_usb_transfer(PulseUSB *usb, uint8_t type, uint8_t request, uint16_t va
     IOReturn result = (*usb->device)->DeviceRequestTO(usb->device, &req);
     return result == kIOReturnSuccess && req.wLenDone == size;
 }
+
+#include <sys/disk.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+int pulse_raw_size(int fd) {
+    struct stat info;
+    uint32_t block = 0;
+    uint64_t count = 0;
+    if (fstat(fd, &info) || !(S_ISBLK(info.st_mode) || S_ISCHR(info.st_mode))) return -1;
+    if (ioctl(fd, DKIOCGETBLOCKSIZE, &block) || ioctl(fd, DKIOCGETBLOCKCOUNT, &count)) return -1;
+    if (block != 512 || count == 0 || count > 300000 / block) return -1;
+    return (int)(count * block);
+}

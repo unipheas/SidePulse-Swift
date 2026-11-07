@@ -12,11 +12,18 @@ import SwiftUI
   @Published var legacy = false
   @Published var login = SMAppService.mainApp.status == .enabled
   @Published var history = [(Date, Mode)]()
-  let monitor = Monitor(), output = Output()
+  let monitor = Monitor(), output = Output(), sleepOverride = SleepOverride()
   var timer: Timer?
   private var ticks = 0
+  private var lastPhoneMode: Mode?
+  private var sending = false
   init() {
     history = History.recent().suffix(500).map { ($0.date, $0.mode) }
+    NotificationCenter.default.addObserver(
+      forName: NSApplication.willTerminateNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated { try? self?.sleepOverride.restore() }
+    }
     refresh()
     timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
       Task { @MainActor in self?.refresh() }
@@ -39,11 +46,30 @@ import SwiftUI
         if history.count > 500 { history.removeFirst() }
       }
       let battery = Battery.read()
+      try sleepOverride.update(mode: mode, settings: settings, battery: battery, owner: !legacy)
       if mirror && !legacy {
         output.keepAwake(
           settings["swift_keep_awake"] as? Bool == true
             && [.working, .tool, .progress].contains(mode) && (battery?.percent ?? 100) >= 20)
         try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
+        if settings["swift_phone_mirror"] as? Bool == true, !sending, lastPhoneMode != mode {
+          let current = mode
+          let config = settings
+          lastPhoneMode = current
+          sending = true
+          Task {
+            defer { sending = false }
+            do {
+              let program = try Programs.program(current, count: 8, settings: config)
+              for phone in try Bridge.phones() {
+                try await Bridge.push(to: phone.id, program: program, title: nil, message: nil)
+              }
+            } catch { problem = error.localizedDescription }
+          }
+        } else if settings["swift_phone_mirror"] as? Bool != true {
+          lastPhoneMode = nil
+        }
+
       } else {
         output.reset()
         output.keepAwake(false)
@@ -107,6 +133,9 @@ struct MenuPanel: View {
       openWindow(id: "main")
     }
     Button("Open virtual LEDs") { openWindow(id: "leds") }
+    Link(
+      "Check for updates…",
+      destination: URL(string: "https://github.com/unipheas/SidePulse-Swift/releases")!)
     Button("Quit SidePulse") { NSApp.terminate(nil) }.keyboardShortcut("q")
   }
 }
@@ -423,6 +452,13 @@ struct Preferences: View {
           }
         }
       }
+      Section("Linked phones") {
+        Toggle(
+          "Mirror LED states to paired phones",
+          isOn: Binding(
+            get: { model.settings["swift_phone_mirror"] as? Bool ?? false },
+            set: { value in model.change { $0["swift_phone_mirror"] = value } }))
+      }
       Section("Mac") {
         Toggle(
           "Open at login",
@@ -443,6 +479,45 @@ struct Preferences: View {
           isOn: Binding(
             get: { model.settings["swift_keep_awake"] as? Bool ?? false },
             set: { value in model.change { $0["swift_keep_awake"] = value } }))
+      }
+      Section("Closed-lid operation") {
+        Picker(
+          "Keep awake with lid closed",
+          selection: Binding(
+            get: { model.settings["swift_closed_lid"] as? String ?? "never" },
+            set: { value in
+              if value != "never"
+                && !FileManager.default.fileExists(
+                  atPath: "/etc/sudoers.d/sidepulse-swift-disablesleep")
+              {
+                model.problem =
+                  "Install the optional sleep helper from the project before enabling this setting."
+                return
+              }
+              model.change { $0["swift_closed_lid"] = value }
+            })
+        ) {
+          Text("Never").tag("never")
+          Text("While agents work").tag("agents")
+          Text("Always").tag("always")
+        }
+      }
+      Section("Transcript recovery") {
+        ForEach(["codex", "claude"], id: \.self) { provider in
+          Toggle(
+            provider.capitalized,
+            isOn: Binding(
+              get: {
+                (model.settings["transcript_monitoring"] as? [String: Bool])?[provider] ?? false
+              },
+              set: { value in
+                model.change { config in
+                  var enabled = config["transcript_monitoring"] as? [String: Bool] ?? [:]
+                  enabled[provider] = value
+                  config["transcript_monitoring"] = enabled
+                }
+              }))
+        }
       }
       Section("Agent hooks") {
         Picker("Provider", selection: $provider) {

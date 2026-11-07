@@ -52,6 +52,7 @@ enum Args {
     sidepulse-swift — native macOS companion
       devices | firmware version [--device PATH]
       firmware upgrade [--device PATH] [--version X.Y.Z | --file ZIP] [--dry-run]
+      raw-write /dev/rdiskN [--dry-run] PROGRAM
       write [--device PATH | --all] [--dry-run] PROGRAM
       agent-monitor status [--json] | live | leds | doctor
       agent-monitor install|uninstall [codex|claude|cursor|grok|junie|all]
@@ -72,6 +73,10 @@ enum Args {
   static func run() async throws {
     let command = Args.pop() ?? "help"
     switch command {
+    case "update":
+      try Args.end()
+      try SystemCommand.run(
+        "/usr/bin/open", ["https://github.com/unipheas/SidePulse-Swift/releases"])
     case "help", "-h", "--help": print(help)
     case "version", "--version", "-V": print("SidePulse Swift 0.1.0")
     case "devices": try listDevices()
@@ -88,6 +93,10 @@ enum Args {
           try await Firmware.upgrade(Args.one(devices), version: version, file: file, dryRun: dry))
       default: throw PulseError("Use firmware version or upgrade.")
       }
+    case "raw-write":
+      let path = try Args.require("whole disk")
+      let dry = Args.flag("--dry-run")
+      try RawDisk.write(path: path, program: Args.program(), dryRun: dry)
     case "write":
       let devices = try Args.devices()
       let all = Args.flag("--all")
@@ -237,6 +246,7 @@ enum Args {
     try Args.end()
     let monitor = Monitor()
     let output = Output()
+    var lastPhoneMode: Mode?
     repeat {
       let settings = try Settings.read()
       let rows = monitor.sessions()
@@ -247,6 +257,13 @@ enum Args {
         }
         try output.sync(
           devices: Device.discover(), mode: mode, settings: settings, battery: Battery.read())
+        if settings["swift_phone_mirror"] as? Bool == true, lastPhoneMode != mode {
+          let program = try Programs.program(mode, count: 8, settings: settings)
+          for phone in try Bridge.phones() {
+            try await Bridge.push(to: phone.id, program: program, title: nil, message: nil)
+          }
+          lastPhoneMode = mode
+        }
       } else if json {
         struct Report: Encodable {
           let mode: Mode

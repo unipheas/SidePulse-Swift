@@ -17,8 +17,11 @@ public struct Phone {
     self.token = token
     self.name = name
     self.server = server
-    self.id = SHA256.hash(data: Data(token.utf8)).prefix(5).map { String(format: "%02x", $0) }
-      .joined()
+    self.id =
+      token.hasPrefix("fcm_")
+      ? SHA256.hash(data: Data(token.dropLast(33).utf8)).prefix(6).map {
+        String(format: "%02x", $0)
+      }.joined() : String(token.prefix(12))
   }
 }
 

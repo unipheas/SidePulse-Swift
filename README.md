@@ -52,3 +52,9 @@ The script builds both executables, includes their resources and icon, signs the
 ## Attribution
 
 This independent port is based on [inteliwear/sidepulse](https://github.com/inteliwear/sidepulse) and the configurable Done duration in [upstream PR #79](https://github.com/inteliwear/sidepulse/pull/79). The bundled LED programs, profiles, LED format reference and firmware simulator come from that MIT-licensed project. The app icon and Swift implementation are part of this repository. See [LICENSE](LICENSE).
+
+### Optional hardware and power controls
+
+The app can preview battery changes when the Mac is plugged in and play lid-open and lid-closed animations. To enable the stronger closed-lid policy, an administrator can run `sudo Scripts/sleep-helper.sh install` and then select a policy in Settings. This installs a rule restricted to two `pmset` commands. Select **Never** before running `sudo Scripts/sleep-helper.sh uninstall`. The app records whether it changed the system setting so it can release its override.
+
+For an unmounted single-FAT FAT12 device, `raw-write /dev/rdiskN --dry-run PROGRAM` checks the existing LED file and geometry. Raw writes require a whole device no larger than 300,000 bytes and preserve its existing allocation. Normal mounted-device writes are the usual path.

@@ -16,7 +16,7 @@ jobs:
           cli="dist/SidePulse Swift.app/Contents/MacOS/sidepulse-swift"
           "$cli" --version
           "$cli" animations | grep -Fx cyan-roll-8
-          lipo -verify_arch arm64 x86_64 "$cli"
+          lipo "$cli" -verify_arch arm64 x86_64
       - uses: actions/upload-artifact@v4
         with:
           name: SidePulse-Swift-macOS

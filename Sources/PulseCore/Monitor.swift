@@ -41,6 +41,32 @@ public enum Events {
     return try? Date.ISO8601FormatStyle().parse(string)
   }
 
+  static func explicit(_ raw: JSONObject, message: String) -> Mode? {
+    var names = [
+      "ask": Mode.waiting, "question": .waiting, "waiting": .waiting, "input": .waiting,
+      "blocked": .blocked, "error": .blocked, "progress": .progress, "done": .done,
+      "complete": .done, "idle": .idle, "ready": .idle,
+    ]
+    for mode in Mode.allCases { names[mode.rawValue] = mode }
+    if let value = (raw["sidepulse_status"] ?? raw["sidepulse_mode"]) as? String,
+      let mode = names[value.lowercased()]
+    {
+      return mode
+    }
+    let outsideCode = message.replacingOccurrences(
+      of: #"(?s)`{3}.*?`{3}"#, with: "", options: .regularExpression)
+    for line in outsideCode.split(whereSeparator: \.isNewline) {
+      let pattern = #"(?i)^\s*<!--\s*(?:sidepulse|agent[-_ ]monitor)\s*:\s*([a-z_ -]+?)\s*-->\s*$"#
+      if line.range(of: pattern, options: .regularExpression) != nil {
+        let key = String(line).replacingOccurrences(
+          of: pattern, with: "$1", options: .regularExpression
+        ).lowercased().replacingOccurrences(of: " ", with: "_")
+        if let mode = names[key] { return mode }
+      }
+    }
+    return nil
+  }
+
   public static func parse(provider: String, row: JSONObject) -> Session? {
     let raw = row["event"] as? JSONObject ?? row
     guard
@@ -56,14 +82,8 @@ public enum Events {
     let mode: Mode
     if event.lowercased() == "interrupt" {
       mode = .idle
-    } else if let explicit = Mode(
-      rawValue: (raw["sidepulse_status"] ?? raw["sidepulse_mode"]) as? String ?? "")
-    {
+    } else if let explicit = explicit(raw, message: message) {
       mode = explicit
-    } else if message.contains("<!-- sidepulse:ask -->") {
-      mode = .waiting
-    } else if message.contains("<!-- sidepulse:done -->") {
-      mode = .done
     } else {
       switch event.lowercased() {
       case "stopfailure", "posttoolusefailure", "permissiondenied": mode = .blocked
@@ -85,7 +105,11 @@ public enum Events {
         let text = ((raw["notification_type"] as? String ?? "") + " " + message).lowercased()
         if ["permission", "input", "approval"].contains(where: text.contains) {
           mode = .waiting
-        } else if ["idle", "complete", "finished"].contains(where: text.contains) {
+        } else if ["turn complete", "task complete", "work complete", "completed successfully"]
+          .contains(where: text.contains)
+          || (raw["notification_type"] as? String == "idle_prompt"
+            && ["done", "complete", "completed"].contains(message.lowercased()))
+        {
           mode = .done
         } else {
           mode = .working
@@ -124,6 +148,29 @@ public final class Monitor {
     var inode: UInt64 = 0, offset: UInt64 = 0
     var partial = Data()
     var sessions = [String: Session]()
+    var permissions = [String: Set<String>]()
+    mutating func ingest(_ session: Session, row: JSONObject) {
+      let key = session.id
+      let previous = sessions[key]
+      if let previous, previous.date > session.date { return }
+      let raw = row["event"] as? JSONObject ?? row
+      let command = (raw["tool_input"] as? JSONObject)?["command"] as? String
+      let signature = command.map { (raw["tool_name"] as? String ?? "") + "\u{0}" + $0 }
+      switch session.event {
+      case "PermissionRequest": if let signature { permissions[key, default: []].insert(signature) }
+      case "PostToolUse": if let signature { permissions[key]?.remove(signature) }
+      case "Stop", "Interrupt", "SessionEnd", "UserPromptSubmit":
+        permissions.removeValue(forKey: key)
+      default: break
+      }
+      if previous?.mode == .done && session.event == "Notification" { return }
+      if previous?.event == "PermissionRequest", session.event != "PermissionRequest",
+        permissions[key]?.isEmpty == false
+      {
+        return
+      }
+      sessions[key] = session
+    }
   }
   private let transcripts = TranscriptReader()
   private var tails = [URL: Tail]()
@@ -159,9 +206,7 @@ public final class Monitor {
               guard let row = (try? JSONSerialization.jsonObject(with: line)) as? JSONObject,
                 let session = Events.parse(provider: provider, row: row)
               else { continue }
-              if tail.sessions[session.id].map({ $0.date > session.date }) != true {
-                tail.sessions[session.id] = session
-              }
+              tail.ingest(session, row: row)
             }
             tails[url] = tail
           } catch { continue }
