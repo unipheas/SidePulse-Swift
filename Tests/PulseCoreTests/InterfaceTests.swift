@@ -77,3 +77,37 @@ final class InterfaceTests: IsolatedTests {
     XCTAssertEqual(transitions, [.idle, .working, .done, .idle])
   }
 }
+
+extension InterfaceTests {
+  @MainActor func testSessionOpeningUsesTheSelectedSurfaceAndReportsFailures() throws {
+    let session = Session(
+      provider: "codex", session: "fixture", name: "Task", event: "Stop", date: Date(),
+      threadID: "id", mode: .done)
+    var links = [URL]()
+    var commands = [String]()
+    let settings: JSONObject = ["session_terminal": ["app": "ghostty"]]
+    for target in [session.target(for: .app), session.target(for: .terminal), nil] {
+      try SessionOpening.open(
+        target, session: session, settings: settings,
+        link: {
+          links.append($0)
+          return true
+        },
+        terminal: { command, received, item in
+          commands.append(command)
+          XCTAssertEqual(
+            (received["session_terminal"] as? JSONObject)?["app"] as? String, "ghostty")
+          XCTAssertEqual(item.session, "fixture")
+        })
+    }
+    XCTAssertEqual(links.map(\.absoluteString), ["codex://threads/id"])
+    XCTAssertEqual(commands.count, 1)
+    XCTAssertThrowsError(
+      try SessionOpening.open(
+        session.target(for: .app), session: session, settings: [:], link: { _ in false }))
+    XCTAssertThrowsError(
+      try SessionOpening.open(
+        session.target(for: .terminal), session: session, settings: [:],
+        terminal: { _, _, _ in throw PulseError("terminal failed") }))
+  }
+}

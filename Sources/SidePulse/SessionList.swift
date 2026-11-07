@@ -23,36 +23,56 @@ struct SessionList: View {
             Text(item.mode.label)
             Text(item.date, style: .relative).font(.caption).foregroundStyle(.secondary)
           }
-          let actions = item.actions(
-            preferences: model.settings["session_open_preferences"] as? [String: String] ?? [:])
-          if let first = actions.first {
-            Menu {
-              ForEach(actions, id: \.self) { action in
-                Button(action.label) { open(item.target(for: action), session: item) }
-              }
-            } label: {
-              Image(systemName: "arrow.up.forward.app")
-            } primaryAction: {
-              open(item.target(for: first), session: item)
-            }
+          SessionOpenMenu(session: item) { Image(systemName: "arrow.up.forward.app") }
             .accessibilityLabel("Open " + item.name).fixedSize()
-          }
         }.padding(.vertical, 4)
       }
     }
   }
-  private func open(_ target: SessionTarget?, session: Session) {
+}
+
+struct SessionOpenMenu<Label: View>: View {
+  @EnvironmentObject var model: Dashboard
+  let session: Session
+  @ViewBuilder var label: () -> Label
+  var body: some View {
+    let actions = session.actions(
+      preferences: model.settings["session_open_preferences"] as? [String: String] ?? [:])
+    if let first = actions.first {
+      Menu {
+        ForEach(actions, id: \.self) { action in
+          Button(action.label) { open(action) }
+        }
+      } label: {
+        label()
+      } primaryAction: {
+        open(first)
+      }
+    } else {
+      label()
+    }
+  }
+  private func open(_ action: SessionAction) {
+    do {
+      try SessionOpening.open(
+        session.target(for: action), session: session, settings: model.settings)
+    } catch { model.problem = error.localizedDescription }
+  }
+}
+
+@MainActor enum SessionOpening {
+  static func open(
+    _ target: SessionTarget?, session: Session, settings: JSONObject,
+    link: (URL) -> Bool = { NSWorkspace.shared.open($0) },
+    terminal: (String, JSONObject, Session) throws -> Void = {
+      try Terminal.open($0, settings: $1, session: $2)
+    }
+  ) throws {
     switch target {
     case .link(let url):
-      if !NSWorkspace.shared.open(url) {
-        model.problem = "Install the application that opens this session."
-      }
-    case .terminal(let command):
-      do {
-        try Terminal.open(command, settings: model.settings, session: session)
-      } catch { model.problem = error.localizedDescription }
+      guard link(url) else { throw PulseError("Install the application that opens this session.") }
+    case .terminal(let command): try terminal(command, settings, session)
     case nil: break
     }
   }
-
 }

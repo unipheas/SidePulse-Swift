@@ -2,7 +2,10 @@ import Foundation
 import PulseCore
 
 extension CLI {
-  static func monitor(_ sub: String) async throws {
+  static func monitor(
+    _ sub: String, discover: () -> [Device] = Device.discover,
+    legacyRunning: () -> Bool = Output.legacyRunning
+  ) async throws {
     try Settings.migrate()
     let json = Args.flag("--json")
     let once = Args.flag("--once")
@@ -55,12 +58,12 @@ extension CLI {
       let rows = monitor.sessions()
       let mode = Monitor.aggregate(rows, settings: settings)
       if sub == "leds" {
-        guard dry || !Output.legacyRunning() else {
+        guard dry || !legacyRunning() else {
           throw PulseError("The existing SidePulse service owns LED output.")
         }
         let devices =
           try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
-          ?? Device.discover()
+          ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
         if dry {
           for device in devices {
             print(
@@ -68,6 +71,7 @@ extension CLI {
                 + (try Programs.program(mode, count: device.count, settings: settings)))
           }
         } else {
+          settings = try Settings.remember(devices, settings: settings)
           let battery = Battery.read()
           try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
           output.updateAwake(mode: mode, settings: settings, battery: battery)

@@ -152,6 +152,7 @@ private struct AnimationCard: View {
                   Button(name) { draft = (try? Programs.preset(name, count: count)) ?? draft }
                 }
               }
+              .accessibilityIdentifier("load-animation-preset")
               DevicePreviewMenu(source: draft)
               Spacer()
               Button("Cancel") { editing = false }

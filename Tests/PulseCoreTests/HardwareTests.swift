@@ -38,6 +38,30 @@ final class HardwareTests: IsolatedTests {
     let message = try await Firmware.upgrade(device, version: nil, file: zip.path, dryRun: false)
     XCTAssertTrue(message.contains("transferred"))
     XCTAssertEqual(try Data(contentsOf: target), payload)
+    let status = device.root.appendingPathComponent("STATUS.TXT")
+    try Data("release_version 2.0.0\nserial fixture\n".utf8).write(to: status)
+    do {
+      _ = try await Firmware.upgrade(device, version: nil, file: zip.path, dryRun: false)
+      XCTFail("Expected device identity change")
+    } catch { XCTAssertTrue(error.localizedDescription.contains("Device changed")) }
+    let newer = try Device.inspect(device.root)
+    do {
+      _ = try await Firmware.upgrade(newer, version: nil, file: zip.path, dryRun: false)
+      XCTFail("Expected downgrade refusal")
+    } catch { XCTAssertTrue(error.localizedDescription.contains("downgrade")) }
+    try Data("release_version 1.1.0\nserial fixture\n".utf8).write(to: status)
+    let same = try Device.inspect(device.root)
+    let unchanged = try await Firmware.upgrade(same, version: nil, file: zip.path, dryRun: false)
+    XCTAssertTrue(unchanged.contains("already installed"))
+    XCTAssertThrowsError(
+      try Firmware.verifyZIP(root.appendingPathComponent("unofficial.zip"), device: device))
+    let extra = root.appendingPathComponent("extra.txt")
+    try Data("extra".utf8).write(to: extra)
+    try SystemCommand.run("/usr/bin/zip", ["-jq", zip.path, extra.path])
+    XCTAssertThrowsError(try Firmware.verifyZIP(zip, device: device)) { error in
+      XCTAssertTrue(error.localizedDescription.contains("layout"))
+    }
+    try archive.write(to: zip)
     try Data("corrupted".utf8).write(to: root.appendingPathComponent("FIRMWARE.BIN"))
     try SystemCommand.run(
       "/usr/bin/zip", ["-jq", zip.path, root.appendingPathComponent("FIRMWARE.BIN").path])
@@ -283,5 +307,36 @@ extension HardwareTests {
     XCTAssertFalse(
       FileManager.default.fileExists(
         atPath: Paths.support.appendingPathComponent("owns-disablesleep").path))
+  }
+}
+
+extension HardwareTests {
+  func testReadChannelRejectsInvalidMappingAllocationAndShortReads() throws {
+    let file = root.appendingPathComponent("setup.html")
+    try Data(count: 1).write(to: file)
+    XCTAssertThrowsError(try ReadChannel.upload([1], root: root)) { error in
+      XCTAssertTrue(error.localizedDescription.contains("configure"))
+    }
+    try Data(count: 19 * 512).write(to: file)
+    XCTAssertThrowsError(try ReadChannel.upload([1], root: root, allocate: { _, _, _ in ENOMEM })) {
+      error in
+      XCTAssertTrue(error.localizedDescription.contains("allocate"))
+    }
+    XCTAssertThrowsError(try ReadChannel.upload([1], root: root, readBytes: { _, _, _, _ in 0 })) {
+      error in
+      XCTAssertTrue(error.localizedDescription.contains("Incomplete"))
+    }
+    var sector = [UInt8](repeating: 0, count: 512)
+    let text = "<!--READ2ME1:" + String(repeating: "ZZ", count: 64) + "-->\n"
+    sector.replaceSubrange(256..<256 + text.utf8.count, with: text.utf8)
+    XCTAssertThrowsError(try ReadChannel.Status(sector)) { error in
+      XCTAssertTrue(error.localizedDescription.contains("encoding"))
+    }
+    var contents = Data(count: 18 * 512)
+    contents.append(contentsOf: sector)
+    try contents.write(to: file)
+    XCTAssertThrowsError(try ReadChannel.upload([1], root: root)) { error in
+      XCTAssertTrue(error.localizedDescription.contains("encoding"))
+    }
   }
 }

@@ -272,10 +272,89 @@ extension AppTests {
     XCTAssertTrue(registry.values.contains { $0["name"] as? String == "Reusable fixture" })
     app.buttons["Cancel"].click()
     app.buttons["edit-idle_ready"].click()
-    app.menuButtons["Load preset"].click()
+    let preset = app.descendants(matching: .any)["load-animation-preset"].firstMatch
+    XCTAssertTrue(preset.waitForExistence(timeout: 5))
+    preset.click()
     app.menuItems["Reusable fixture"].firstMatch.click()
     app.buttons["Save animation"].click()
     let entries = try settings()["agent_animations"] as? [String: [String: Any]]
     XCTAssertEqual(entries?["idle_ready"]?["custom_program"] as? String, "#102030")
+  }
+}
+
+extension AppTests {
+  func testHistoryRangePersistsAcrossRelaunch() throws {
+    select("History")
+    let range = app.popUpButtons["history-range"]
+    range.click()
+    app.menuItems["Last 6 hours"].firstMatch.click()
+    XCTAssertEqual(
+      (try settings()["history"] as? [String: Any])?["timeframe_seconds"] as? Int, 21600)
+    app.terminate()
+    app.launch()
+    select("History")
+    XCTAssertTrue(
+      range.label.contains("Last 6 hours")
+        || (range.value as? String)?.contains("Last 6 hours") == true, range.debugDescription)
+  }
+  func testDisconnectedDevicePreferencesAndForget() throws {
+    app.terminate()
+    var config = try settings()
+    let id = "/Volumes/Fixture Dot"
+    config["devices"] = [
+      ["id": id, "name": "Travel Dot", "brightness": 100, "led_display": "agent"]
+    ]
+    try JSONSerialization.data(withJSONObject: config).write(
+      to: root.appendingPathComponent("settings.json"))
+    app.launch()
+    select("Devices")
+    XCTAssertTrue(app.staticTexts["Travel Dot"].waitForExistence(timeout: 3))
+    app.popUpButtons["device-display-" + id].click()
+    app.menuItems["Battery"].firstMatch.click()
+    XCTAssertEqual(
+      (try settings()["devices"] as? [[String: Any]])?.first { $0["id"] as? String == id }?[
+        "led_display"] as? String, "battery")
+    app.buttons["forget-device-" + id].click()
+    XCTAssertFalse(
+      (try settings()["devices"] as? [[String: Any]] ?? []).contains { $0["id"] as? String == id })
+    XCTAssertFalse(app.staticTexts["Travel Dot"].exists)
+  }
+}
+
+extension AppTests {
+  func testNotchPreviewAndAwakePreferencesPersist() throws {
+    select("Settings")
+    let notch = app.switches["notch-enabled"]
+    reveal(notch)
+    notch.click()
+    XCTAssertEqual(try settings()["virtual_status_device_enabled"] as? Bool, true)
+    choose(app.popUpButtons["notch-display"], "Battery")
+    choose(app.popUpButtons["notch-display"], "Hidden")
+    choose(app.popUpButtons["notch-display"], "Agent status")
+    let brightness = app.sliders["notch-brightness"]
+    reveal(brightness)
+    brightness.click()
+    brightness.typeKey(.leftArrow, modifierFlags: [])
+    XCTAssertNotNil(
+      (try settings()["devices"] as? [[String: Any]])?.first {
+        $0["id"] as? String == "virtual:status-bar"
+      }?["brightness"])
+    reveal(notch)
+    notch.click()
+    XCTAssertEqual(try settings()["virtual_status_device_enabled"] as? Bool, false)
+    choose(app.popUpButtons["awake-policy"], "While agents work")
+    XCTAssertEqual(try settings()["sleep_prevention_policy"] as? String, "agents")
+    choose(app.popUpButtons["awake-policy"], "Never")
+    XCTAssertEqual(try settings()["swift_keep_awake"] as? Bool, false)
+    let timing = app.textFields["idle_timeout_seconds"]
+    select("Overview")
+    select("Settings")
+    reveal(timing)
+    replace(timing, with: "-1")
+    app.buttons["idle_timeout_seconds-apply"].click()
+    XCTAssertTrue(
+      app.staticTexts["Enter a finite number of seconds, zero or more."].waitForExistence(
+        timeout: 3))
+    app.windows.buttons["OK"].firstMatch.click()
   }
 }

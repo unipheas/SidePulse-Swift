@@ -52,3 +52,37 @@ final class ClassifierTests: XCTestCase {
     } catch { XCTAssertTrue(error.localizedDescription.contains("Apple Intelligence")) }
   }
 }
+
+final class MLXClassifierTests: IsolatedTests {
+  func testMLXRequestPreservesLegacyFewShotPromptAndValidatesResponses() throws {
+    let executable = root.appendingPathComponent("sidepulsectl")
+    let helper = root.appendingPathComponent("sidepulse-classifier")
+    XCTAssertThrowsError(try ReplyClassifier.mlx("message", executable: executable))
+    try Data("fixture".utf8).write(to: helper)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: helper.path)
+    let text = "Should I deploy? 'quoted'\n$HOME"
+    let raw = try ReplyClassifier.mlx(text, model: "local/model", executable: executable) {
+      binary, arguments in
+      XCTAssertEqual(binary, helper.path)
+      XCTAssertEqual(arguments.count, 1)
+      let request = try XCTUnwrap(
+        try JSONSerialization.jsonObject(with: Data(arguments[0].utf8)) as? JSONObject)
+      XCTAssertEqual(request["model"] as? String, "local/model")
+      let messages = try XCTUnwrap(request["messages"] as? [[String: String]])
+      XCTAssertEqual(messages.count, 12)
+      XCTAssertEqual(messages.first?["role"], "system")
+      XCTAssertEqual(messages.last?["content"], "Message:\n<message>\n" + text + "\n</message>")
+      XCTAssertEqual(
+        messages.filter { $0["role"] == "assistant" }.compactMap { $0["content"] },
+        ["1", "1", "0", "0", "2"])
+      return Data("{\"output\":\"1\"}".utf8)
+    }
+    XCTAssertEqual(raw, "1")
+    XCTAssertThrowsError(try ReplyClassifier.mlx("message", model: "", executable: executable))
+    for response in ["[]", "{}", "bad JSON", "{\"error\":\"Model unavailable\"}"] {
+      XCTAssertThrowsError(
+        try ReplyClassifier.mlx(
+          "message", executable: executable, run: { _, _ in Data(response.utf8) }))
+    }
+  }
+}

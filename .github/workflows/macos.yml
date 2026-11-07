@@ -9,13 +9,14 @@ jobs:
       matrix:
         os: [macos-15, macos-15-intel]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - name: Test macOS app, hardware protocols, and CLI
         run: Scripts/test-coverage.sh
         env:
           MIN_COVERAGE: 80
+          RUN_CLASSIFIER_TESTS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:

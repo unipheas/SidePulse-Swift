@@ -16,16 +16,8 @@ struct DeviceManagement: View {
       Section("Connected devices") {
         ForEach(model.devices) { device in
           LabeledContent("SidePulse " + device.model, value: device.firmware)
-          let config = Settings.device(device.id, in: model.settings)
-          Slider(
-            value: Binding(
-              get: { Double(config["brightness"] as? Int ?? 255) },
-              set: { value in
-                model.change { settings in
-                  Settings.editDevice(device.id, in: &settings, values: ["brightness": Int(value)])
-                }
-              }), in: 0...255, step: 1
-          ) { Text("Brightness") }
+          DeviceDisplayPreference(id: device.id, title: "Display")
+          DeviceBrightnessPreference(id: device.id)
           HStack {
             Button("Check firmware") { update(device, dry: true) }.disabled(busy)
             Button("Update firmware…") {
@@ -39,6 +31,30 @@ struct DeviceManagement: View {
         }
         if !firmwareStatus.isEmpty { Text(firmwareStatus).textSelection(.enabled) }
         if busy { ProgressView() }
+      }
+      if !remembered.isEmpty {
+        Section("Disconnected devices") {
+          ForEach(remembered, id: \.self) { id in
+            VStack(alignment: .leading, spacing: 10) {
+              HStack {
+                Text(
+                  Settings.device(id, in: model.settings)["name"] as? String
+                    ?? URL(fileURLWithPath: id).lastPathComponent
+                ).font(.headline)
+                Spacer()
+                Button("Forget") {
+                  model.change { settings in
+                    var rows = settings["devices"] as? [JSONObject] ?? []
+                    rows.removeAll { $0["id"] as? String == id }
+                    settings["devices"] = rows
+                  }
+                }.accessibilityIdentifier("forget-device-" + id)
+              }
+              DeviceDisplayPreference(id: id, title: "Display")
+              DeviceBrightnessPreference(id: id)
+            }
+          }
+        }
       }
       Section("Linked phones") {
         ForEach(phones, id: \.id) { phone in
@@ -77,6 +93,13 @@ struct DeviceManagement: View {
         )
       }
   }
+  private var remembered: [String] {
+    let connected = Set(model.devices.map(\.id))
+    return (model.settings["devices"] as? [JSONObject] ?? [])
+      .compactMap { $0["id"] as? String }
+      .filter { !$0.hasPrefix("virtual:") && !$0.hasPrefix("ios/") && !connected.contains($0) }
+      .sorted()
+  }
   private func reload() {
     do { phones = try Bridge.phones() } catch { phoneStatus = error.localizedDescription }
   }
@@ -89,5 +112,39 @@ struct DeviceManagement: View {
         firmwareStatus = try await Firmware.upgrade(device, version: nil, file: nil, dryRun: dry)
       } catch { firmwareStatus = error.localizedDescription }
     }
+  }
+}
+
+struct DeviceBrightnessPreference: View {
+  @EnvironmentObject var model: Dashboard
+  let id: String
+  var body: some View {
+    Slider(
+      value: Binding(
+        get: { Double(Settings.device(id, in: model.settings)["brightness"] as? Int ?? 255) },
+        set: { value in
+          model.change { Settings.editDevice(id, in: &$0, values: ["brightness": Int(value)]) }
+        }), in: 0...255, step: 1
+    ) { Text("Brightness") }
+    .accessibilityIdentifier("device-brightness-" + id)
+  }
+}
+struct DeviceDisplayPreference: View {
+  @EnvironmentObject var model: Dashboard
+  let id: String
+  let title: String
+  var body: some View {
+    Picker(
+      title,
+      selection: Binding(
+        get: { Settings.device(id, in: model.settings)["led_display"] as? String ?? "agent" },
+        set: { value in
+          model.change { Settings.editDevice(id, in: &$0, values: ["led_display": value]) }
+        })
+    ) {
+      Text("Agent status").tag("agent")
+      Text("Battery").tag("battery")
+      Text("Manual").tag("custom")
+    }.accessibilityIdentifier("device-display-" + id)
   }
 }

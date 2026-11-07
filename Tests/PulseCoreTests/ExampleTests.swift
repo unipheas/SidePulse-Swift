@@ -161,3 +161,20 @@ final class ExampleTests: IsolatedTests {
       FileManager.default.fileExists(atPath: device.root.appendingPathComponent("LEDS.LED").path))
   }
 }
+
+extension ExampleTests {
+  func testAuthorizedMicrophoneAdapterStartsCapturesAndStops() async throws {
+    guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+      throw XCTSkip("Microphone access is not already authorized; this test never requests it.")
+    }
+    let input = AudioMeter.Input.microphone()
+    let authorized = await input.authorize()
+    XCTAssertTrue(authorized)
+    let level = AudioMeter.Level()
+    try input.start(level)
+    defer { input.stop() }
+    try await Task.sleep(for: .milliseconds(120))
+    XCTAssertTrue(level.read().isFinite)
+    XCTAssertGreaterThanOrEqual(level.read(), 0)
+  }
+}

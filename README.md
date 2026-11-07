@@ -71,3 +71,14 @@ For an unmounted single-FAT FAT12 device, `raw-write /dev/rdiskN --dry-run PROGR
 Custom hook paths are accepted with `agent-monitor install --log-dir DIRECTORY` or `--codex-log PATH` (and equivalent options for the other providers). Monitoring supports `--max-lines` and `--recent-seconds`. Mounted writes accept an explicit `.LED` path or `--file-name NAME.LED`.
 
 `status-bar start --no-start` installs the app launch agent without launching it. `status-bar stop` quits it; `status-bar install-sleep-helper` and `status-bar uninstall-sleep-helper` manage the bundled privileged helper. The eject guard accepts `--scope user`, `system`, or `auto`; system scope requires root. The GUI and normal monitor run in the user's session.
+
+### Optional local MLX classification
+
+Apple Intelligence remains the default classifier. On Apple silicon, the packaged app also includes a Swift/Metal helper for the original MLX model:
+
+```sh
+sidepulsectl classify --backend mlx --json "Please approve the draft."
+sidepulsectl classify --model mlx-community/Qwen2.5-0.5B-Instruct-4bit "Thanks!"
+```
+
+`--model` also accepts an absolute local model directory. The first remote-model use downloads its weights into the user's model cache. No Python runtime is used. Building the helper requires Xcode; `Scripts/package.sh --universal` includes it and the Metal resources. See [TESTING.md](TESTING.md) for coverage and the remaining validation work.

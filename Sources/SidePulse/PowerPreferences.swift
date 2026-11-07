@@ -27,6 +27,7 @@ struct PowerPreferences: View {
         Text("While agents work").tag("agents")
         Text("Always").tag("always")
       }
+      .accessibilityIdentifier("awake-policy")
       HStack {
         Text("Allow sleep on battery below")
         Spacer()
@@ -60,6 +61,7 @@ struct PowerPreferences: View {
         Text("While agents work").tag("agents")
         Text("Always").tag("always")
       }
+      .accessibilityIdentifier("closed-lid-policy")
       HStack {
         Text(helperStatus).foregroundStyle(.secondary)
         Spacer()

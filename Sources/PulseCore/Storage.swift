@@ -67,6 +67,29 @@ func withLock<T>(_ url: URL, _ action: () throws -> T) throws -> T {
 }
 
 public enum Settings {
+  public static func historyHours(in settings: JSONObject) -> Int {
+    let seconds =
+      (settings["history"] as? JSONObject)?["timeframe_seconds"] as? Double
+      ?? settings["history_timeframe_seconds"] as? Double ?? 86400
+    guard seconds.isFinite, seconds >= 0, seconds <= 604800 else { return 24 }
+    let hours = Int(seconds / 3600)
+    return [0, 1, 6, 12, 24, 48, 168].contains(hours) ? hours : 24
+  }
+  /// Remember newly seen volumes without rewriting preferences on every polling tick.
+  public static func remember(_ devices: [Device], settings: JSONObject) throws -> JSONObject {
+    let known = Set((settings["devices"] as? [JSONObject] ?? []).compactMap { $0["id"] as? String })
+    let unseen = devices.filter { !known.contains($0.id) }
+    guard !unseen.isEmpty else { return settings }
+    try update { current in
+      let saved = Set(
+        (current["devices"] as? [JSONObject] ?? []).compactMap { $0["id"] as? String })
+      for device in unseen where !saved.contains(device.id) {
+        editDevice(
+          device.id, in: &current, values: ["name": device.name, "path": device.root.path])
+      }
+    }
+    return try read()
+  }
   public static func device(_ id: String, in settings: JSONObject) -> JSONObject {
     (settings["devices"] as? [JSONObject])?.first { $0["id"] as? String == id } ?? ["id": id]
   }

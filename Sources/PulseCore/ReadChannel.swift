@@ -52,7 +52,11 @@ enum ReadChannel {
       else { throw PulseError("Invalid READ2ME status checksum or version.") }
     }
   }
-  static func upload(_ payload: [UInt8], root: URL) throws {
+  static func upload(
+    _ payload: [UInt8], root: URL,
+    allocate: (UnsafeMutablePointer<UnsafeMutableRawPointer?>, Int, Int) -> Int32 = posix_memalign,
+    readBytes: (Int32, UnsafeMutableRawPointer, Int, off_t) -> Int = { pread($0, $1, $2, $3) }
+  ) throws {
     let file = root.appendingPathComponent("setup.html")
     let fd = open(file.path, O_RDONLY | O_NOFOLLOW)
     guard fd >= 0 else { throw PulseError("Cannot open the Pro read channel.") }
@@ -65,12 +69,13 @@ enum ReadChannel {
     else { throw PulseError("Cannot configure uncached reads.") }
     defer { munmap(map, size) }
     var buffer: UnsafeMutableRawPointer?
-    guard posix_memalign(&buffer, Int(getpagesize()), Int(getpagesize())) == 0, let buffer else {
+    guard allocate(&buffer, Int(getpagesize()), Int(getpagesize())) == 0, let buffer else {
       throw PulseError("Cannot allocate aligned buffer.")
     }
     defer { free(buffer) }
     func read(_ sector: Int) throws {
-      guard msync(map, size, MS_INVALIDATE) == 0, pread(fd, buffer, 512, off_t(sector * 512)) == 512
+      guard msync(map, size, MS_INVALIDATE) == 0,
+        readBytes(fd, buffer, 512, off_t(sector * 512)) == 512
       else { throw PulseError("Incomplete control-sector read.") }
     }
     func status() throws -> Status {

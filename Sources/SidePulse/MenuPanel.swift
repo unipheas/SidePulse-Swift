@@ -7,7 +7,9 @@ struct MenuPanel: View {
   @Environment(\.openWindow) var openWindow
   var body: some View {
     Text(model.mode.label)
-    ForEach(model.sessions.prefix(5)) { item in Text("\(item.name) · \(item.mode.label)") }
+    ForEach(model.sessions.prefix(5)) { item in
+      SessionOpenMenu(session: item) { Text("\(item.name) · \(item.mode.label)") }
+    }
     Divider()
     Button("Open SidePulse") {
       NSApp.activate(ignoringOtherApps: true)

@@ -107,41 +107,6 @@ public enum Jobs {
   }
 }
 
-public enum EjectGuard {
-  public static func run() throws {
-    guard let session = DASessionCreate(nil) else {
-      throw PulseError("Cannot create Disk Arbitration session.")
-    }
-    DARegisterDiskEjectApprovalCallback(
-      session, nil,
-      { disk, _ in
-        let whole = DADiskCopyWholeDisk(disk) ?? disk
-        guard let rawName = DADiskGetBSDName(whole) else { return nil }
-        let name = String(cString: rawName)
-        for device in Device.discover() where device.model == "Pro" {
-          guard let check = DASessionCreate(nil),
-            let mounted = DADiskCreateFromVolumePath(nil, check, device.root as CFURL),
-            let parent = DADiskCopyWholeDisk(mounted), let bsd = DADiskGetBSDName(parent),
-            String(cString: bsd) == name
-          else { continue }
-          return Unmanaged.passRetained(
-            DADissenterCreate(
-              nil, DAReturn(kDAReturnNotPermitted),
-              "SidePulse is protecting the Pro card" as CFString))
-        }
-        return nil
-      }, nil)
-    DASessionScheduleWithRunLoop(session, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-    defer {
-      DASessionUnscheduleFromRunLoop(
-        session, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-    }
-    withExtendedLifetime(session) {
-      while !Task.isCancelled { CFRunLoopRunInMode(.defaultMode, 0.5, true) }
-    }
-  }
-}
-
 extension Jobs {
   public static func logTail(_ file: URL, lines: Int) throws -> String {
     guard lines >= 0, lines <= 10000 else { throw PulseError("Use 0–10000 log lines.") }

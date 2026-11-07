@@ -51,6 +51,7 @@ import SwiftUI
       settings = try Settings.read()
       if ticks % 5 == 0 {
         devices = discover()
+        settings = try Settings.remember(devices, settings: settings)
         legacy = outputInUse()
       }
       ticks += 1
@@ -63,7 +64,12 @@ import SwiftUI
         if history.count > 500 { history.removeFirst() }
       }
       let battery = Battery.read()
-      try notch.update(NotchDisplay.program(settings: settings, mode: mode, battery: battery))
+      do {
+        try notch.update(NotchDisplay.program(settings: settings, mode: mode, battery: battery))
+      } catch {
+        try? notch.update(nil)
+        problem = "Notch lights: " + error.localizedDescription
+      }
       try sleepOverride.update(mode: mode, settings: settings, battery: battery, owner: !legacy)
       if !legacy {
         ownsOutput = true

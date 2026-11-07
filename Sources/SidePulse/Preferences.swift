@@ -48,21 +48,7 @@ struct Preferences: View {
           isOn: Binding(
             get: { model.mirror }, set: { value in model.change { $0["swift_mirror"] = value } }))
         ForEach(model.devices) { device in
-          let current = Settings.device(device.id, in: model.settings)
-          Picker(
-            device.name,
-            selection: Binding(
-              get: { current["led_display"] as? String ?? "agent" },
-              set: { value in
-                model.change { settings in
-                  Settings.editDevice(device.id, in: &settings, values: ["led_display": value])
-                }
-              })
-          ) {
-            Text("Agent status").tag("agent")
-            Text("Battery").tag("battery")
-            Text("Manual").tag("custom")
-          }
+          DeviceDisplayPreference(id: device.id, title: device.name)
         }
       }
       BatteryPreferences()
@@ -182,7 +168,7 @@ struct Preferences: View {
                 }
               }
             ), in: 0...255, step: 1
-          ) { Text("Notch brightness") }
+          ) { Text("Notch brightness") }.accessibilityIdentifier("notch-brightness")
         }
         Toggle(
           "Show menu bar icon",

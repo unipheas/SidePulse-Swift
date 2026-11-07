@@ -54,13 +54,25 @@ enum Args {
       firmware upgrade [--device PATH] [--version X.Y.Z | --file ZIP] [--dry-run]
       audio-meter [--dry-run] | fifa-final [--score 2-1] [--dry-run]
       raw-write /dev/rdiskN [--dry-run] PROGRAM
-      write [--device PATH | --all] [--dry-run] PROGRAM
+      write [--device PATH | --all] [--file-name NAME.LED] [--dry-run] PROGRAM
       agent-monitor status [--json] | live | leds | doctor
+        [--max-lines N] [--recent-seconds N] [--PROVIDER-log PATH]
+        [--device PATH] [--file-name NAME.LED] [--once] [--dry-run]
       agent-monitor install|uninstall [codex|claude|cursor|grok|junie|all]
-      hook-log --provider NAME [--event NAME] < event.json
-      battery status | leds [--device PATH]
+        install|uninstall: [--log-dir PATH] [--PROVIDER-log PATH]
+      hook-log --provider NAME [--event NAME] [--log PATH] < event.json
+      battery status [--json] | leds [--device PATH] [--file-name NAME.LED]
+      battery configure [--display agent|battery] [--full-watts auto|WATTS]
+        [--show-on-power-change yes|no] [--power-change-preview-seconds N]
       migrate | settings [done SECONDS] | animations | service run|start|stop|status
-      sdejectguard run|start|stop|status | classify MESSAGE
+      service|sdejectguard run|start|restart|stop|uninstall|status
+        [--scope user|system|auto] [--dry-run]
+      service|sdejectguard logs [--lines N] [--follow]
+      sdejectguard start --interactive
+      status-bar start|stop [--foreground] [--no-start] [--uninstall] [--dry-run]
+      status-bar install-sleep-helper|uninstall-sleep-helper|sleep-helper-status
+      classify [--backend apple|mlx] [--model MODEL] [--json] [MESSAGE]
+      update
       profile import|export FILE | history|audit FILE.csv|FILE.html
       link [TOKEN] | links | unlink ID | push [--to ID] [--title TEXT] [--message TEXT] [PROGRAM]
       relay receive CHANNEL | send CHANNEL PROVIDER < event.json
@@ -171,11 +183,21 @@ enum Args {
     case "service", "sdejectguard": try await serviceCommand(command)
     case "classify":
       let json = Args.flag("--json")
+      let model = try Args.option("--model")
+      let backend = try Args.option("--backend") ?? (model == nil ? "apple" : "mlx")
+      guard ["apple", "mlx"].contains(backend), !(backend == "apple" && model != nil) else {
+        throw PulseError("Choose --backend apple or mlx; --model selects an MLX model.")
+      }
       let message =
         Args.words.isEmpty
         ? String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
         : Args.words.joined(separator: " ")
-      let result = try await ReplyClassifier.result(message)
+      let result = try await ReplyClassifier.result(message) { text in
+        if backend == "mlx" {
+          return try ReplyClassifier.mlx(text, model: model ?? ReplyClassifier.defaultMLXModel)
+        }
+        return try await ReplyClassifier.generate(text)
+      }
       if json {
         print(String(decoding: try JSONEncoder().encode(result), as: UTF8.self))
       } else {

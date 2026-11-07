@@ -4,7 +4,7 @@ Use a Mac with Xcode selected as the active developer directory. UI tests also r
 
 ```sh
 swift test
-RUN_UI_TESTS=1 MIN_COVERAGE=80 Scripts/test-coverage.sh
+RUN_UI_TESTS=1 RUN_CLASSIFIER_TESTS=1 MIN_COVERAGE=80 Scripts/test-coverage.sh
 Scripts/package.sh --universal
 ```
 
@@ -14,7 +14,9 @@ The coverage command runs the Swift tests, real CLI integration tests, a disposa
 
 ## Current evidence
 
-The last complete combined run passed 69 XCTest methods plus 7 UI workflows, CLI integration, and the disk-image test. Combined LLVM line coverage was **86.89% (7,516 of 8,650 instrumented lines)**. Subsequent native tests now total 93 passing methods; the expanded 10-workflow UI suite and combined coverage are being rerun after a focus interruption invalidated two UI results. This is not 100% coverage. The report includes every production Swift and C file, including platform adapters and SwiftUI callbacks. Counts can differ with compiler versions because SwiftUI generates multiple instrumented regions for some source lines.
+The latest complete run passed **110 native XCTest methods, 2 classifier template tests, and 13 UI workflows**, plus CLI, MLX process, FAT12 image, and eject/remount integration checks. Combined LLVM line coverage is **94.12% (8,976 of 9,537 instrumented lines)**. The classifier helper, prompt renderer, MLX command adapter, and C USB adapter have 100% measured line coverage. Overall coverage is not yet 100%.
+
+The full report includes every production Swift and C file in the main package and the separate native classifier. Set `RUN_CLASSIFIER_TESTS=1` on Apple silicon to include the helper; a run without that flag explicitly reports that it is omitted. Compiler-generated SwiftUI regions can make counts differ between compiler versions.
 
 Reports are written to:
 
@@ -31,6 +33,12 @@ GitHub Actions runs the native suite and universal packaging on Apple Silicon an
 
 A connected Pro running firmware 1.1.0 passed a mounted-volume working → done → idle cycle. With Done configured for 15 seconds, the custom All Clear program returned to Night Patrol after 14.7 seconds between file observations. This test exposed and fixed a DNS lookup that had blocked the native monitoring loop.
 
+The native eject guard now passes a real Disk Arbitration test against a disposable HFS+ image: baseline eject succeeds, a simulated Pro is protected and remounted, and an ordinary image can eject. This exposed and fixed a lookup performed after macOS had already unmounted the volume. The installed guard has not yet been replaced.
+
 Physical Dot, mobile pairing, read-only Pro transport, firmware flashing, and closed-lid power changes remain unverified. Protocol simulations and dry runs do not replace those checks. Dot and mobile testing are deferred until the devices are available. No real firmware or privileged sleep settings were changed during the automated suite.
 
 The expanded suite includes injected USB discovery/transfer failures, raw-device sizing errors, Dot transport release/reconciliation, bounded firmware streaming, transcript cache updates, relay stop/restart and retry behavior, synthetic audio RMS/smoothing/cancellation, scoreboard feed errors, notch geometry/rendering, and local Apple Intelligence generation when the model is available. Hardware fault simulations do not imply that a physical Dot was tested.
+
+The audio adapter also passed a brief in-memory microphone capture on the development Mac, which already had microphone permission. That test skips when permission is not already authorized and does not save or transmit audio.
+
+The optional MLX classifier uses native Swift/Metal with the original Qwen model and few-shot prompt. Token-for-token comparison against Python exposed a Jinja whitespace mismatch; the corrected renderer and four captured Python results now match. This establishes port compatibility, not general model accuracy. Tests use only synthetic messages. The classifier's transitive Collections dependency is pinned for Xcode 16.4 compatibility, and Xcode builds use Xcode's C/C++ compiler to keep coverage runtimes consistent.

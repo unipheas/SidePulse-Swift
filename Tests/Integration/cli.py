@@ -13,15 +13,16 @@ ios = "ab" * 32
 android = "fcm_reg:42_" + "f" * 32
 posted = []
 stream = []
+bridge_status = 200
 class Bridge(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
     def do_POST(self):
         posted.append((self.path, json.loads(self.rfile.read(int(self.headers["Content-Length"])))))
-        self.send_response(204)
+        self.send_response(204 if bridge_status == 200 else bridge_status)
         self.end_headers()
     def do_GET(self):
-        self.send_response(200)
+        self.send_response(bridge_status)
         self.send_header("Content-Type", "text/event-stream")
         self.end_headers()
         for event in stream:
@@ -127,5 +128,19 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     guard.terminate()
     guard.communicate(timeout=5)
     assert guard.returncode == 0
+    stream[:] = []
+    run("relay", "receive", "sample_channel", "--once", ok=False)
+    bridge_status = 503
+    run("relay", "send", "sample_channel", "codex", stdin='{"hook_event_name":"Stop"}', ok=False)
+    run("relay", "receive", "sample_channel", "--once", ok=False)
+    receiver = subprocess.Popen([cli, "relay", "receive", "sample_channel"], env=env,
+                                stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    time.sleep(1.2)
+    assert receiver.poll() is None
+    receiver.terminate()
+    receiver.communicate(timeout=5)
+    assert receiver.returncode == 0
     server.shutdown()
+    server.server_close()
+    run("relay", "send", "sample_channel", "codex", stdin='{"hook_event_name":"Stop"}', ok=False)
 print("Native CLI, simulated volume, hook lifecycle, phone pairing, push and relay passed.")

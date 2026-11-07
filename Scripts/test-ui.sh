@@ -19,6 +19,7 @@ mkdir -p .build/ui-tests
 xcodegen generate
 # Build outside Documents so Finder metadata cannot invalidate the test runner signature.
 xcodebuild -project SidePulse.xcodeproj -scheme SidePulse -destination 'platform=macOS' \
+  CC="$(xcrun --find clang)" CXX="$(xcrun --find clang++)" \
   -derivedDataPath "$stage/build" -resultBundlePath "$stage/result.xcresult" test "$@"
 profiles=()
 while IFS= read -r path; do profiles+=("$path"); done < <(find "$stage/build/Build/ProfileData" -name Coverage.profdata)

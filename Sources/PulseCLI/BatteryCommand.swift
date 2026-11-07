@@ -4,6 +4,7 @@ import PulseCore
 extension CLI {
   static func batteryCommand(
     read: () -> Battery? = Battery.read,
+    discover: () -> [Device] = Device.discover,
     diagnostics: (Double) -> JSONObject? = { BatteryDiagnostics.read(fullWatts: $0)?.values }
   ) async throws {
     let action = Args.pop() ?? "status"
@@ -61,7 +62,7 @@ extension CLI {
       }
       let devices =
         try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
-        ?? Device.discover()
+        ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
       let device = try Args.one(devices)
       let settings = try Settings.read()
       let baseline =

@@ -5,7 +5,18 @@ import SwiftUI
 
 struct HistoryView: View {
   @EnvironmentObject var model: Dashboard
-  @State private var hours = 24
+  private var hours: Int { Settings.historyHours(in: model.settings) }
+  private var historyRange: Binding<Int> {
+    Binding(
+      get: { hours },
+      set: { value in
+        model.change {
+          var history = $0["history"] as? JSONObject ?? [:]
+          history["timeframe_seconds"] = value * 3600
+          $0["history"] = history
+        }
+      })
+  }
   @State private var metric = "Agent state"
   var body: some View {
     let changes = History.recent().filter {
@@ -13,12 +24,15 @@ struct HistoryView: View {
     }
     VStack(alignment: .leading, spacing: 16) {
       HStack {
-        Picker("Show", selection: $hours) {
+        Picker("Show", selection: historyRange) {
           Text("Last hour").tag(1)
+          Text("Last 6 hours").tag(6)
+          Text("Last 12 hours").tag(12)
           Text("Last 24 hours").tag(24)
+          Text("Last 48 hours").tag(48)
           Text("Last week").tag(168)
           Text("All recorded history").tag(0)
-        }.frame(width: 240)
+        }.frame(width: 240).accessibilityIdentifier("history-range")
         Picker("Metric", selection: $metric) {
           ForEach(
             ["Agent state", "Battery", "Charger and battery power", "Sleep and lid"], id: \.self
@@ -111,11 +125,8 @@ struct DiagnosticsView: View {
         }
       }
       Section("Background services") {
-        LabeledContent(
-          "Native service", value: Jobs.running(Jobs.prefix + "service") ? "Running" : "Stopped")
-        LabeledContent(
-          "Eject protection",
-          value: Jobs.running(Jobs.prefix + "sdejectguard") ? "Running" : "Stopped")
+        BackgroundServicePreference(job: "service", title: "Device output")
+        BackgroundServicePreference(job: "sdejectguard", title: "Pro eject protection")
         Text(Settings.url.path).font(.caption).textSelection(.enabled)
         Button("Show settings folder") { NSWorkspace.shared.open(Paths.support) }
       }
@@ -160,5 +171,33 @@ struct DiagnosticsView: View {
     if panel.runModal() == .OK, let url = panel.url {
       do { try Audit.export(to: url) } catch { model.problem = error.localizedDescription }
     }
+  }
+}
+
+struct BackgroundServicePreference: View {
+  @EnvironmentObject var model: Dashboard
+  let job: String
+  let title: String
+  @State private var running = false
+  var body: some View {
+    HStack {
+      VStack(alignment: .leading) {
+        Text(title)
+        Text(running ? "Running" : "Stopped").font(.caption).foregroundStyle(.secondary)
+      }
+      Spacer()
+      Button(running ? "Stop" : "Start") {
+        do {
+          let executable = Bundle.main.bundleURL.appendingPathComponent(
+            "Contents/MacOS/sidepulsectl")
+          guard FileManager.default.isExecutableFile(atPath: executable.path) else {
+            throw PulseError("Install SidePulse.app before managing background services.")
+          }
+          try Jobs.configure(job, executable: executable, start: !running)
+          running = Jobs.running(Jobs.prefix + job)
+          model.refresh()
+        } catch { model.problem = error.localizedDescription }
+      }.accessibilityIdentifier("manage-" + job)
+    }.onAppear { running = Jobs.running(Jobs.prefix + job) }
   }
 }

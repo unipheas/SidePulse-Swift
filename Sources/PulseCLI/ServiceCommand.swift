@@ -2,7 +2,17 @@ import Foundation
 import PulseCore
 
 extension CLI {
-  static func serviceCommand(_ job: String) async throws {
+  static func serviceCommand(
+    _ job: String,
+    configure: (String, Bool, Jobs.Scope, Bool) throws -> Void = {
+      try Jobs.configure(
+        $0, executable: Bundle.main.executableURL!, start: $1, scope: $2, remove: $3)
+    },
+    running: (String, Jobs.Scope) -> Bool = { Jobs.running($0, scope: $1) },
+    guardRun: () throws -> Void = EjectGuard.run,
+    monitorRun: (String) async throws -> Void = { try await monitor($0) },
+    wait: () async throws -> Void = { try await Task.sleep(for: .seconds(1)) }
+  ) async throws {
     let scopeName = try Args.option("--scope") ?? "user"
     guard let scope = Jobs.Scope(rawValue: scopeName) else {
       throw PulseError("Choose auto, user or system scope.")
@@ -19,7 +29,7 @@ extension CLI {
         throw PulseError("Interactive mode requires sdejectguard start.")
       }
       try Args.end()
-      try EjectGuard.run()
+      try guardRun()
       return
     }
     if action == "logs" {
@@ -37,7 +47,7 @@ extension CLI {
       guard follow else { return }
       var offsets = logs.map { (try? $0.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0 }
       repeat {
-        try await Task.sleep(for: .seconds(1))
+        try await wait()
         for (index, file) in logs.enumerated() {
           guard let handle = try? FileHandle(forReadingFrom: file) else { continue }
           defer { try? handle.close() }
@@ -53,7 +63,7 @@ extension CLI {
     switch action {
     case "status":
       try Args.end()
-      print(Jobs.running(job, scope: scope) ? "running" : "stopped")
+      print(running(job, scope) ? "running" : "stopped")
     case "start", "restart", "stop", "uninstall":
       let dry = Args.flag("--dry-run")
       try Args.end()
@@ -61,15 +71,13 @@ extension CLI {
         print("Would \(action) \(job) (\(scope.rawValue) scope)")
         return
       }
-      try Jobs.configure(
-        job, executable: Bundle.main.executableURL!, start: ["start", "restart"].contains(action),
-        scope: scope, remove: action == "uninstall")
+      try configure(job, ["start", "restart"].contains(action), scope, action == "uninstall")
     case "run":
       if job == "service" {
-        try await monitor("leds")
+        try await monitorRun("leds")
       } else {
         try Args.end()
-        try EjectGuard.run()
+        try guardRun()
       }
     default: throw PulseError("Choose run, start, restart, stop, uninstall, status or logs.")
     }
