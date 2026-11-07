@@ -6,6 +6,7 @@ if [[ "${1:-}" == "--universal" ]]; then args+=(--arch arm64 --arch x86_64); fi
 swift build "${args[@]}"
 bin=$(swift build "${args[@]}" --show-bin-path)
 mkdir -p "$PWD/dist"
+touch "$PWD/dist/.metadata_never_index"
 stage=$(mktemp -d "${TMPDIR:-/tmp}/sidepulse-package.XXXXXXXX")
 trap 'rm -rf "$stage"' EXIT
 app="$stage/SidePulse.app"

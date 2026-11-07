@@ -102,8 +102,10 @@ public enum TableExport {
     } else {
       content =
         ([columns] + rows).map { row in
-          row.map { "\"" + $0.replacingOccurrences(of: "\"", with: "\"\"") + "\"" }.joined(
-            separator: ",")
+          row.map { cell in
+            cell.rangeOfCharacter(from: CharacterSet(charactersIn: ",\"\r\n")) == nil
+              ? cell : "\"" + cell.replacingOccurrences(of: "\"", with: "\"\"") + "\""
+          }.joined(separator: ",")
         }.joined(separator: "\r\n") + "\r\n"
     }
     try Paths.directory(url.deletingLastPathComponent())

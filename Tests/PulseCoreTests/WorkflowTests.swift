@@ -94,9 +94,10 @@ final class WorkflowTests: IsolatedTests {
   func testHistorySuppressesDuplicatesAndExportsInOrder() throws {
     XCTAssertTrue(History.recent().isEmpty)
     try History.record(.working, battery: 50)
+    try History.record(.working, battery: 50)
     try History.record(.working, battery: 49)
     try History.record(.done, battery: nil)
-    XCTAssertEqual(History.recent().map(\.mode), [.working, .done])
+    XCTAssertEqual(History.recent().map(\.mode), [.working, .working, .done])
     for ext in ["html", "csv"] {
       let url = root.appendingPathComponent("history." + ext)
       try History.export(to: url)
@@ -309,5 +310,66 @@ extension WorkflowTests {
     XCTAssertEqual(try Settings.read() as NSDictionary, saved as NSDictionary)
     try Settings.configureBattery(fullWatts: "auto", previewSeconds: "0")
     XCTAssertNil((try Settings.read()["battery_monitoring"] as? JSONObject)?["full_charge_watts"])
+  }
+}
+
+extension WorkflowTests {
+  func testHistoryRecordsPowerChangesWithoutDuplicatingUnchangedSamples() throws {
+    let battery = Battery(
+      percent: 60, charging: true, plugged: true, watts: 96,
+      adapterPower: 96, batteryPower: 42)
+    var power = PowerSnapshot(
+      lidClosed: false, sleepDisabled: false,
+      preventsSystemSleep: true, preventsIdleSleep: true, preventsDisplaySleep: false,
+      userActive: true)
+    for _ in 0..<2 {
+      try History.record(.working, battery: 60, snapshot: battery, keepingAwake: true, power: power)
+    }
+    power.lidClosed = true
+    try History.record(.working, battery: 60, snapshot: battery, keepingAwake: true, power: power)
+    let rows = History.recent()
+    XCTAssertEqual(rows.count, 2)
+    XCTAssertEqual(rows.last?.batteryWatts, 42)
+    XCTAssertEqual(rows.last?.chargerWatts, 96)
+    XCTAssertEqual(rows.last?.power?.lidClosed, true)
+    let export = root.appendingPathComponent("power.csv")
+    try History.export(to: export)
+    let csv = try String(contentsOf: export)
+    XCTAssertTrue(csv.contains("prevents_display_sleep"))
+    XCTAssertTrue(csv.contains("96.0,42.0,true,true,false,true,true,false,true"))
+    let old = Data("{\"date\":0,\"mode\":\"completed\",\"battery\":50}".utf8)
+    XCTAssertNil(try JSONDecoder().decode(Change.self, from: old).power)
+  }
+}
+
+extension WorkflowTests {
+  func testAnimationEditsValidateAndPreserveOtherStates() throws {
+    try Settings.setAnimation(.working, program: "#FF0000")
+    try Settings.setAnimation(.done, program: "#00FF00")
+    let settings = try Settings.read()
+    XCTAssertEqual(try Programs.program(.working, count: 8, settings: settings), "#FF0000")
+    XCTAssertEqual(try Programs.program(.done, count: 8, settings: settings), "#00FF00")
+    XCTAssertThrowsError(try Settings.setAnimation(.working, program: "invalid"))
+    XCTAssertEqual(try Settings.read() as NSDictionary, settings as NSDictionary)
+  }
+  func testMirroringSwitchAndManualPreviewAreHonoredByTheWriter() throws {
+    let device = try volume()
+    let file = device.root.appendingPathComponent("LEDS.LED")
+    let output = Output(lidClosed: { nil })
+    try output.sync(
+      devices: [device], mode: .working, settings: ["swift_mirror": false], battery: nil)
+    XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+    let settings: JSONObject = [
+      "devices": [["id": device.id, "led_display": "custom", "manual_program": "#FF0000"]]
+    ]
+    try output.sync(devices: [device], mode: .working, settings: settings, battery: nil)
+    XCTAssertEqual(try String(contentsOf: file), "#FF0000")
+    try output.sync(devices: [device], mode: .done, settings: settings, battery: nil)
+    XCTAssertEqual(try String(contentsOf: file), "#FF0000")
+  }
+  func testLidClosePreviewBeginsLitAndFadesToBlack() throws {
+    let preview = try LEDPreview(program: "#000000 1s linear", count: 8, initialProgram: "#35CFB8")
+    XCTAssertEqual(Array(preview.frame(milliseconds: 0).prefix(3)), [0x35, 0xCF, 0xB8])
+    XCTAssertEqual(preview.frame(milliseconds: 1001), Array(repeating: 0, count: 24))
   }
 }

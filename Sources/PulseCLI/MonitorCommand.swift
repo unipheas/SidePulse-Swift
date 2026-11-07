@@ -65,7 +65,9 @@ extension CLI {
           try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
           output.updateAwake(mode: mode, settings: settings, battery: battery)
           try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
-          try History.record(mode, battery: battery?.percent)
+          try History.record(
+            mode, battery: battery?.percent, snapshot: battery, keepingAwake: output.isKeepingAwake,
+            power: PowerSnapshot.read())
           try await relay.sync(rows)
           if settings["swift_phone_mirror"] as? Bool == true, lastPhoneMode != mode {
             let program = try Programs.program(mode, count: 8, settings: settings)

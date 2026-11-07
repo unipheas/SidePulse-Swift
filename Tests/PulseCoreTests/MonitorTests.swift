@@ -90,3 +90,19 @@ final class MonitorTests: IsolatedTests {
     )
   }
 }
+
+extension MonitorTests {
+  func testInternalCodexTasksDoNotChangeTheDeviceState() throws {
+    for prompt in [
+      "Generate 0 to 3 hyperpersonalized suggestions",
+      "You are an expert at upholding safety and compliance standards",
+    ] {
+      let row: JSONObject = [
+        "logged_at": now.ISO8601Format(),
+        "event": ["hook_event_name": "UserPromptSubmit", "prompt": prompt],
+      ]
+      XCTAssertNil(Events.parse(provider: "codex", row: row))
+      XCTAssertEqual(Events.parse(provider: "claude", row: row)?.mode, .working)
+    }
+  }
+}

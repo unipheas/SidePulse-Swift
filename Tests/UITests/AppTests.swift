@@ -49,7 +49,7 @@ final class AppTests: XCTestCase {
     replace(seconds, with: "not a number")
     app.buttons["Apply"].click()
     XCTAssertTrue(app.staticTexts["Enter a number of seconds."].waitForExistence(timeout: 3))
-    app.buttons["OK"].click()
+    app.buttons["OK"].firstMatch.click()
     replace(seconds, with: "15")
     app.buttons["Apply"].click()
     XCTAssertEqual(
@@ -61,6 +61,7 @@ final class AppTests: XCTestCase {
   }
   func testProfileSaveDeleteAndNavigation() throws {
     select("Animations")
+    app.buttons["Save as…"].click()
     let name = app.textFields["profile-name"]
     XCTAssertTrue(name.waitForExistence(timeout: 3))
     name.click()
@@ -103,5 +104,52 @@ final class AppTests: XCTestCase {
       for: NSPredicate(format: "value == %@ OR label == %@", "Idle", "Idle"),
       evaluatedWith: app.staticTexts["current-state"])
     waitForExpectations(timeout: 18)
+  }
+}
+
+extension AppTests {
+  func testHistoryMetricsAndHookInstallation() throws {
+    select("History")
+    let metric = app.popUpButtons["history-metric"]
+    for choice in ["Battery", "Charger and battery power", "Sleep and lid", "Agent state"] {
+      metric.click()
+      app.menuItems[choice].firstMatch.click()
+      XCTAssertEqual(metric.value as? String, choice)
+    }
+    select("Settings")
+    let install = app.buttons["Install hooks"]
+    // Scroll through the settings form just as a user would.
+    for _ in 0..<12 where !install.isHittable {
+      app.scrollViews.element(boundBy: 1).scroll(byDeltaX: 0, deltaY: -250)
+    }
+    XCTAssertTrue(install.isHittable)
+    install.click()
+    let config = root.appendingPathComponent("home/.codex/config.toml")
+    XCTAssertTrue(try String(contentsOf: config).contains("# BEGIN SidePulse Swift hooks"))
+    app.buttons["Remove hooks"].click()
+    XCTAssertFalse(try String(contentsOf: config).contains("# BEGIN SidePulse Swift hooks"))
+  }
+}
+
+extension AppTests {
+  func testEveryAnimationStateIsVisibleAndEditsIndependently() throws {
+    select("Animations")
+    for state in [
+      "working", "tool_running", "long_task_progress", "waiting_for_input", "blocked_error",
+      "completed", "idle_ready", "unknown",
+    ] {
+      XCTAssertTrue(
+        app.buttons["edit-" + state].isHittable,
+        state + " must be visible without changing a dropdown")
+      XCTAssertTrue(app.descendants(matching: .any)["preview-" + state].firstMatch.exists)
+    }
+    app.buttons["edit-working"].click()
+    let editor = app.textViews["animation-program"]
+    XCTAssertTrue(editor.waitForExistence(timeout: 3))
+    replace(editor, with: "#FF0000")
+    app.buttons["Save animation"].click()
+    let mapping = try settings()["agent_animations"] as? [String: [String: Any]]
+    XCTAssertEqual(mapping?["working"]?["custom_program"] as? String, "#FF0000")
+    XCTAssertNil(mapping?["completed"])
   }
 }

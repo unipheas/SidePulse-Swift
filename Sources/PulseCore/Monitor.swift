@@ -89,6 +89,16 @@ public enum Events {
       let event = raw["hook_event_name"] as? String,
       let time = date(row["logged_at"] ?? raw["logged_at"] ?? raw["timestamp"])
     else { return nil }
+    if provider == "codex" {
+      let text = ["session_title", "prompt", "message", "last_assistant_message"]
+        .compactMap { raw[$0] as? String }.joined(separator: " ").lowercased()
+      if [
+        "generate 0 to 3 hyperpersonalized suggestions",
+        "you are an expert at upholding safety and compliance standards",
+      ].contains(where: text.contains) {
+        return nil
+      }
+    }
     let identity =
       (raw["agent_id"] ?? raw["session_id"] ?? raw["sessionId"] ?? raw["conversation_id"])
       as? String ?? "default"

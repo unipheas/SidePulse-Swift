@@ -96,7 +96,7 @@ enum Args {
       try SystemCommand.run(
         "/usr/bin/open", ["https://github.com/unipheas/SidePulse-Swift/releases"])
     case "help", "-h", "--help": print(help)
-    case "version", "--version", "-V": print("SidePulse 0.1.0")
+    case "version", "--version", "-V": print("SidePulse 0.2.0")
     case "devices": try listDevices()
     case "firmware":
       switch try Args.require("version or upgrade") {
@@ -133,7 +133,7 @@ enum Args {
       let sub = Args.pop() ?? "status"
       switch sub {
       case "install", "uninstall": try configure(install: sub == "install")
-      case "version": print("SidePulse 0.1.0")
+      case "version": print("SidePulse 0.2.0")
       case "doctor":
         let json = Args.flag("--json")
         try Args.end()

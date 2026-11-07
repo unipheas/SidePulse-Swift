@@ -177,3 +177,16 @@ public enum Machine {
     return String(cString: bytes)
   }
 }
+
+extension Settings {
+  public static func setAnimation(_ mode: Mode, program: String, count: Int = 8) throws {
+    let source = try Programs.normalize(program)
+    _ = try LEDPreview(program: source, count: count)
+    try update {
+      var mapping = $0["agent_animations"] as? [String: JSONObject] ?? [:]
+      mapping[mode.rawValue] = ["style": "custom", "custom_program": source]
+      $0["agent_animations"] = mapping
+      $0["swift_profile"] = "current"
+    }
+  }
+}

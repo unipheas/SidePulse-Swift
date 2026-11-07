@@ -188,12 +188,14 @@ public enum Programs {
 public final class LEDPreview {
   private let context: JSContext
   private let count: Int
-  public init(program: String, count: Int) throws {
+  public init(program: String, count: Int, initialProgram: String? = nil) throws {
     self.count = count == 2 ? 2 : 8
     guard let ctx = JSContext(),
       let url = Bundle.module.url(forResource: "sdled", withExtension: "wasm")
     else { throw PulseError("Missing LED simulator.") }
     context = ctx
+    let initial = try initialProgram.map { [UInt8](try Programs.normalize($0).utf8) } ?? []
+    ctx.setObject(initial, forKeyedSubscript: "initialBytes" as NSString)
     ctx.setObject([UInt8](try Data(contentsOf: url)), forKeyedSubscript: "moduleBytes" as NSString)
     ctx.setObject(
       [UInt8](try Programs.normalize(program).utf8), forKeyedSubscript: "programBytes" as NSString)
@@ -203,6 +205,11 @@ public final class LEDPreview {
         """
         var engine = new WebAssembly.Instance(new WebAssembly.Module(new Uint8Array(moduleBytes))).exports;
         engine.sdled_reset(ledCount,0);
+        if (initialBytes.length) {
+          new Uint8Array(engine.memory.buffer,engine.sdled_input_ptr(),512).set(initialBytes);
+          engine.sdled_parse(ledCount,initialBytes.length,0);
+          engine.sdled_step(ledCount,1000);
+        }
         new Uint8Array(engine.memory.buffer,engine.sdled_input_ptr(),512).set(programBytes);
         engine.sdled_parse(ledCount,programBytes.length,0);
         """)?.toUInt32() ?? 0

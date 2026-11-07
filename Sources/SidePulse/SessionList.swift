@@ -28,12 +28,12 @@ struct SessionList: View {
           if let first = actions.first {
             Menu {
               ForEach(actions, id: \.self) { action in
-                Button(action.label) { open(item.target(for: action)) }
+                Button(action.label) { open(item.target(for: action), session: item) }
               }
             } label: {
               Image(systemName: "arrow.up.forward.app")
             } primaryAction: {
-              open(item.target(for: first))
+              open(item.target(for: first), session: item)
             }
             .accessibilityLabel("Open " + item.name).fixedSize()
           }
@@ -41,7 +41,7 @@ struct SessionList: View {
       }
     }
   }
-  private func open(_ target: SessionTarget?) {
+  private func open(_ target: SessionTarget?, session: Session) {
     switch target {
     case .link(let url):
       if !NSWorkspace.shared.open(url) {
@@ -49,7 +49,7 @@ struct SessionList: View {
       }
     case .terminal(let command):
       do {
-        try Terminal.open(command, settings: model.settings)
+        try Terminal.open(command, settings: model.settings, session: session)
       } catch { model.problem = error.localizedDescription }
     case nil: break
     }

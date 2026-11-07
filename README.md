@@ -47,10 +47,13 @@ swift test
 # Full local suite, including UI automation (requires XcodeGen):
 RUN_UI_TESTS=1 Scripts/test-coverage.sh
 Scripts/package.sh --universal
-open "dist/SidePulse.app"
+Scripts/install.sh
+open "/Applications/SidePulse.app"
 ```
 
-The script builds both executables, includes their resources and icon, signs the bundle, and creates a ZIP in `dist`. The core uses Swift and Apple frameworks. A small C adapter provides access to the IOKit USB plug-in vtable. The build has no Python dependency.
+The install script registers one copy in `/Applications`, keeps the distribution ZIP, and removes the loose build copy to avoid duplicate search results.
+
+The package script builds both executables, includes their resources and icon, signs the bundle, and creates a ZIP in `dist`. The core uses Swift and Apple frameworks. A small C adapter provides access to the IOKit USB plug-in vtable. The build has no Python dependency.
 
 ## Attribution
 

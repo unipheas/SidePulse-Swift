@@ -4,10 +4,13 @@ public enum Terminal {
   public static let choices = [
     "terminal", "iterm", "ghostty", "warp", "kitty", "wezterm", "alacritty", "custom",
   ]
-  public static func open(_ command: String, settings: JSONObject) throws {
-    try open(command, settings: settings, run: { try SystemCommand.run($0, $1) })
+  public static func open(_ command: String, settings: JSONObject, session: Session? = nil) throws {
+    try open(command, settings: settings, session: session, run: { try SystemCommand.run($0, $1) })
   }
-  static func open(_ command: String, settings: JSONObject, run: (String, [String]) throws -> Data)
+  static func open(
+    _ originalCommand: String, settings: JSONObject, session: Session? = nil,
+    run: (String, [String]) throws -> Data
+  )
     throws
   {
     let config = settings["session_terminal"] as? JSONObject ?? [:]
@@ -20,6 +23,8 @@ public enum Terminal {
     if selection == "custom", let path = config["custom_path"] as? String, !path.isEmpty {
       name = path
     }
+    if let session, focus(session, app: name, run: run) { return }
+    let command = titledCommand(originalCommand, session: session)
     func terminal() throws {
       _ = try run(
         "/usr/bin/osascript",

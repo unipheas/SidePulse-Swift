@@ -53,6 +53,10 @@ public final class Output {
     }
   }
   public func sync(devices: [Device], mode: Mode, settings: JSONObject, battery: Battery?) throws {
+    guard settings["swift_mirror"] as? Bool != false else {
+      reset()
+      return
+    }
     sent = sent.filter { key, _ in devices.contains { $0.id == key } }
     failed = failed.filter { key, _ in devices.contains { $0.id == key } }
     let batterySettings = settings["battery_monitoring"] as? JSONObject ?? [:]
@@ -80,13 +84,15 @@ public final class Output {
       }
       let display =
         config?["led_display"] as? String ?? settings["led_display"] as? String ?? "agent"
-      if display == "custom" {
+      if display == "custom", config?["manual_program"] as? String == nil {
         sent[device.id] = nil
         continue
       }
       do {
         let source: String
-        if now() < lidUntil {
+        if display == "custom", let manual = config?["manual_program"] as? String {
+          source = try Programs.normalize(manual)
+        } else if now() < lidUntil {
           let entry = (settings["agent_animations"] as? [String: JSONObject])?[lidState] ?? [:]
           if let saved = (settings[lidState + "_animation"] as? JSONObject)?["program"] as? String,
             !saved.isEmpty
@@ -99,7 +105,9 @@ public final class Output {
           }
         } else if display == "battery" || now() < previewUntil, let battery {
           source = battery.program(
-            count: device.count, fullWatts: batterySettings["full_charge_watts"] as? Double ?? PowerRegistry.fullChargeWatts)
+            count: device.count,
+            fullWatts: batterySettings["full_charge_watts"] as? Double
+              ?? PowerRegistry.fullChargeWatts)
         } else {
           source = try Programs.program(mode, count: device.count, settings: settings)
         }

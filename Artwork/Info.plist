@@ -8,11 +8,12 @@
   <key>CFBundleIconFile</key><string>SidePulse.icns</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>0.1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>0.2.0</string>
+  <key>CFBundleVersion</key><string>3</string>
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
+  <key>NSAppleEventsUsageDescription</key><string>SidePulse opens or focuses the terminal for a coding session you select.</string>
   <key>NSMicrophoneUsageDescription</key><string>The optional audio meter uses input level to animate the LEDs.</string>
   <key>NSRemovableVolumesUsageDescription</key><string>SidePulse reads device status and writes the LED animation you select.</string>
 </dict></plist>

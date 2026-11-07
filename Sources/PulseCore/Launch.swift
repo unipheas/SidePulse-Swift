@@ -104,7 +104,13 @@ public enum EjectGuard {
         return nil
       }, nil)
     DASessionScheduleWithRunLoop(session, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
-    withExtendedLifetime(session) { CFRunLoopRun() }
+    defer {
+      DASessionUnscheduleFromRunLoop(
+        session, CFRunLoopGetCurrent(), CFRunLoopMode.defaultMode.rawValue)
+    }
+    withExtendedLifetime(session) {
+      while !Task.isCancelled { CFRunLoopRunInMode(.defaultMode, 0.5, true) }
+    }
   }
 }
 

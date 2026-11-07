@@ -40,6 +40,9 @@ final class InterfaceTests: IsolatedTests {
     dashboard.change { $0["agent_list"] = ["completed_visible_seconds": 0] }
     XCTAssertEqual(dashboard.mode, .idle)
     XCTAssertNil(dashboard.problem)
-    XCTAssertEqual(History.recent().map(\.mode), [.idle, .working, .done, .idle])
+    let transitions = History.recent().map(\.mode).reduce(into: [Mode]()) { result, mode in
+      if result.last != mode { result.append(mode) }
+    }
+    XCTAssertEqual(transitions, [.idle, .working, .done, .idle])
   }
 }

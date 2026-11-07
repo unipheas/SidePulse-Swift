@@ -14,7 +14,7 @@ The coverage command runs the Swift tests, real CLI integration tests, a disposa
 
 ## Current evidence
 
-The November 6, 2026 local run passed 53 XCTest methods plus 3 UI workflows, CLI integration, and the disk-image test. Combined LLVM line coverage was **84.18% (6,163 of 7,321 instrumented lines)**. This is not 100% coverage. The report includes every production Swift and C file, including platform adapters and SwiftUI callbacks. Counts can differ with compiler versions because SwiftUI generates multiple instrumented regions for some source lines.
+The November 6, 2026 local run passed 59 XCTest methods plus 5 UI workflows, CLI integration, and the disk-image test. Combined LLVM line coverage was **86.34% (6,922 of 8,017 instrumented lines)**. This is not 100% coverage. The report includes every production Swift and C file, including platform adapters and SwiftUI callbacks. Counts can differ with compiler versions because SwiftUI generates multiple instrumented regions for some source lines.
 
 Reports are written to:
 
@@ -23,7 +23,7 @@ Reports are written to:
 - `.build/ui-tests/results.xcresult`: UI test actions, failures, and screenshots.
 - `.build/ui-tests/coverage.json`: Xcode's separate UI coverage report.
 
-The UI workflows check invalid and valid Done durations, persistence after relaunch, profile creation and deletion, navigation, and visible working → done → idle transitions. Unit tests also cover settings migration, protocol negotiation and errors, verified firmware transfer to a simulated volume, malformed hooks, pending permissions, transcript recovery, sleep ownership and crash recovery, and launch-agent rollback.
+The UI workflows check invalid and valid Done durations, persistence after relaunch, profile creation and deletion, all eight compact animation previews and individual editors, history metric selection, isolated hook installation/removal, navigation, and visible working → done → idle transitions. Unit tests also cover settings migration, protocol negotiation and errors, verified firmware transfer to a simulated volume, malformed hooks, pending permissions, transcript recovery, sleep ownership and crash recovery, and launch-agent rollback.
 
 GitHub Actions runs the native suite and universal packaging on Apple Silicon and Intel. Separate jobs run AddressSanitizer, ThreadSanitizer, and the UI workflows. The coverage floor is a regression guard, not a claim that all branches are covered.
 

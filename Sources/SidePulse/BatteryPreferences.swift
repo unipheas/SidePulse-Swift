@@ -19,7 +19,7 @@ struct BatteryPreferences: View {
         Text("Manual").tag("custom")
       }
       Toggle(
-        "Show battery when power is connected or disconnected",
+        "Preview battery when power changes",
         isOn: Binding(
           get: {
             (model.settings["battery_monitoring"] as? JSONObject)?["show_on_power_change"] as? Bool
@@ -30,14 +30,15 @@ struct BatteryPreferences: View {
       HStack {
         Text("Power change preview")
         Spacer()
-        TextField("Preview seconds", text: $seconds).frame(width: 70)
-        Text("seconds")
+        SettingField(
+          label: "Power change duration", text: $seconds, identifier: "power-preview-seconds")
       }
       HStack {
         Text("Full-speed charger")
         Spacer()
-        TextField("Watts or auto", text: $watts).frame(width: 70)
-        Text("watts")
+        SettingField(
+          label: "Full-speed charger watts or auto", text: $watts, unit: "watts",
+          identifier: "charger-watts")
       }
       Text("Auto uses the Mac's charging baseline: \(Int(PowerRegistry.fullChargeWatts)) W.")
         .font(.caption).foregroundStyle(.secondary)

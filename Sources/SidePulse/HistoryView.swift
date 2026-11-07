@@ -6,9 +6,10 @@ import SwiftUI
 struct HistoryView: View {
   @EnvironmentObject var model: Dashboard
   @State private var hours = 24
+  @State private var metric = "Agent state"
   var body: some View {
     let changes = History.recent().filter {
-      Date().timeIntervalSince($0.date) <= Double(hours) * 3600
+      hours == 0 || Date().timeIntervalSince($0.date) <= Double(hours) * 3600
     }
     VStack(alignment: .leading, spacing: 16) {
       HStack {
@@ -16,7 +17,13 @@ struct HistoryView: View {
           Text("Last hour").tag(1)
           Text("Last 24 hours").tag(24)
           Text("Last week").tag(168)
+          Text("All recorded history").tag(0)
         }.frame(width: 240)
+        Picker("Metric", selection: $metric) {
+          ForEach(
+            ["Agent state", "Battery", "Charger and battery power", "Sleep and lid"], id: \.self
+          ) { Text($0).tag($0) }
+        }.labelsHidden().accessibilityIdentifier("history-metric").frame(width: 170)
         Spacer()
         Menu("Export…") {
           Button("CSV") { export("csv") }
@@ -29,8 +36,47 @@ struct HistoryView: View {
           description: Text("Agent status changes appear here as you work."))
       } else {
         Chart(changes) { change in
-          PointMark(x: .value("Time", change.date), y: .value("State", change.mode.label))
-            .foregroundStyle(by: .value("State", change.mode.label))
+          switch metric {
+          case "Battery":
+            if let percent = change.battery {
+              LineMark(x: .value("Time", change.date), y: .value("Charge (%)", percent))
+                .interpolationMethod(.stepEnd).foregroundStyle(.green)
+            }
+          case "Charger and battery power":
+            if let watts = change.chargerWatts {
+              LineMark(x: .value("Time", change.date), y: .value("Watts", watts))
+                .foregroundStyle(by: .value("Source", "Charger")).interpolationMethod(.stepEnd)
+            }
+            if let watts = change.batteryWatts {
+              LineMark(x: .value("Time", change.date), y: .value("Watts", watts))
+                .foregroundStyle(by: .value("Source", "Battery")).interpolationMethod(.stepEnd)
+            }
+          case "Sleep and lid":
+            if let closed = change.power?.lidClosed {
+              PointMark(
+                x: .value("Time", change.date),
+                y: .value("State", closed ? "Lid closed" : "Lid open")
+              )
+              .foregroundStyle(by: .value("Source", "Lid"))
+            }
+            if let awake = change.keepingAwake {
+              PointMark(
+                x: .value("Time", change.date),
+                y: .value("State", awake ? "Keeping awake" : "Awake hold off")
+              )
+              .foregroundStyle(by: .value("Source", "SidePulse"))
+            }
+            if let disabled = change.power?.sleepDisabled {
+              PointMark(
+                x: .value("Time", change.date),
+                y: .value("State", disabled ? "Sleep disabled" : "Sleep enabled")
+              )
+              .foregroundStyle(by: .value("Source", "macOS"))
+            }
+          default:
+            PointMark(x: .value("Time", change.date), y: .value("State", change.mode.label))
+              .foregroundStyle(by: .value("State", change.mode.label))
+          }
         }.frame(height: 180).chartLegend(.hidden)
         List(changes.reversed()) { change in
           HStack {

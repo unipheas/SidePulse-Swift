@@ -5,6 +5,7 @@ public struct Battery: Sendable {
   public let percent: Int, charging: Bool, plugged: Bool, watts: Int
   public var charged = false
   public var adapterPower: Double? = nil
+  public var batteryPower: Double? = nil
   public static func read() -> Battery? {
     guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
       let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
@@ -24,7 +25,8 @@ public struct Battery: Sendable {
         plugged: data["Power Source State"] as? String == "AC Power",
         watts: (IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? JSONObject)?["Watts"]
           as? Int ?? 0, charged: diagnostics?.charged ?? false,
-        adapterPower: diagnostics?.adapterPower)
+        adapterPower: diagnostics?.adapterPower,
+        batteryPower: diagnostics?.values["battery_watts"] as? Double)
     }
     return nil
   }

@@ -8,6 +8,10 @@ finish() {
     rm -rf .build/ui-tests/results.xcresult
     cp -R "$stage/result.xcresult" .build/ui-tests/results.xcresult
   fi
+  registrar=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
+  for app in "$stage/build/Build/Products/Debug/SidePulse.app" "$stage/build/Build/Products/Debug/SidePulseUITests-Runner.app"; do
+    if [[ -d "$app" ]]; then "$registrar" -u "$app" || true; fi
+  done
   rm -rf "$stage"
 }
 trap finish EXIT

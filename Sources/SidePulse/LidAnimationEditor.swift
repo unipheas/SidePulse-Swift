@@ -8,8 +8,16 @@ struct LidAnimationEditor: View {
   @State private var duration = 1.3
   var body: some View {
     DisclosureGroup(state == "lid_open" ? "Lid opened" : "Lid closed") {
-      TextEditor(text: $source).font(.system(.body, design: .monospaced)).frame(height: 90)
-      TextField("Duration in seconds", value: $duration, format: .number)
+      ProgramEditor(
+        source: $source, count: 8, initialProgram: state == "lid_closed" ? "#35CFB8" : nil)
+      HStack {
+        Text("Duration")
+        Spacer()
+        TextField("Duration in seconds", value: $duration, format: .number)
+          .labelsHidden().textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing)
+          .frame(width: 82).accessibilityLabel("Duration in seconds")
+        Text("seconds").foregroundStyle(.secondary).fixedSize()
+      }
       Button("Save lid animation") {
         do {
           try Settings.setLidAnimation(state, program: source, duration: duration)

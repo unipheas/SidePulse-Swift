@@ -78,8 +78,8 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     run("profile","export",root/"profile.json")
     run("profile","import",root/"profile.json")
     run("audit", root/"audit.csv")
-    assert '"audited_at"' in (root/"audit.csv").read_text()
-    assert '"completed"' in (root/"audit.csv").read_text()
+    assert 'audited_at' in (root/"audit.csv").read_text()
+    assert 'completed' in (root/"audit.csv").read_text()
     for job in ["service", "sdejectguard"]:
         run(job, "start", "--dry-run")
         run(job, "uninstall", "--dry-run")
@@ -121,5 +121,11 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     process.terminate()
     process.communicate(timeout=5)
     assert process.returncode == 0
+    guard = subprocess.Popen([cli,"sdejectguard","run"],env=env,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+    time.sleep(0.5)
+    assert guard.poll() is None
+    guard.terminate()
+    guard.communicate(timeout=5)
+    assert guard.returncode == 0
     server.shutdown()
 print("Native CLI, simulated volume, hook lifecycle, phone pairing, push and relay passed.")

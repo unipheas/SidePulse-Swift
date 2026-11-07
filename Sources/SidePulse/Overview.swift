@@ -42,7 +42,9 @@ struct Overview: View {
         }
         if model.legacy {
           Label(
-            "The existing SidePulse service controls the lights. Swift is previewing live status.",
+            Jobs.running(Jobs.prefix + "service")
+              ? "Monitoring continues in the background when this window is closed."
+              : "Your previous SidePulse installation is controlling the lights.",
             systemImage: "eye"
           ).font(.callout).foregroundStyle(.secondary)
         }

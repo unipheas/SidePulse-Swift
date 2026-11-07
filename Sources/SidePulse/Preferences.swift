@@ -13,9 +13,7 @@ struct Preferences: View {
         HStack {
           Text("Show Done for")
           Spacer()
-          TextField("Seconds", text: $seconds).frame(width: 70).accessibilityIdentifier(
-            "done-seconds")
-          Text("seconds")
+          SettingField(label: "Done duration", text: $seconds, identifier: "done-seconds")
           Button("Apply") {
             guard let value = Double(seconds) else {
               model.problem = "Enter a number of seconds."
@@ -28,7 +26,7 @@ struct Preferences: View {
           }
         }
         if model.legacy && !Jobs.running(Jobs.prefix + "service") {
-          Button("Use Swift for device output") {
+          Button("Use this installation for device output") {
             do {
               try Jobs.takeControl()
               model.legacy = false
@@ -37,7 +35,7 @@ struct Preferences: View {
           }
         }
         if let paused = model.settings["swift_paused_jobs"] as? [String], !paused.isEmpty {
-          Button("Restore original SidePulse service") {
+          Button("Restore previous installation") {
             do {
               try Jobs.giveBack()
               model.legacy = true
@@ -161,8 +159,10 @@ struct Preferences: View {
                     $0["agent_list"] = timing
                   }
                 }), format: .number
-            ).frame(width: 90)
-            Text("seconds").foregroundStyle(.secondary)
+            ).labelsHidden().textFieldStyle(.roundedBorder)
+              .multilineTextAlignment(.trailing).monospacedDigit().frame(width: 82)
+              .accessibilityLabel(label)
+            Text("seconds").foregroundStyle(.secondary).fixedSize()
           }
         }
       }
@@ -245,7 +245,7 @@ struct Preferences: View {
         }
         HStack {
           Button("Install hooks") { configure(true) }
-          Button("Remove Swift hooks") { configure(false) }
+          Button("Remove hooks") { configure(false) }
         }
       }
     }.formStyle(.grouped).onAppear {

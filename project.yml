@@ -18,7 +18,14 @@ targets:
     platform: macOS
     sources: [Sources/SidePulse]
     resources: [Artwork/SidePulse.icns]
+    postBuildScripts:
+      - name: Embed command line companion
+        script: cp "$BUILT_PRODUCTS_DIR/sidepulsectl" "$TARGET_BUILD_DIR/$EXECUTABLE_FOLDER_PATH/sidepulsectl"
+        inputFiles: ["$(BUILT_PRODUCTS_DIR)/sidepulsectl"]
+        outputFiles: ["$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/sidepulsectl"]
     dependencies:
+      - target: SidePulseCommand
+        link: false
       - package: SidePulseCore
         product: PulseCore
     settings:
@@ -29,6 +36,16 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: SidePulse
         INFOPLIST_KEY_CFBundleIconFile: SidePulse
         ENABLE_APP_SANDBOX: NO
+  SidePulseCommand:
+    type: tool
+    platform: macOS
+    sources: [Sources/PulseCLI]
+    dependencies:
+      - package: SidePulseCore
+        product: PulseCore
+    settings:
+      base:
+        PRODUCT_NAME: sidepulsectl
   SidePulseUITests:
     type: bundle.ui-testing
     platform: macOS

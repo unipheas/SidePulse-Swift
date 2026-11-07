@@ -4,7 +4,17 @@ public struct Change: Codable, Identifiable {
   public let date: Date
   public let mode: Mode
   public let battery: Int?
+  public var charging: Bool? = nil
+  public var chargerWatts: Double? = nil
+  public var batteryWatts: Double? = nil
+  public var keepingAwake: Bool? = nil
+  public var power: PowerSnapshot? = nil
   public var id: Date { date }
+  func sameState(as other: Self) -> Bool {
+    mode == other.mode && battery == other.battery && charging == other.charging
+      && chargerWatts == other.chargerWatts && batteryWatts == other.batteryWatts
+      && keepingAwake == other.keepingAwake && power == other.power
+  }
 }
 
 public enum History {
@@ -13,12 +23,20 @@ public enum History {
     guard let data = try? Data(contentsOf: file) else { return [] }
     return data.split(separator: 10).compactMap { try? JSONDecoder().decode(Change.self, from: $0) }
   }
-  public static func record(_ mode: Mode, battery: Int?) throws {
+  public static func record(
+    _ mode: Mode, battery: Int?, snapshot: Battery? = nil,
+    keepingAwake: Bool? = nil, power: PowerSnapshot? = nil
+  ) throws {
     try withLock(Paths.support.appendingPathComponent("history.lock")) {
-      let entry = Change(date: Date(), mode: mode, battery: battery)
+      let entry = Change(
+        date: Date(), mode: mode, battery: battery,
+        charging: snapshot?.charging,
+        chargerWatts: snapshot.map { ($0.adapterPower ?? Double($0.watts)).rounded() },
+        batteryWatts: snapshot?.batteryPower.map { $0.rounded() }, keepingAwake: keepingAwake,
+        power: power)
       var data = (try? Data(contentsOf: file)) ?? Data()
       if let last = data.split(separator: 10).last,
-        (try? JSONDecoder().decode(Change.self, from: last))?.mode == mode
+        (try? JSONDecoder().decode(Change.self, from: last))?.sameState(as: entry) == true
       {
         return
       }
@@ -31,21 +49,24 @@ public enum History {
     }
   }
   public static func export(to url: URL) throws {
-    let changes = recent()
-    let data: String
-    if url.pathExtension.lowercased() == "html" {
-      let rows = changes.map {
-        "<tr><td>\($0.date.ISO8601Format())</td><td>\($0.mode.label)</td><td>\($0.battery.map(String.init) ?? "")</td></tr>"
-      }.joined()
-      data =
-        "<!doctype html><meta charset=utf-8><title>SidePulse history</title><table><tr><th>Time (UTC)</th><th>State</th><th>Battery %</th></tr>\(rows)</table>"
-    } else {
-      data =
-        "time_utc,state,battery_percent\n"
-        + changes.map {
-          "\($0.date.ISO8601Format()),\($0.mode.rawValue),\($0.battery.map(String.init) ?? "")\n"
-        }.joined()
+    let columns = [
+      "time_utc", "state", "battery_percent", "charging", "charger_watts", "battery_watts",
+      "keeping_awake", "lid_closed", "sleep_disabled", "prevents_system_sleep",
+      "prevents_idle_sleep", "prevents_display_sleep", "user_active",
+    ]
+    let rows = recent().map { change -> [String] in
+      func value<T>(_ optional: T?) -> String { optional.map { String(describing: $0) } ?? "" }
+      return [
+        change.date.ISO8601Format(),
+        url.pathExtension.lowercased() == "html" ? change.mode.label : change.mode.rawValue,
+        value(change.battery), value(change.charging), value(change.chargerWatts),
+        value(change.batteryWatts),
+        value(change.keepingAwake), value(change.power?.lidClosed),
+        value(change.power?.sleepDisabled),
+        value(change.power?.preventsSystemSleep), value(change.power?.preventsIdleSleep),
+        value(change.power?.preventsDisplaySleep), value(change.power?.userActive),
+      ]
     }
-    try Data(data.utf8).write(to: url, options: .atomic)
+    try TableExport.write(title: "SidePulse history", columns: columns, rows: rows, to: url)
   }
 }

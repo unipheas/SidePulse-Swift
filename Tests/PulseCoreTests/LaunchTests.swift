@@ -110,3 +110,52 @@ extension LaunchTests {
     XCTAssertEqual(try Jobs.logTail(file, lines: 10), "last\n")
   }
 }
+
+extension LaunchTests {
+  func testResumeFocusesAnExistingTerminalAndMarksNewTabs() throws {
+    let session = Session(
+      provider: "codex", session: "agent", name: "Task\u{1b} name", event: "Stop",
+      date: Date(), threadID: "fixture-id", mode: .done)
+    XCTAssertFalse(Terminal.title(for: session).contains("\u{1b}"))
+    for app in ["terminal", "iterm"] {
+      var calls = [[String]]()
+      try Terminal.open(
+        "codex resume fixture-id", settings: ["session_terminal": ["app": app]], session: session,
+        run: { _, arguments in
+          calls.append(arguments)
+          return Data("1\n".utf8)
+        })
+      XCTAssertEqual(calls.count, 1)
+      XCTAssertEqual(calls[0].suffix(2).first, "fixture-id")
+      XCTAssertTrue(calls[0][1].contains("repeat with marker in argv"))
+    }
+    var calls = [[String]]()
+    try Terminal.open(
+      "codex resume fixture-id", settings: [:], session: session,
+      run: { _, arguments in
+        calls.append(arguments)
+        if calls.count == 1 { throw PulseError("Automation unavailable") }
+        return Data()
+      })
+    XCTAssertEqual(calls.count, 2)
+    XCTAssertTrue(calls.last!.last!.hasPrefix("printf '\\033]0;%s\\007' 'SidePulse"))
+    XCTAssertTrue(calls.last!.last!.hasSuffix("; codex resume fixture-id"))
+    XCTAssertFalse(
+      Terminal.focus(
+        session, app: "unknown",
+        run: { _, _ in
+          XCTFail()
+          return Data()
+        }))
+    var noID = session
+    noID.threadID = nil
+    XCTAssertFalse(
+      Terminal.focus(
+        noID, app: "Terminal",
+        run: { _, _ in
+          XCTFail()
+          return Data()
+        }))
+    XCTAssertFalse(Terminal.focus(session, app: "Terminal", run: { _, _ in Data("0".utf8) }))
+  }
+}

@@ -57,13 +57,12 @@ import SwiftUI
       sessions = monitor.sessions().filter { Date().timeIntervalSince($0.date) <= retention }
       mode = Monitor.aggregate(sessions, settings: settings)
       if history.last?.1 != mode {
-        try History.record(mode, battery: Battery.read()?.percent)
         history.append((Date(), mode))
         if history.count > 500 { history.removeFirst() }
       }
       let battery = Battery.read()
       try sleepOverride.update(mode: mode, settings: settings, battery: battery, owner: !legacy)
-      if mirror && !legacy {
+      if !legacy {
         if !relaying {
           relaying = true
           let currentSessions = sessions
@@ -98,6 +97,9 @@ import SwiftUI
         output.reset()
         output.keepAwake(false)
       }
+      try History.record(
+        mode, battery: battery?.percent, snapshot: battery,
+        keepingAwake: output.isKeepingAwake, power: PowerSnapshot.read())
     } catch { problem = error.localizedDescription }
   }
   func change(_ body: (inout JSONObject) throws -> Void) {
