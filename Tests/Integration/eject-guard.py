@@ -24,14 +24,16 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         mount = Path(next(row["mount-point"] for row in info if "mount-point" in row))
         return disk, mount
     def eject():
-        return subprocess.run(["diskutil", "eject", whole], capture_output=True, text=True, timeout=10)
+        return subprocess.run(["diskutil", "eject", whole], capture_output=True, text=True, timeout=30)
     try:
         whole, mount = attach()
-        (mount / "STATUS.TXT").write_text("release_version 1.1.0\nserial guard-fixture\n")
+        # Establish the baseline before identifying the image as a SidePulse. This
+        # keeps any installed companion from treating the baseline as a device.
         baseline = eject()
         assert baseline.returncode == 0, "Another guard prevented the baseline eject: " + baseline.stderr
         whole = None
         whole, mount = attach()
+        (mount / "STATUS.TXT").write_text("release_version 1.1.0\nserial guard-fixture\n")
         env = dict(os.environ, SIDEPULSE_USER_HOME=str(root / "home"),
                    SIDEPULSE_SWIFT_HOME=str(root / "settings"),
                    XDG_CONFIG_HOME=str(root / "config"), XDG_STATE_HOME=str(root / "state"))
