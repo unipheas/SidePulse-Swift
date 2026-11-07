@@ -46,6 +46,14 @@ public struct Device: Identifiable, Equatable, Sendable {
     return roots.compactMap { try? inspect($0) }.sorted { $0.id < $1.id }
   }
   public func write(_ source: String) throws {
+    try write(source, transport: Transport())
+  }
+  struct Transport {
+    var openFile: (String, Int32) -> Int32 = { open($0, $1, 0o600) }
+    var pro: ([UInt8], URL) throws -> Void = { try ReadChannel.upload($0, root: $1) }
+    var dot: ([UInt8], URL) throws -> Void = { try DotChannel.upload($0, root: $1) }
+  }
+  func write(_ source: String, transport: Transport) throws {
     let program = try Programs.normalize(source)
     let digest = SHA256.hash(data: Data(root.resolvingSymlinksInPath().path.utf8)).map {
       String(format: "%02x", $0)
@@ -56,7 +64,7 @@ public struct Device: Identifiable, Equatable, Sendable {
         throw PulseError("The device changed before the write.")
       }
       let url = root.appendingPathComponent(programFile)
-      let fd = open(url.path, O_NOFOLLOW | O_CREAT | O_TRUNC | O_WRONLY, 0o600)
+      let fd = transport.openFile(url.path, O_NOFOLLOW | O_CREAT | O_TRUNC | O_WRONLY)
       if fd < 0 {
         let failure = errno
         guard programFile == "LEDS.LED", [EROFS, EACCES, EPERM].contains(failure),
@@ -65,9 +73,9 @@ public struct Device: Identifiable, Equatable, Sendable {
           throw POSIXError(POSIXErrorCode(rawValue: failure) ?? .EIO)
         }
         if model == "Pro" {
-          try ReadChannel.upload(Array(program.utf8), root: root)
+          try transport.pro(Array(program.utf8), root)
         } else {
-          try DotChannel.upload(Array(program.utf8), root: root)
+          try transport.dot(Array(program.utf8), root)
         }
         return
       }

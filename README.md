@@ -11,7 +11,7 @@ A native macOS companion for the SidePulse Pro SD card and SidePulse Dot USB dev
 1. Unzip the release and drag **SidePulse** into Applications. The preview build is ad-hoc signed. You can also build it locally.
 2. Open the app and connect a SidePulse. **Overview** shows the detected model, firmware, and current agent state.
 3. In **Settings**, set **Show Done for** to `15` seconds. The display returns to Idle when the timer expires and other agents are quiet.
-4. If you already run SidePulse, Swift previews its hook events and reads your existing animation settings. Click **Use this installation for device output** when you want to try the native writer. **Restore previous installation** hands the lights back. On a fresh setup, install hooks for your provider in Settings. Follow the provider's normal hook trust prompts.
+4. If you already run SidePulse, Swift previews its hook events and reads your existing animation settings. Click **Use this installation for device output** when you want to try the native writer. **Restore previous installation** hands the lights back. On a fresh setup, the welcome panel offers agent hooks, background monitoring, Pro eject protection, opening at login, and the optional sleep helper. Follow the provider's normal hook trust prompts.
 
 The app writes its settings under `~/Library/Application Support/SidePulse`. Existing Python preferences are read as initial values. A fresh installation defaults to a 20-minute Done hold. Setup is per user.
 
@@ -32,7 +32,7 @@ pulse="/Applications/SidePulse.app/Contents/MacOS/sidepulsectl"
 
 - **Monitoring.** Hooks for Codex, Claude Code, Cursor, Grok and Junie. Optional Codex and Claude transcript recovery. A headless launch agent is available with `service start`; `service stop` stops it, and `service uninstall` removes the job.
 - **Notch lights.** Enable **Show lights beneath the notch** in Settings for a click-through strip. Choose agent status or battery level and adjust brightness. External displays use a narrow strip at the top edge.
-- **Animations.** Choose a profile, edit an individual state, import or export a SidePulse profile, and preview it on a two- or eight-LED display. The preview uses the upstream firmware simulator through JavaScriptCore.
+- **Animations.** Choose a profile, edit an individual state, import or export a SidePulse profile, and preview it on a two- or eight-LED display. Reusable library animations can be renamed and updated without breaking the states and profiles that reference them. The preview uses the upstream firmware simulator through JavaScriptCore.
 - **Hardware.** Mounted-volume LED writes, Pro READ2ME and Dot SPC2 fallback for read-only volumes, battery display, and model-specific firmware package verification. `sdejectguard start` installs an optional per-user eject guard; stop it before intentionally ejecting the Pro.
 - **Mobile.** `link` displays a pairing QR code for the SidePulse mobile app. Use `links`, `push --to ID` and `unlink ID` to manage destinations. `relay send` and `relay receive` exchange agent events through a bridge channel.
 - **Examples.** `audio-meter` animates input level from the microphone. `fifa-final --score 2-1 --dry-run` previews the scoreboard animation.
@@ -46,7 +46,7 @@ Open `Package.swift` in Xcode or use a Mac with Xcode 16 or later.
 ```sh
 swift test
 # Full local suite, including UI automation (requires XcodeGen):
-RUN_UI_TESTS=1 Scripts/test-coverage.sh
+RUN_UI_TESTS=1 RUN_CLASSIFIER_TESTS=1 Scripts/test-coverage.sh
 Scripts/package.sh --universal
 Scripts/install.sh
 open "/Applications/SidePulse.app"

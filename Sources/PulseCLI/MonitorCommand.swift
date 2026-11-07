@@ -4,7 +4,10 @@ import PulseCore
 extension CLI {
   static func monitor(
     _ sub: String, discover: () -> [Device] = Device.discover,
-    legacyRunning: () -> Bool = Output.legacyRunning
+    legacyRunning: () -> Bool = Output.legacyRunning,
+    wait: (Double) async throws -> Void = Polling.wait,
+    interactive: Bool = isatty(STDOUT_FILENO) != 0,
+    report: (String) -> Void = { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
   ) async throws {
     try Settings.migrate()
     let json = Args.flag("--json")
@@ -29,9 +32,12 @@ extension CLI {
         logs[provider] = URL(fileURLWithPath: path)
       }
     }
-    _ = Args.flag("--no-color")
+    let noColor = Args.flag("--no-color")
     let all = Args.flag("--all")
     try Args.end()
+    let redraw = interactive && !json && sub != "status" && sub != "leds" && !once
+    if redraw { print("\u{1B}[?25l", terminator: "") }
+    defer { if redraw { print("\u{1B}[?25h", terminator: "") } }
     let monitor = Monitor(logs: logs, maxLines: maxLines)
     let output = Output()
     let sleep = SleepOverride()
@@ -61,32 +67,41 @@ extension CLI {
         guard dry || !legacyRunning() else {
           throw PulseError("The existing SidePulse service owns LED output.")
         }
-        let devices =
-          try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
-          ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
-        if dry {
-          for device in devices {
-            print(
-              device.id + "\n"
-                + (try Programs.program(mode, count: device.count, settings: settings)))
-          }
-        } else {
-          settings = try Settings.remember(devices, settings: settings)
-          let battery = Battery.read()
-          try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
-          output.updateAwake(mode: mode, settings: settings, battery: battery)
-          try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
-          try History.record(
-            mode, battery: battery?.percent, snapshot: battery, keepingAwake: output.isKeepingAwake,
-            power: PowerSnapshot.read())
-          try await relay.sync(rows)
-          if settings["swift_phone_mirror"] as? Bool == true, lastPhoneMode != mode {
-            let program = try Programs.program(mode, count: 8, settings: settings)
-            for phone in try Bridge.phones() {
-              try await Bridge.push(to: phone.id, program: program, title: nil, message: nil)
+        var discovered = false
+        do {
+          let devices =
+            try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
+            ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
+          discovered = true
+          if dry {
+            for device in devices {
+              print(
+                device.id + "\n"
+                  + (try Programs.program(mode, count: device.count, settings: settings)))
             }
-            lastPhoneMode = mode
+          } else {
+            settings = try Settings.remember(devices, settings: settings)
+            let battery = Battery.read()
+            try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
+            output.updateAwake(mode: mode, settings: settings, battery: battery)
+            try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
+            try History.record(
+              mode, battery: battery?.percent, snapshot: battery,
+              keepingAwake: output.isKeepingAwake,
+              power: PowerSnapshot.read())
+            try await relay.sync(rows)
+            if settings["swift_phone_mirror"] as? Bool == true, lastPhoneMode != mode {
+              let program = try Programs.program(mode, count: 8, settings: settings)
+              for phone in try Bridge.phones() {
+                try await Bridge.push(to: phone.id, program: program, title: nil, message: nil)
+              }
+              lastPhoneMode = mode
+            }
           }
+        } catch {
+          if once { throw error }
+          if !discovered { output.reset() }
+          report(error.localizedDescription)
         }
       } else if json {
         struct Report: Encodable {
@@ -98,16 +113,20 @@ extension CLI {
         print(
           String(decoding: try encoder.encode(Report(mode: mode, sessions: rows)), as: UTF8.self))
       } else {
-        print(mode.label)
         let ageLimit =
           sub == "status"
           ? Settings.seconds(settings, "idle_timeout_seconds", default: 3600) : recent
-        for row in rows where all || Date().timeIntervalSince(row.date) < ageLimit {
-          print("\(row.name) · \(row.mode.label) · \(row.provider)")
-        }
+        let visible = rows.filter { all || Date().timeIntervalSince($0.date) < ageLimit }
+        if redraw { print("\u{1B}[2J\u{1B}[H", terminator: "") }
+        print(
+          ConsoleSnapshot.render(
+            mode: mode, sessions: visible,
+            color: interactive && !noColor && ProcessInfo.processInfo.environment["NO_COLOR"] == nil
+          ))
+        fflush(stdout)
       }
       if sub == "status" || once { return }
-      try await Task.sleep(for: .seconds(interval))
+      try await wait(interval)
     } while !Task.isCancelled
   }
 }

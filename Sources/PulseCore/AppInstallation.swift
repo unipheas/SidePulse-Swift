@@ -11,7 +11,7 @@ public enum AppInstallation {
     throw PulseError("Install SidePulse.app before managing the app or sleep helper.")
   }
   public static func open(
-    executable: URL, run: (String, [String]) throws -> Data = { try SystemCommand.run($0, $1) }
+    executable: URL, run: (String, [String]) throws -> Data = SystemCommand.run
   ) throws {
     _ = try run("/usr/bin/open", [try bundle(for: executable).path])
   }
@@ -27,7 +27,7 @@ public enum AppInstallation {
   }
   public static func sleepHelper(
     action: String, executable: URL, dryRun: Bool, administratorPrompt: Bool = false,
-    run: (String, [String]) throws -> Data = { try SystemCommand.run($0, $1) }
+    run: (String, [String]) throws -> Data = SystemCommand.run
   ) throws -> String {
     guard ["install", "uninstall", "status"].contains(action) else {
       throw PulseError("Unknown helper action.")
@@ -63,7 +63,7 @@ public enum AppInstallation {
   /// agents once for the new build so they do not keep executing the previous binary.
   public static func refreshServices(
     executable: URL, version: String,
-    run: (String, [String]) throws -> Data = { try SystemCommand.run($0, $1) }
+    run: (String, [String]) throws -> Data = SystemCommand.run
   ) throws {
     try withLock(Paths.support.appendingPathComponent("upgrade.lock")) {
       guard try Settings.read()["installed_build"] as? String != version else { return }

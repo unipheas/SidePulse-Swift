@@ -9,7 +9,8 @@ final class AppTests: XCTestCase {
       "SidePulse-UI-" + UUID().uuidString)
     try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     try JSONSerialization.data(withJSONObject: [
-      "swift_mirror": false, "swift_closed_lid": "never", "sleep_prevention_policy": "never",
+      "setup_screen_completed": true, "swift_mirror": false, "swift_closed_lid": "never",
+      "sleep_prevention_policy": "never",
       "show_menu_bar_icon": false, "agent_list": ["completed_visible_seconds": 15],
     ]).write(to: root.appendingPathComponent("settings.json"))
     app = XCUIApplication()
@@ -278,7 +279,23 @@ extension AppTests {
     app.menuItems["Reusable fixture"].firstMatch.click()
     app.buttons["Save animation"].click()
     let entries = try settings()["agent_animations"] as? [String: [String: Any]]
-    XCTAssertEqual(entries?["idle_ready"]?["custom_program"] as? String, "#102030")
+    let id = try XCTUnwrap(entries?["idle_ready"]?["style"] as? String)
+    XCTAssertEqual(registry[id]?["program"] as? String, "#102030")
+    app.buttons["edit-idle_ready"].click()
+    replace(app.textViews["animation-program"], with: "#405060")
+    app.buttons["Update library animation"].click()
+    let updated = try XCTUnwrap(
+      try settings()["custom_agent_animations"] as? [String: [String: Any]])
+    XCTAssertEqual(updated.count, 1)
+    XCTAssertEqual(updated[id]?["program"] as? String, "#405060")
+    app.buttons["Save as new"].click()
+    replace(app.textFields["Reusable animation name"], with: "Second fixture")
+    app.buttons["Save to library"].click()
+    XCTAssertEqual((try settings()["custom_agent_animations"] as? [String: Any])?.count, 2)
+    app.buttons["Cancel"].click()
+    choose(app.popUpButtons["animation-profile"], "Cyan")
+    choose(app.popUpButtons["animation-profile"], "Current")
+    XCTAssertEqual(try settings()["swift_profile"] as? String, "current")
   }
 }
 
@@ -322,6 +339,72 @@ extension AppTests {
 }
 
 extension AppTests {
+  private func filePanel(_ url: URL, action: String) {
+    let button = app.buttons[action].firstMatch
+    XCTAssertTrue(button.waitForExistence(timeout: 5), app.debugDescription)
+    app.typeKey("g", modifierFlags: [.command, .shift])
+    let location = app.textFields["PathTextField"]
+    XCTAssertTrue(location.waitForExistence(timeout: 3), app.debugDescription)
+    replace(location, with: action == "Save" ? url.deletingLastPathComponent().path : url.path)
+    location.typeKey(.return, modifierFlags: [])
+    XCTAssertTrue(location.waitForNonExistence(timeout: 5))
+    if action == "Save" {
+      replace(app.textFields["saveAsNameTextField"], with: url.lastPathComponent)
+    }
+    button.click()
+    XCTAssertTrue(button.waitForNonExistence(timeout: 5), app.debugDescription)
+    if action == "Save" {
+      let exists = NSPredicate { _, _ in FileManager.default.fileExists(atPath: url.path) }
+      expectation(for: exists, evaluatedWith: nil)
+      waitForExpectations(timeout: 5)
+    }
+  }
+
+  func testProfilesImportExportAndCancel() throws {
+    select("Animations")
+    app.buttons["Import…"].click()
+    XCTAssertTrue(app.buttons["Cancel"].firstMatch.waitForExistence(timeout: 3))
+    app.buttons["Cancel"].firstMatch.click()
+    app.buttons["Export…"].click()
+    app.buttons["Cancel"].firstMatch.click()
+    app.buttons["Export…"].click()
+    let file = root.appendingPathComponent("roundtrip.json")
+    filePanel(file, action: "Save")
+    let exported = try XCTUnwrap(
+      JSONSerialization.jsonObject(with: Data(contentsOf: file)) as? [String: Any])
+    XCTAssertFalse(exported.isEmpty)
+    app.buttons["Import…"].click()
+    filePanel(file, action: "Open")
+    XCTAssertFalse(app.alerts.firstMatch.exists)
+    let invalid = root.appendingPathComponent("invalid.json")
+    try Data("{invalid".utf8).write(to: invalid)
+    app.buttons["Import…"].click()
+    filePanel(invalid, action: "Open")
+    XCTAssertTrue(app.windows.buttons["OK"].firstMatch.waitForExistence(timeout: 3))
+    app.windows.buttons["OK"].firstMatch.click()
+    app.buttons["Save as…"].click()
+    app.buttons["Cancel"].click()
+  }
+
+  func testHistoryAndEventExportsContainRecordedData() throws {
+    for format in ["CSV", "HTML"] {
+      select("History")
+      app.menuButtons["Export…"].click()
+      app.menuItems[format].firstMatch.click()
+      let history = root.appendingPathComponent("history." + format.lowercased())
+      filePanel(history, action: "Save")
+      XCTAssertTrue(
+        try String(contentsOf: history).contains(format == "CSV" ? "time_utc" : "<!doctype html>"))
+      select("Diagnostics")
+      let export = app.buttons["Export event " + format + "…"]
+      reveal(export)
+      export.click()
+      let audit = root.appendingPathComponent("events." + format.lowercased())
+      filePanel(audit, action: "Save")
+      XCTAssertFalse(try Data(contentsOf: audit).isEmpty)
+    }
+  }
+
   func testNotchPreviewAndAwakePreferencesPersist() throws {
     select("Settings")
     let notch = app.switches["notch-enabled"]
@@ -333,8 +416,7 @@ extension AppTests {
     choose(app.popUpButtons["notch-display"], "Agent status")
     let brightness = app.sliders["notch-brightness"]
     reveal(brightness)
-    brightness.click()
-    brightness.typeKey(.leftArrow, modifierFlags: [])
+    brightness.adjust(toNormalizedSliderPosition: 0.4)
     XCTAssertNotNil(
       (try settings()["devices"] as? [[String: Any]])?.first {
         $0["id"] as? String == "virtual:status-bar"
@@ -356,5 +438,23 @@ extension AppTests {
       app.staticTexts["Enter a finite number of seconds, zero or more."].waitForExistence(
         timeout: 3))
     app.windows.buttons["OK"].firstMatch.click()
+  }
+}
+
+extension AppTests {
+  func testInitialSetupCanBeDeferredAndStaysDismissed() throws {
+    app.terminate()
+    var config = try settings()
+    config["setup_screen_completed"] = false
+    try JSONSerialization.data(withJSONObject: config).write(
+      to: root.appendingPathComponent("settings.json"))
+    app.launch()
+    XCTAssertTrue(app.staticTexts["Welcome to SidePulse"].waitForExistence(timeout: 5))
+    XCTAssertTrue(app.buttons["Set up SidePulse"].exists)
+    app.buttons["Not now"].click()
+    XCTAssertEqual(try settings()["setup_screen_completed"] as? Bool, true)
+    app.terminate()
+    app.launch()
+    XCTAssertFalse(app.staticTexts["Welcome to SidePulse"].exists)
   }
 }

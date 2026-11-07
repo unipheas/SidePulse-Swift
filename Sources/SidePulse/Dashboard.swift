@@ -9,6 +9,7 @@ import SwiftUI
   @Published var sessions = [Session]()
   @Published var settings: JSONObject = [:]
   @Published var problem: String?
+  @Published var needsSetup = false
   @Published var legacy = false
   @Published var login = SMAppService.mainApp.status == .enabled
   @Published var history = [(Date, Mode)]()
@@ -21,6 +22,7 @@ import SwiftUI
   private var lastPhoneMode: Mode?
   private var sending = false
   private let notch = NotchDisplay()
+  let actions: MacActions
   private let discover: () -> [Device]
   private let outputInUse: () -> Bool
   init(
@@ -28,8 +30,9 @@ import SwiftUI
     outputInUse: @escaping () -> Bool = {
       Output.legacyRunning() || Jobs.running(Jobs.prefix + "service")
     },
-    poll: Bool = true
+    poll: Bool = true, actions: MacActions? = nil
   ) {
+    self.actions = actions ?? MacActions()
     self.discover = discover
     self.outputInUse = outputInUse
     do { try Settings.migrate() } catch { problem = error.localizedDescription }
@@ -40,6 +43,7 @@ import SwiftUI
       MainActor.assumeIsolated { try? self?.sleepOverride.restore() }
     }
     refresh()
+    needsSetup = settings["setup_screen_completed"] as? Bool != true
     guard poll else { return }
     timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
       Task { @MainActor in self?.refresh() }
@@ -128,4 +132,64 @@ import SwiftUI
       refresh()
     } catch { problem = error.localizedDescription }
   }
+}
+
+extension Dashboard {
+  func setLogin(_ enabled: Bool) {
+    do { login = try actions.login(enabled) } catch { problem = error.localizedDescription }
+  }
+  func takeControl() {
+    do {
+      try actions.takeControl()
+      legacy = false
+      refresh()
+    } catch { problem = error.localizedDescription }
+  }
+  func restorePrevious() {
+    do {
+      try actions.giveBack()
+      legacy = true
+      refresh()
+    } catch { problem = error.localizedDescription }
+  }
+  func configureHooks(_ provider: String, install: Bool) {
+    do { try actions.configureHooks(provider, install: install) } catch {
+      problem = error.localizedDescription
+    }
+  }
+  func setClosedLid(_ value: String) {
+    guard value == "never" || actions.helperInstalled() else {
+      problem = "Install the sleep helper below before enabling closed-lid operation."
+      return
+    }
+    change { $0["swift_closed_lid"] = value }
+  }
+  func preview(_ source: String, on device: Device) {
+    do {
+      _ = try LEDPreview(program: source, count: device.count)
+      try Settings.update {
+        Settings.editDevice(
+          device.id, in: &$0, values: ["led_display": "custom", "manual_program": source])
+      }
+      try device.write(source)
+      refresh()
+    } catch { problem = error.localizedDescription }
+  }
+  func toggleService(_ job: String) -> Bool {
+    do {
+      let running = try actions.job(job, start: !actions.jobRunning(job))
+      refresh()
+      return running
+    } catch { problem = error.localizedDescription }
+    return actions.jobRunning(job)
+  }
+
+  func deferSetup() {
+    do {
+      try Settings.update { $0["setup_screen_completed"] = true }
+      needsSetup = false
+      refresh()
+    } catch { problem = error.localizedDescription }
+  }
+
 }

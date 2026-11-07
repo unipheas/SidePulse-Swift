@@ -187,17 +187,8 @@ struct BackgroundServicePreference: View {
       }
       Spacer()
       Button(running ? "Stop" : "Start") {
-        do {
-          let executable = Bundle.main.bundleURL.appendingPathComponent(
-            "Contents/MacOS/sidepulsectl")
-          guard FileManager.default.isExecutableFile(atPath: executable.path) else {
-            throw PulseError("Install SidePulse.app before managing background services.")
-          }
-          try Jobs.configure(job, executable: executable, start: !running)
-          running = Jobs.running(Jobs.prefix + job)
-          model.refresh()
-        } catch { model.problem = error.localizedDescription }
+        running = model.toggleService(job)
       }.accessibilityIdentifier("manage-" + job)
-    }.onAppear { running = Jobs.running(Jobs.prefix + job) }
+    }.onAppear { running = model.actions.jobRunning(job) }
   }
 }

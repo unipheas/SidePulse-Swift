@@ -141,24 +141,7 @@ enum Args {
       try RawDisk.write(path: path, program: Args.program(), dryRun: dry)
     case "write", "push": try await deliver(preferPhone: command == "push")
     case "status-bar": try appCommand()
-    case "setup":
-      let noApp = Args.flag("--no-status-bar")
-      let scopeName = try Args.option("--sd-eject-guard-scope") ?? "auto"
-      guard let scope = Jobs.Scope(rawValue: scopeName) else {
-        throw PulseError("Choose auto, user or system scope.")
-      }
-      let dry = Args.words.contains("--dry-run")
-      let executable = Bundle.main.executableURL!
-      let bundle = !noApp && !dry ? try AppInstallation.bundle(for: executable) : nil
-      guard scope != .system || getuid() == 0 else {
-        throw PulseError("System scope requires root.")
-      }
-      try configure(install: true)
-      if let bundle {
-        try Jobs.configure("sdejectguard", executable: executable, start: true, scope: scope)
-        try Jobs.configure(
-          "app", executable: bundle.appendingPathComponent("Contents/MacOS/SidePulse"), start: true)
-      }
+    case "setup": try setup()
     case "agent-monitor":
       let sub = Args.pop() ?? "status"
       switch sub {
@@ -318,9 +301,9 @@ enum Args {
         decoding: try JSONSerialization.data(withJSONObject: value, options: .sortedKeys),
         as: UTF8.self))
   }
-  static func listDevices() throws {
+  static func listDevices(discover: () throws -> [Device] = Args.devices) throws {
     let json = Args.flag("--json")
-    let devices = try Args.devices()
+    let devices = try discover()
     try Args.end()
     if json {
       try jsonPrint(

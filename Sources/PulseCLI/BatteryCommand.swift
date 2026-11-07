@@ -5,7 +5,10 @@ extension CLI {
   static func batteryCommand(
     read: () -> Battery? = Battery.read,
     discover: () -> [Device] = Device.discover,
-    diagnostics: (Double) -> JSONObject? = { BatteryDiagnostics.read(fullWatts: $0)?.values }
+    diagnostics: (Double) -> JSONObject? = { BatteryDiagnostics.read(fullWatts: $0)?.values },
+    wait: (Double) async throws -> Void = Polling.wait,
+    output: ProgramOutput = ProgramOutput(),
+    report: (String) -> Void = { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
   ) async throws {
     let action = Args.pop() ?? "status"
     let full = try Args.option("--full-watts")
@@ -60,18 +63,27 @@ extension CLI {
         }
         return
       }
-      let devices =
-        try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
-        ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
-      let device = try Args.one(devices)
-      let settings = try Settings.read()
-      let baseline =
-        fullWatts ?? (settings["battery_monitoring"] as? JSONObject)?["full_charge_watts"]
-        as? Double ?? PowerRegistry.fullChargeWatts
-      let program = battery.program(count: device.count, fullWatts: baseline)
-      if dry { print(program) } else { try device.write(program) }
+      var discovered = false
+      do {
+        let devices =
+          try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
+          ?? discover().map { try Device.inspect($0.root, fileName: fileName) }
+        discovered = true
+        output.retain(devices)
+        let device = try Args.one(devices)
+        let settings = try Settings.read()
+        let baseline =
+          fullWatts ?? (settings["battery_monitoring"] as? JSONObject)?["full_charge_watts"]
+          as? Double ?? PowerRegistry.fullChargeWatts
+        let program = battery.program(count: device.count, fullWatts: baseline)
+        if dry { print(program) } else { try output.send(program, to: device) }
+      } catch {
+        if once { throw error }
+        if !discovered { output.retain([]) }
+        report(error.localizedDescription)
+      }
       if once { return }
-      try await Task.sleep(for: .seconds(interval))
+      try await wait(interval)
     } while !Task.isCancelled
   }
 }

@@ -16,7 +16,8 @@ contents="$app/Contents"
 mkdir -p "$contents/MacOS" "$contents/Resources"
 cp -X "$bin/SidePulse" "$bin/sidepulsectl" "$contents/MacOS/"
 cp -X "$classifier/sidepulse-classifier" "$contents/MacOS/"
-cp -X "$classifier/mlx-swift_Cmlx.bundle/Contents/Resources/default.metallib" "$contents/MacOS/mlx.metallib"
+# MLX resolves its SwiftPM resource bundle from Contents/Resources. A raw
+# .metallib beside the executables is incorrectly treated as nested code by codesign.
 for resource in "$classifier"/*.bundle; do
   ditto --norsrc --noextattr "$resource" "$contents/Resources/$(basename "$resource")"
 done
@@ -39,7 +40,7 @@ cp -X Artwork/Info.plist "$contents/"
 codesign --force --sign "${CODESIGN_IDENTITY:--}" "$contents/MacOS/sidepulse-classifier"
 codesign --force --sign "${CODESIGN_IDENTITY:--}" "$contents/MacOS/sidepulsectl"
 codesign --force --sign "${CODESIGN_IDENTITY:--}" "$app"
-codesign --verify --strict "$app"
+codesign --verify --deep --strict "$app"
 ditto -c -k --norsrc --noextattr --keepParent "$app" "$stage/SidePulse-macOS.zip"
 if [[ -d "dist/SidePulse.app" ]]; then mv "dist/SidePulse.app" "$stage/previous.app"; fi
 mv "$app" dist/

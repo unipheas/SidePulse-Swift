@@ -7,24 +7,37 @@ public struct Battery: Sendable {
   public var adapterPower: Double? = nil
   public var batteryPower: Double? = nil
   public static func read() -> Battery? {
-    guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
-      let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
+    read(system: System())
+  }
+  struct System {
+    var info: () -> CFTypeRef? = { IOPSCopyPowerSourcesInfo()?.takeRetainedValue() }
+    var sources: (CFTypeRef) -> [CFTypeRef]? = {
+      IOPSCopyPowerSourcesList($0)?.takeRetainedValue() as? [CFTypeRef]
+    }
+    var description: (CFTypeRef, CFTypeRef) -> JSONObject? = {
+      IOPSGetPowerSourceDescription($0, $1)?.takeUnretainedValue() as? JSONObject
+    }
+    var adapter: () -> JSONObject? = {
+      IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? JSONObject
+    }
+    var diagnostics: () -> BatteryDiagnostics? = { BatteryDiagnostics.read() }
+  }
+  static func read(system: System) -> Battery? {
+    guard let info = system.info(), let list = system.sources(info)
     else { return nil }
     for source in list {
       guard
-        let data = IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue()
-          as? JSONObject,
+        let data = system.description(info, source),
         data["Type"] as? String == "InternalBattery",
         let capacity = data["Current Capacity"] as? Int,
         let maxCapacity = data["Max Capacity"] as? Int, maxCapacity > 0
       else { continue }
-      let diagnostics = BatteryDiagnostics.read()
+      let diagnostics = system.diagnostics()
       return Battery(
         percent: min(100, max(0, capacity * 100 / maxCapacity)),
         charging: data["Is Charging"] as? Bool == true,
         plugged: data["Power Source State"] as? String == "AC Power",
-        watts: (IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? JSONObject)?["Watts"]
-          as? Int ?? 0, charged: diagnostics?.charged ?? false,
+        watts: system.adapter()?["Watts"] as? Int ?? 0, charged: diagnostics?.charged ?? false,
         adapterPower: diagnostics?.adapterPower,
         batteryPower: diagnostics?.values["battery_watts"] as? Double)
     }

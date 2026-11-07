@@ -26,22 +26,10 @@ struct Preferences: View {
           }.accessibilityIdentifier("save-done-duration")
         }
         if model.legacy && !Jobs.running(Jobs.prefix + "service") {
-          Button("Use this installation for device output") {
-            do {
-              try Jobs.takeControl()
-              model.legacy = false
-              model.refresh()
-            } catch { model.problem = error.localizedDescription }
-          }
+          Button("Use this installation for device output", action: model.takeControl)
         }
         if let paused = model.settings["swift_paused_jobs"] as? [String], !paused.isEmpty {
-          Button("Restore previous installation") {
-            do {
-              try Jobs.giveBack()
-              model.legacy = true
-              model.refresh()
-            } catch { model.problem = error.localizedDescription }
-          }
+          Button("Restore previous installation", action: model.restorePrevious)
         }
         Toggle(
           "Mirror status on connected devices",
@@ -179,16 +167,7 @@ struct Preferences: View {
           "Open at login",
           isOn: Binding(
             get: { model.login },
-            set: { value in
-              do {
-                if value {
-                  try SMAppService.mainApp.register()
-                } else {
-                  try SMAppService.mainApp.unregister()
-                }
-                model.login = SMAppService.mainApp.status == .enabled
-              } catch { model.problem = error.localizedDescription }
-            }))
+            set: model.setLogin))
       }
       PowerPreferences()
       Section("Transcript recovery") {
@@ -223,18 +202,7 @@ struct Preferences: View {
         format: "%g", Settings.seconds(model.settings, "completed_visible_seconds", default: 1200))
     }
   }
-  func configure(_ install: Bool) {
-    guard
-      let cli = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent(
-        "sidepulsectl"), FileManager.default.isExecutableFile(atPath: cli.path)
-    else {
-      model.problem = "Build and launch the packaged app to configure hooks."
-      return
-    }
-    do { try Hooks.configure(provider, executable: cli, install: install) } catch {
-      model.problem = error.localizedDescription
-    }
-  }
+  func configure(_ install: Bool) { model.configureHooks(provider, install: install) }
 }
 
 struct SessionTimingPreference: View {

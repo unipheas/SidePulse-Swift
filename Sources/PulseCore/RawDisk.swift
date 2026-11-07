@@ -48,13 +48,25 @@ public enum RawDisk {
     throw PulseError("Expected an existing LEDS.LED in the root directory.")
   }
   public static func write(path: String, program: String, dryRun: Bool) throws {
+    try write(path: path, program: program, dryRun: dryRun, io: IO())
+  }
+  /// Isolate syscalls so short transfers and a device changing mid-write are testable.
+  struct IO {
+    var command: (String, [String]) throws -> Data = SystemCommand.run
+    var openFile: (String, Int32) -> Int32 = { open($0, $1) }
+    var size: (Int32) -> Int64 = { Int64(pulse_raw_size($0)) }
+    var read: (Int32, UnsafeMutableRawPointer, Int, off_t) -> Int = { pread($0, $1, $2, $3) }
+    var write: (Int32, UnsafeRawPointer?, Int, off_t) -> Int = { pwrite($0, $1, $2, $3) }
+    var sync: (Int32) -> Int32 = fsync
+  }
+  static func write(path: String, program: String, dryRun: Bool, io: IO) throws {
     guard path.range(of: #"^/dev/r?disk[0-9]+$"#, options: .regularExpression) != nil else {
       throw PulseError("Select an unmounted whole /dev/diskN or /dev/rdiskN.")
     }
     let payload = Array(try Programs.normalize(program).utf8)
     let name = path.replacingOccurrences(of: "/dev/rdisk", with: "/dev/disk")
     func verifyMount() throws {
-      let response = try SystemCommand.run("/usr/sbin/diskutil", ["info", "-plist", name])
+      let response = try io.command("/usr/sbin/diskutil", ["info", "-plist", name])
       guard
         let info = try PropertyListSerialization.propertyList(from: response, format: nil)
           as? JSONObject,
@@ -63,17 +75,17 @@ public enum RawDisk {
       else { throw PulseError("Unmount the identified whole disk before raw access.") }
     }
     try verifyMount()
-    let fd = open(path, (dryRun ? O_RDONLY : O_RDWR) | O_NOFOLLOW | O_EXLOCK | O_NONBLOCK)
+    let fd = io.openFile(path, (dryRun ? O_RDONLY : O_RDWR) | O_NOFOLLOW | O_EXLOCK | O_NONBLOCK)
     guard fd >= 0 else { throw PulseError("Cannot open this disk exclusively.") }
     defer { close(fd) }
-    let size = Int(pulse_raw_size(fd))
+    let size = Int(io.size(fd))
     guard size >= 512, size <= 300000 else {
       throw PulseError("Disk is too large or has unsupported block geometry.")
     }
     var disk = [UInt8](repeating: 0, count: size)
     for offset in stride(from: 0, to: size, by: 512) {
       let n = disk.withUnsafeMutableBytes {
-        pread(fd, $0.baseAddress!.advanced(by: offset), 512, off_t(offset))
+        io.read(fd, $0.baseAddress!.advanced(by: offset), 512, off_t(offset))
       }
       guard n == 512 else { throw PulseError("Incomplete disk read.") }
     }
@@ -88,11 +100,11 @@ public enum RawDisk {
       (loc.directory, directory),
     ] {
       try verifyMount()
-      guard pulse_raw_size(fd) == size, offset >= 0, offset % 512 == 0, offset <= size - 512 else {
+      guard io.size(fd) == size, offset >= 0, offset % 512 == 0, offset <= size - 512 else {
         throw PulseError("Disk geometry changed.")
       }
-      guard sector.withUnsafeBytes({ pwrite(fd, $0.baseAddress, 512, off_t(offset)) }) == 512,
-        fsync(fd) == 0
+      guard sector.withUnsafeBytes({ io.write(fd, $0.baseAddress, 512, off_t(offset)) }) == 512,
+        io.sync(fd) == 0
       else { throw PulseError("Raw write failed. Recheck the device before retrying.") }
     }
   }

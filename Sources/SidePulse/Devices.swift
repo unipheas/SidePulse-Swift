@@ -3,10 +3,7 @@ import SwiftUI
 
 struct DeviceManagement: View {
   @EnvironmentObject var model: Dashboard
-  @State private var firmwareDevice: Device?
-  @State private var firmwareStatus = ""
-  @State private var busy = false
-  @State private var confirm = false
+  @StateObject var firmware = FirmwareUpdate()
   @State private var phones: [Phone] = []
   @State private var token = ""
   @State private var name = ""
@@ -19,18 +16,18 @@ struct DeviceManagement: View {
           DeviceDisplayPreference(id: device.id, title: "Display")
           DeviceBrightnessPreference(id: device.id)
           HStack {
-            Button("Check firmware") { update(device, dry: true) }.disabled(busy)
+            Button("Check firmware") { Task { await firmware.update(device, dry: true) } }.disabled(
+              firmware.busy)
             Button("Update firmware…") {
-              firmwareDevice = device
-              confirm = true
-            }.disabled(busy)
+              firmware.request(device)
+            }.disabled(firmware.busy)
           }
         }
         if model.devices.isEmpty {
           Text("Connect a SidePulse Pro or Dot.").foregroundStyle(.secondary)
         }
-        if !firmwareStatus.isEmpty { Text(firmwareStatus).textSelection(.enabled) }
-        if busy { ProgressView() }
+        if !firmware.status.isEmpty { Text(firmware.status).textSelection(.enabled) }
+        if firmware.busy { ProgressView() }
       }
       if !remembered.isEmpty {
         Section("Disconnected devices") {
@@ -83,9 +80,9 @@ struct DeviceManagement: View {
         if !phoneStatus.isEmpty { Text(phoneStatus).foregroundStyle(.secondary) }
       }
     }.formStyle(.grouped).onAppear(perform: reload)
-      .confirmationDialog("Install firmware on this SidePulse?", isPresented: $confirm) {
+      .confirmationDialog("Install firmware on this SidePulse?", isPresented: $firmware.confirm) {
         Button("Install firmware") {
-          if let device = firmwareDevice { update(device, dry: false) }
+          Task { await firmware.install() }
         }
       } message: {
         Text(
@@ -103,16 +100,7 @@ struct DeviceManagement: View {
   private func reload() {
     do { phones = try Bridge.phones() } catch { phoneStatus = error.localizedDescription }
   }
-  private func update(_ device: Device, dry: Bool) {
-    busy = true
-    firmwareStatus = "Checking firmware…"
-    Task {
-      defer { busy = false }
-      do {
-        firmwareStatus = try await Firmware.upgrade(device, version: nil, file: nil, dryRun: dry)
-      } catch { firmwareStatus = error.localizedDescription }
-    }
-  }
+
 }
 
 struct DeviceBrightnessPreference: View {

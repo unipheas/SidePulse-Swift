@@ -7,6 +7,7 @@ struct Overview: View {
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 20) {
+        if model.needsSetup { SetupView() }
         HStack(alignment: .firstTextBaseline) {
           Image(systemName: "waveform.path.ecg").foregroundStyle(.teal)
           Text(model.mode.label).accessibilityIdentifier("current-state").font(

@@ -4,7 +4,13 @@ import IOKit
 /// The hardware boundary is kept separate from property interpretation so recorded
 /// IOKit snapshots can exercise the same conversion as a connected Mac.
 public enum PowerRegistry {
-  static func properties(_ name: String, plane: String? = nil) -> JSONObject? {
+  static func properties(
+    _ name: String, plane: String? = nil,
+    read: (io_registry_entry_t, UnsafeMutablePointer<Unmanaged<CFMutableDictionary>?>) ->
+      kern_return_t = {
+        IORegistryEntryCreateCFProperties($0, $1, kCFAllocatorDefault, 0)
+      }
+  ) -> JSONObject? {
     let entry: io_registry_entry_t
     if let plane {
       entry = IORegistryEntryFromPath(kIOMainPortDefault, plane + ":/" + name)
@@ -14,7 +20,7 @@ public enum PowerRegistry {
     guard entry != 0 else { return nil }
     defer { IOObjectRelease(entry) }
     var result: Unmanaged<CFMutableDictionary>?
-    guard IORegistryEntryCreateCFProperties(entry, &result, kCFAllocatorDefault, 0) == KERN_SUCCESS
+    guard read(entry, &result) == KERN_SUCCESS
     else { return nil }
     return result?.takeRetainedValue() as? JSONObject
   }

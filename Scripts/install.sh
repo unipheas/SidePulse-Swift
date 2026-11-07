@@ -10,7 +10,7 @@ identifier=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$source/Con
 stage=$(mktemp -d /Applications/.SidePulse-install.XXXXXXXX)
 trap 'rm -rf "$stage"' EXIT
 ditto --norsrc --noextattr "$source" "$stage/SidePulse.app"
-codesign --verify --strict "$stage/SidePulse.app"
+codesign --verify --deep --strict "$stage/SidePulse.app"
 if [[ -d "$target" ]]; then
   installed=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$target/Contents/Info.plist")
   [[ "$installed" == "$identifier" ]] || { echo 'Another application occupies the install location.' >&2; exit 1; }
@@ -30,8 +30,10 @@ if ! mv "$stage/SidePulse.app" "$target"; then
 fi
 "$registrar" -f "$target"
 mdimport "$target"
-job="gui/$(id -u)/com.unipheas.SidePulseSwift.service"
-if launchctl print "$job" >/dev/null 2>&1; then launchctl kickstart -k "$job"; fi
+for name in service sdejectguard; do
+  job="gui/$(id -u)/com.unipheas.SidePulseSwift.$name"
+  if launchctl print "$job" >/dev/null 2>&1; then launchctl kickstart -k "$job"; fi
+done
 mkdir -p "$HOME/.local/bin"
 if [[ ! -e "$HOME/.local/bin/sidepulsectl" || -L "$HOME/.local/bin/sidepulsectl" ]]; then
   ln -sfn "$target/Contents/MacOS/sidepulsectl" "$HOME/.local/bin/sidepulsectl"

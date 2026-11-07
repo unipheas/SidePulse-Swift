@@ -40,6 +40,10 @@ public enum Profiles {
   }
   public static func select(_ id: String) throws {
     try Settings.update { settings in
+      if id == "current" {
+        settings["swift_profile"] = id
+        return
+      }
       let saved = settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]
       let mapping: [String: String]
       if let stored = saved[id]?["animations"] as? [String: String] {

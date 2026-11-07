@@ -163,6 +163,29 @@ final class ExampleTests: IsolatedTests {
 }
 
 extension ExampleTests {
+  func testExamplesCleanUpWhenCancellationDoesNotThrow() async throws {
+    var stops = 0
+    var frames = 0
+    try await Task {
+      try await AudioMeter.run(
+        device: nil, dryRun: true,
+        input: .init(authorize: { true }, start: { _ in }, stop: { stops += 1 }),
+        wait: { withUnsafeCurrentTask { $0?.cancel() } }, output: { _ in frames += 1 })
+    }.value
+    XCTAssertEqual(stops, 1)
+    XCTAssertEqual(frames, 1)
+    var polls = 0
+    try await Task {
+      try await Scoreboard.run(
+        device: nil, score: nil, dryRun: true,
+        fetch: { url in
+          polls += 1
+          return (try self.feed(), self.response(url))
+        }, wait: { withUnsafeCurrentTask { $0?.cancel() } }, output: { _ in })
+    }.value
+    XCTAssertEqual(polls, 1)
+  }
+
   func testAuthorizedMicrophoneAdapterStartsCapturesAndStops() async throws {
     guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
       throw XCTSkip("Microphone access is not already authorized; this test never requests it.")
@@ -176,5 +199,44 @@ extension ExampleTests {
     try await Task.sleep(for: .milliseconds(120))
     XCTAssertTrue(level.read().isFinite)
     XCTAssertGreaterThanOrEqual(level.read(), 0)
+  }
+}
+
+extension ExampleTests {
+  func testMicrophoneStartValidatesFormatAndRemovesTapOnFailure() throws {
+    var calls = [String]()
+    for (channels, rate) in [(UInt32(0), 48000.0), (1, 0)] {
+      XCTAssertThrowsError(
+        try AudioMeter.startInput(
+          channels: channels, sampleRate: rate,
+          install: { XCTFail("Invalid format installed a tap") }, start: { XCTFail() },
+          remove: { XCTFail() }))
+    }
+    for failure in [false, true] {
+      calls = []
+      do {
+        try AudioMeter.startInput(
+          channels: 1, sampleRate: 48000,
+          install: { calls.append("install") },
+          start: {
+            calls.append("start")
+            if failure { throw PulseError("Audio engine failed") }
+          }, remove: { calls.append("remove") })
+        XCTAssertFalse(failure)
+      } catch { XCTAssertTrue(failure) }
+      XCTAssertEqual(calls, failure ? ["install", "start", "remove"] : ["install", "start"])
+    }
+  }
+  func testDefaultAudioPollIsCancellableAndAlwaysStopsInput() async throws {
+    var stopped = false
+    let task = Task {
+      try await AudioMeter.run(
+        device: nil, dryRun: true,
+        input: .init(authorize: { true }, start: { _ in }, stop: { stopped = true }))
+    }
+    try await Task.sleep(for: .milliseconds(100))
+    task.cancel()
+    do { try await task.value } catch is CancellationError {}
+    XCTAssertTrue(stopped)
   }
 }

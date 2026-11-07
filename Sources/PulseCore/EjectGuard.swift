@@ -5,11 +5,15 @@ public enum EjectGuard {
   public static func run() throws {
     try run(createSession: { DASessionCreate(nil) })
   }
-  static func run(createSession: () -> DASession?) throws {
+  static func run(
+    createSession: () -> DASession?,
+    daemonPID: () -> Int? = DiskArbitrationWatch.processID
+  ) throws {
     guard let session = createSession() else {
       throw PulseError("Cannot create Disk Arbitration session.")
     }
     let context = GuardContext(session: session)
+    var daemon = DiskArbitrationWatch()
     let pointer = Unmanaged.passUnretained(context).toOpaque()
     DARegisterDiskEjectApprovalCallback(
       session, nil,
@@ -30,10 +34,31 @@ public enum EjectGuard {
     }
     withExtendedLifetime(context) {
       while !Task.isCancelled {
+        // A daemon restart invalidates registered callbacks. Exiting lets the
+        // launchd KeepAlive job reconnect with a fresh session, as in the original guard.
+        if daemon.changed(to: daemonPID()) { return }
         context.refresh()
         CFRunLoopRunInMode(.defaultMode, 0.5, true)
       }
     }
+  }
+}
+
+struct DiskArbitrationWatch {
+  private var previous: Int?
+  static func processID() -> Int? {
+    processID(at: URL(fileURLWithPath: "/var/run/diskarbitrationd.pid"))
+  }
+  static func processID(at file: URL) -> Int? {
+    guard let text = try? String(contentsOf: file, encoding: .utf8),
+      let pid = Int(text.trimmingCharacters(in: .whitespacesAndNewlines)), pid > 0
+    else { return nil }
+    return pid
+  }
+  mutating func changed(to pid: Int?) -> Bool {
+    guard let pid else { return false }
+    defer { previous = pid }
+    return previous != nil && previous != pid
   }
 }
 

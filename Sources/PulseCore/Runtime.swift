@@ -3,8 +3,7 @@ import IOKit.pwr_mgt
 
 /// One owner writes changed LED programs, including reconnects.
 public final class Output {
-  private var sent = [String: String]()
-  private var failed = [String: (program: String, retryAfter: Date)]()
+  private let programs: ProgramOutput
   private let now: () -> Date
   private let lidClosed: () -> Bool?
   private var previousPower: Bool?, previousLid: Bool?
@@ -18,12 +17,12 @@ public final class Output {
     now: @escaping () -> Date = Date.init, lidClosed: @escaping () -> Bool? = Power.lidClosed
   ) {
     self.now = now
+    self.programs = ProgramOutput(now: now)
     self.lidClosed = lidClosed
   }
   deinit { if assertion != 0 { IOPMAssertionRelease(assertion) } }
   public func reset() {
-    sent.removeAll()
-    failed.removeAll()
+    programs.retain([])
   }
   public func updateAwake(mode: Mode, settings: JSONObject, battery: Battery?) {
     if [.done, .waiting, .blocked].contains(mode), lastMode != mode {
@@ -32,9 +31,9 @@ public final class Output {
     if [.working, .tool, .progress].contains(mode) { awakeUntil = .distantPast }
     lastMode = mode
     let minimum =
-      (settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Double ?? 20
+      SleepSettings.minimum(settings)
     let safeBattery = battery.map { $0.plugged || Double($0.percent) >= minimum } ?? true
-    let policy = settings["sleep_prevention_policy"] as? String ?? "agents"
+    let policy = SleepSettings.policy(settings)
     let enabled = settings["swift_keep_awake"] as? Bool ?? (policy != "never")
     let active =
       policy == "always" || [.working, .tool, .progress].contains(mode) || now() < awakeUntil
@@ -57,8 +56,7 @@ public final class Output {
       reset()
       return
     }
-    sent = sent.filter { key, _ in devices.contains { $0.id == key } }
-    failed = failed.filter { key, _ in devices.contains { $0.id == key } }
+    programs.retain(devices)
     let batterySettings = settings["battery_monitoring"] as? JSONObject ?? [:]
     if let plugged = battery?.plugged {
       if let previousPower, previousPower != plugged,
@@ -85,7 +83,7 @@ public final class Output {
       let display =
         config?["led_display"] as? String ?? settings["led_display"] as? String ?? "agent"
       if display == "custom", config?["manual_program"] as? String == nil {
-        sent[device.id] = nil
+        programs.forget(device.id)
         continue
       }
       do {
@@ -112,16 +110,7 @@ public final class Output {
           source = try Programs.program(mode, count: device.count, settings: settings)
         }
         let program = Programs.brightness(source, level: config?["brightness"] as? Int ?? 255)
-        if sent[device.id] != program {
-          if let failure = failed[device.id], failure.program == program, now() < failure.retryAfter
-          {
-            continue
-          }
-          failed[device.id] = (program, now().addingTimeInterval(10))
-          try device.write(program)
-          failed[device.id] = nil
-          sent[device.id] = program
-        }
+        try programs.send(program, to: device)
       } catch { failures.append("\(device.name): \(error.localizedDescription)") }
     }
     if !failures.isEmpty { throw PulseError(failures.joined(separator: "\n")) }

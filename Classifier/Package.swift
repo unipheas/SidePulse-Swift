@@ -14,7 +14,8 @@ let package = Package(
     .package(url: "https://github.com/huggingface/swift-jinja.git", exact: "2.5.2"),
   ],
   targets: [
-    .target(name: "ClassifierPrompt", dependencies: [.product(name: "Jinja", package: "swift-jinja")]),
+    .target(
+      name: "ClassifierPrompt", dependencies: [.product(name: "Jinja", package: "swift-jinja")]),
     .executableTarget(
       name: "ClassifierHelper",
       dependencies: [

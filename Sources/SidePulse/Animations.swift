@@ -29,7 +29,7 @@ struct Animations: View {
               Text(saved[key]?["name"] as? String ?? key).tag(key)
             }
             ForEach(["cyan", "ember", "purple"], id: \.self) { Text($0.capitalized).tag($0) }
-          }.frame(maxWidth: 280)
+          }.frame(maxWidth: 280).accessibilityIdentifier("animation-profile")
           Spacer(minLength: 8)
           Picker("Preview device", selection: $count) {
             Text("Pro · 8").tag(8)
@@ -109,6 +109,7 @@ private struct AnimationCard: View {
   @State private var editing = false
   @State private var draft = ""
   @State private var animationName = ""
+  @State private var libraryID: String?
   private var program: String {
     (try? Programs.program(mode, count: count, settings: model.settings)) ?? "off"
   }
@@ -119,6 +120,11 @@ private struct AnimationCard: View {
         Spacer(minLength: 4)
         Button("Edit") {
           draft = program
+          let entry = (model.settings["agent_animations"] as? [String: JSONObject])?[mode.rawValue]
+          let id = entry?["style"] as? String
+          let custom = model.settings["custom_agent_animations"] as? [String: JSONObject] ?? [:]
+          libraryID = id.flatMap { custom[$0] == nil ? nil : $0 }
+          animationName = libraryID.flatMap { custom[$0]?["name"] as? String } ?? ""
           editing = true
         }
         .buttonStyle(.borderless).font(.caption)
@@ -130,13 +136,16 @@ private struct AnimationCard: View {
             HStack {
               TextField("Reusable animation name", text: $animationName).textFieldStyle(
                 .roundedBorder)
-              Button("Save to library") {
+              Button(libraryID == nil ? "Save to library" : "Update library animation") {
                 do {
-                  try Settings.saveAnimation(name: animationName, program: draft, count: count)
-                  animationName = ""
+                  libraryID = try Settings.saveAnimation(
+                    name: animationName, program: draft, count: count, replacing: libraryID)
                   model.refresh()
                 } catch { model.problem = error.localizedDescription }
               }.disabled(animationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+              if libraryID != nil {
+                Button("Save as new") { libraryID = nil }
+              }
             }
             HStack {
               Menu("Load preset") {
@@ -145,11 +154,17 @@ private struct AnimationCard: View {
                 ForEach(custom.keys.sorted(), id: \.self) { id in
                   Button(custom[id]?["name"] as? String ?? id) {
                     draft = custom[id]?["program"] as? String ?? draft
+                    libraryID = id
+                    animationName = custom[id]?["name"] as? String ?? id
                   }
                 }
                 Divider()
                 ForEach(Programs.animationNames, id: \.self) { name in
-                  Button(name) { draft = (try? Programs.preset(name, count: count)) ?? draft }
+                  Button(name) {
+                    draft = (try? Programs.preset(name, count: count)) ?? draft
+                    libraryID = nil
+                    animationName = ""
+                  }
                 }
               }
               .accessibilityIdentifier("load-animation-preset")
@@ -158,7 +173,8 @@ private struct AnimationCard: View {
               Button("Cancel") { editing = false }
               Button("Save animation") {
                 do {
-                  try Settings.setAnimation(mode, program: draft, count: count)
+                  try Settings.setAnimation(
+                    mode, program: draft, count: count, libraryID: libraryID)
                   model.refresh()
                   editing = false
                 } catch { model.problem = error.localizedDescription }
@@ -210,21 +226,7 @@ struct DevicePreviewMenu: View {
   var body: some View {
     Menu("Show on device") {
       ForEach(model.devices) { device in
-        Button(device.name) {
-          do {
-            _ = try LEDPreview(program: source, count: device.count)
-            model.change { settings in
-              var rows = settings["devices"] as? [JSONObject] ?? []
-              var row = rows.first { $0["id"] as? String == device.id } ?? ["id": device.id]
-              row["led_display"] = "custom"
-              row["manual_program"] = source
-              rows.removeAll { $0["id"] as? String == device.id }
-              rows.append(row)
-              settings["devices"] = rows
-            }
-            try device.write(source)
-          } catch { model.problem = error.localizedDescription }
-        }
+        Button(device.name) { model.preview(source, on: device) }
       }
     }.disabled(model.devices.isEmpty || (model.legacy && !Jobs.running(Jobs.prefix + "service")))
   }

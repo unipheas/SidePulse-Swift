@@ -4,8 +4,7 @@ import SwiftUI
 struct PowerPreferences: View {
   @EnvironmentObject var model: Dashboard
   @State private var minimum = "20"
-  @State private var helperStatus = ""
-  @State private var busy = false
+  @StateObject var helper = SleepHelper()
   var body: some View {
     Section("Sleep prevention") {
       Picker(
@@ -13,7 +12,7 @@ struct PowerPreferences: View {
         selection: Binding(
           get: {
             model.settings["swift_keep_awake"] as? Bool == false
-              ? "never" : model.settings["sleep_prevention_policy"] as? String ?? "agents"
+              ? "never" : SleepSettings.policy(model.settings)
           },
           set: { value in
             model.change {
@@ -43,18 +42,8 @@ struct PowerPreferences: View {
       Picker(
         "Keep awake with lid closed",
         selection: Binding(
-          get: { model.settings["swift_closed_lid"] as? String ?? "never" },
-          set: { value in
-            guard
-              value == "never"
-                || FileManager.default.fileExists(
-                  atPath: "/etc/sudoers.d/sidepulse-swift-disablesleep")
-            else {
-              model.problem = "Install the sleep helper below before enabling closed-lid operation."
-              return
-            }
-            model.change { $0["swift_closed_lid"] = value }
-          }
+          get: { SleepSettings.closedLid(model.settings) },
+          set: model.setClosedLid
         )
       ) {
         Text("Never").tag("never")
@@ -63,10 +52,12 @@ struct PowerPreferences: View {
       }
       .accessibilityIdentifier("closed-lid-policy")
       HStack {
-        Text(helperStatus).foregroundStyle(.secondary)
+        Text(helper.status).foregroundStyle(.secondary)
         Spacer()
-        Button("Install sleep helper…") { helper("install") }.disabled(busy)
-        Button("Remove sleep helper…") { helper("uninstall") }.disabled(busy)
+        Button("Install sleep helper…") { Task { await helper.perform("install", using: model) } }
+          .disabled(helper.busy)
+        Button("Remove sleep helper…") { Task { await helper.perform("uninstall", using: model) } }
+          .disabled(helper.busy)
       }
       Text(
         "The optional helper lets SidePulse manage closed-lid sleep. Installation requires administrator approval."
@@ -74,30 +65,9 @@ struct PowerPreferences: View {
       .font(.caption).foregroundStyle(.secondary)
     }.onAppear {
       let value =
-        (model.settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Double ?? 20
+        SleepSettings.minimum(model.settings)
       minimum = String(format: "%g", value)
-      refreshStatus()
-    }
-  }
-  private func refreshStatus() {
-    helperStatus =
-      FileManager.default.fileExists(atPath: "/etc/sudoers.d/sidepulse-swift-disablesleep")
-      ? "Helper installed" : "Helper not installed"
-  }
-  private func helper(_ action: String) {
-    guard let executable = Bundle.main.executableURL else { return }
-    busy = true
-    Task {
-      defer {
-        busy = false
-        refreshStatus()
-      }
-      do {
-        _ = try await Task.detached {
-          try AppInstallation.sleepHelper(
-            action: action, executable: executable, dryRun: false, administratorPrompt: true)
-        }.value
-      } catch { model.problem = error.localizedDescription }
+      helper.refresh(using: model.actions)
     }
   }
 }

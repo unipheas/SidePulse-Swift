@@ -148,7 +148,10 @@ public enum Settings {
   public static func seconds(_ settings: JSONObject, _ name: String, default fallback: Double)
     -> Double
   {
-    let value = (settings["agent_list"] as? JSONObject)?[name] as? NSNumber
+    let legacy =
+      ["idle_timeout_seconds", "recent_session_retention_seconds"].contains(name)
+      ? settings[name] : nil
+    let value = ((settings["agent_list"] as? JSONObject)?[name] ?? legacy) as? NSNumber
     guard let value = value?.doubleValue, value.isFinite, value >= 0 else { return fallback }
     return value
   }
@@ -174,7 +177,11 @@ public enum Settings {
 
 public enum SystemCommand {
   @discardableResult
-  public static func run(_ binary: String, _ arguments: [String], limit: Int = 8 * 1024 * 1024)
+  public static func run(_ binary: String, _ arguments: [String]) throws -> Data {
+    try run(binary, arguments, limit: 8 * 1024 * 1024)
+  }
+  @discardableResult
+  public static func run(_ binary: String, _ arguments: [String], limit: Int)
     throws -> Data
   {
     let process = Process()
@@ -215,12 +222,22 @@ public enum Machine {
 }
 
 extension Settings {
-  public static func setAnimation(_ mode: Mode, program: String, count: Int = 8) throws {
+  public static func setAnimation(
+    _ mode: Mode, program: String, count: Int = 8, libraryID: String? = nil
+  ) throws {
     let source = try Programs.normalize(program)
     _ = try LEDPreview(program: source, count: count)
     try update {
       var mapping = $0["agent_animations"] as? [String: JSONObject] ?? [:]
-      mapping[mode.rawValue] = ["style": "custom", "custom_program": source]
+      if let libraryID {
+        var library = $0["custom_agent_animations"] as? [String: JSONObject] ?? [:]
+        guard library[libraryID] != nil else { throw PulseError("Unknown library animation.") }
+        library[libraryID]?["program"] = source
+        $0["custom_agent_animations"] = library
+        mapping[mode.rawValue] = ["style": libraryID]
+      } else {
+        mapping[mode.rawValue] = ["style": "custom", "custom_program": source]
+      }
       $0["agent_animations"] = mapping
       $0["swift_profile"] = "current"
     }
@@ -242,14 +259,19 @@ extension Settings {
 
 extension Settings {
   @discardableResult
-  public static func saveAnimation(name: String, program: String, count: Int = 8) throws -> String {
+  public static func saveAnimation(
+    name: String, program: String, count: Int = 8, replacing existingID: String? = nil
+  ) throws -> String {
     let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !name.isEmpty else { throw PulseError("Enter an animation name.") }
     let program = try Programs.normalize(program)
     _ = try LEDPreview(program: program, count: count)
-    let id = "custom:" + UUID().uuidString
+    let id = existingID ?? "custom:" + UUID().uuidString
     try update {
       var animations = $0["custom_agent_animations"] as? [String: JSONObject] ?? [:]
+      if existingID != nil, animations[id] == nil {
+        throw PulseError("This animation no longer exists. Save it as a new library animation.")
+      }
       animations[id] = ["name": name, "program": program]
       $0["custom_agent_animations"] = animations
     }

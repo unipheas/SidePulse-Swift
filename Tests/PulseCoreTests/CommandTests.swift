@@ -4,6 +4,28 @@ import XCTest
 @testable import PulseCore
 
 final class CommandTests: IsolatedTests {
+  func testUnknownServiceCannotReachLaunchdMutation() async {
+    Args.words = ["start"]
+    do {
+      try await CLI.serviceCommand("unknown-fixture")
+      XCTFail("An unknown job must never be installed")
+    } catch { XCTAssertTrue(error.localizedDescription.contains("Unknown job")) }
+  }
+
+  func testDeviceSelectionRejectsAmbiguityAndListsEmptyOrConnectedVolumes() throws {
+    let device = try volume()
+    XCTAssertThrowsError(try Args.one([])) {
+      XCTAssertTrue($0.localizedDescription.contains("Connect"))
+    }
+    XCTAssertThrowsError(try Args.one([device, device])) {
+      XCTAssertTrue($0.localizedDescription.contains("Select"))
+    }
+    for devices in [[], [device]] {
+      Args.words = []
+      try CLI.listDevices(discover: { devices })
+    }
+  }
+
   func testAppStopTargetsOnlyNativeBundleAndReportsRefusal() throws {
     try AppInstallation.stop { identifier in
       XCTAssertEqual(identifier, "com.unipheas.SidePulseSwift")
@@ -64,6 +86,89 @@ final class CommandTests: IsolatedTests {
 }
 
 extension CommandTests {
+  func testSetupInstallsServiceGuardAndOptionalAppWithoutDroppingHooks() throws {
+    let executable = root.appendingPathComponent("SidePulse.app/Contents/MacOS/sidepulsectl")
+    let configuration = RelayConfiguration(
+      server: "https://fixture.invalid", receiverChannel: "fixture_receiver", outboundChannel: "",
+      machineName: "Fixture")
+    for noApp in [false, true] {
+      var jobs: [String] = []
+      var hooked = false
+      Args.words = noApp ? ["--no-status-bar"] : []
+      try CLI.setup(
+        executable: executable, hooks: { hooked = $0 }, receiver: { configuration },
+        install: { job, path, scope in
+          XCTAssertTrue(hooked)
+          jobs.append(job)
+          XCTAssertEqual(path.lastPathComponent, job == "app" ? "SidePulse" : "sidepulsectl")
+          XCTAssertEqual(scope, job == "sdejectguard" ? .auto : .user)
+        })
+      XCTAssertEqual(
+        jobs, noApp ? ["service", "sdejectguard"] : ["service", "sdejectguard", "app"])
+    }
+    for noApp in [false, true] {
+      Args.words =
+        ["--dry-run", "--sd-eject-guard-scope", "system"] + (noApp ? ["--no-status-bar"] : [])
+      try CLI.setup(
+        executable: executable,
+        hooks: { _ in
+          XCTAssertTrue(Args.flag("--dry-run"))
+          try Args.end()
+        },
+        receiver: {
+          XCTFail("Dry run changed receiver configuration")
+          return configuration
+        }, install: { _, _, _ in XCTFail("Dry run installed a job") })
+    }
+    Args.words = []
+    XCTAssertThrowsError(
+      try CLI.setup(
+        executable: root.appendingPathComponent("cli"),
+        hooks: { _ in XCTFail("Invalid install changed hooks") }))
+    Args.words = ["--no-status-bar"]
+    XCTAssertThrowsError(
+      try CLI.setup(
+        hooks: { _ in throw PulseError("Hook failure") },
+        receiver: {
+          XCTFail()
+          return configuration
+        }, install: { _, _, _ in XCTFail() }))
+    Args.words = ["--no-status-bar"]
+    XCTAssertThrowsError(
+      try CLI.setup(
+        hooks: { _ in }, receiver: { configuration },
+        install: { _, _, _ in throw PulseError("Service failure") }))
+  }
+
+  func testPollingLoopsReturnWhenCancellationArrivesAfterSuccessfulWait() async throws {
+    let device = try volume()
+    let battery = Battery(percent: 60, charging: false, plugged: false, watts: 0)
+    func cancel() { withUnsafeCurrentTask { $0?.cancel() } }
+    Args.words = ["leds", "--dry-run", "--interval", "0.25"]
+    try await Task {
+      try await CLI.batteryCommand(
+        read: { battery }, discover: { [device] },
+        wait: {
+          XCTAssertEqual($0, 0.25)
+          cancel()
+        })
+    }.value
+    Args.words = ["--interval", "0.5"]
+    try await Task {
+      try await CLI.monitor(
+        "live", discover: { [] },
+        wait: {
+          XCTAssertEqual($0, 0.5)
+          cancel()
+        })
+    }.value
+    Args.words = ["logs", "--follow"]
+    try await Task {
+      try await CLI.serviceCommand("service", wait: { cancel() })
+    }.value
+    XCTAssertFalse(Task.isCancelled, "Cancellation must stay within the child task")
+  }
+
   func testAppLifecycleRoutesActionsWithoutTouchingInstalledJobs() throws {
     let executable = root.appendingPathComponent("SidePulse.app/Contents/MacOS/sidepulsectl")
     var configured: [(String, URL, Bool, Bool)] = []

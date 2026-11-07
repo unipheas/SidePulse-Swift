@@ -1,6 +1,7 @@
 """Exercise the real native executable with private files and a loopback phone bridge."""
 import json
 import os
+import pty
 from pathlib import Path
 import subprocess
 import sys
@@ -43,10 +44,53 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     volume = root/"Pro"
     volume.mkdir()
     (volume/"STATUS.TXT").write_text("release_version 1.1.0\nserial fixture123\n")
+    master, slave = pty.openpty()
+    try:
+        result = subprocess.run([cli, "write"], stdin=slave, capture_output=True, text=True, timeout=20, env=env)
+        assert result.returncode != 0 and "Supply an LED program" in result.stderr
+    finally:
+        os.close(master)
+        os.close(slave)
     assert "macOS" in run("--help")
     assert "SidePulse" in run("--version")
     assert "releases" in run("update","--dry-run")
     assert "cyan-roll-8" in run("animations")
+    assert "SidePulse Pro" in run("devices", "--device", volume)
+    assert str(root/"native/settings.json") in run("settings")
+    run("settings", "invalid", ok=False)
+    run("settings", "done", "invalid", ok=False)
+    run("profile", "invalid", root/"profile.json", ok=False)
+    run("classify", "--backend", "unknown", "Hello", ok=False)
+    run("classify", "--backend", "apple", "--model", "model", "Hello", ok=False)
+    run("hook-log", ok=False)
+    run("hook-log", "--provider", "codex", stdin=" " * 2_097_153)
+    denied = root/"not-a-directory"
+    denied.write_text("preserve this file")
+    result = subprocess.run([cli, "hook-log", "--provider", "codex", "--log", str(denied/"event.jsonl")],
+                            input='{"session_id":"failure","hook_event_name":"Stop"}', text=True,
+                            capture_output=True, timeout=20, env=env)
+    assert result.returncode == 0 and "hook logging failed" in result.stderr
+    assert denied.read_text() == "preserve this file"
+    run("setup", "--sd-eject-guard-scope", "invalid", ok=False)
+    run("setup", "--no-status-bar", "--dry-run")
+    run("setup", "--no-status-bar", "--sd-eject-guard-scope", "system", ok=False)
+    assert "installed" in run("status-bar", "sleep-helper-status")
+    run("status-bar", "install-sleep-helper", "--dry-run", ok=False)
+    run("service", "start", "--scope", "system", ok=False)
+    run("service", "status")
+    run("service", "run", "--once", "--dry-run", "--device", volume)
+    for arguments in [("battery", "status", "--json"), ("battery", "leds", "--device", str(volume), "--once", "--dry-run")]:
+        result = subprocess.run([cli, *arguments], text=True, capture_output=True, timeout=20, env=env)
+        if result.returncode:
+            assert "No internal battery found" in result.stderr
+        elif arguments[1] == "status":
+            assert 0 <= json.loads(result.stdout)["percent"] <= 100
+    result = subprocess.run([cli, "classify", "The build finished successfully."],
+                            text=True, capture_output=True, timeout=60, env=env)
+    if result.returncode:
+        assert "requires Apple Intelligence" in result.stderr
+    else:
+        assert result.stdout.strip() in ["NO_REPLY_REQUIRED", "REPLY_REQUIRED", "UNCERTAIN"]
     assert json.loads(run("firmware","version","--device",volume,"--json"))[0]["serial"] == "fixture123"
     run("write","--device",volume,"--dry-run","off")
     assert not (volume/"LEDS.LED").exists()
@@ -69,6 +113,8 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     assert not (root/".codex/config.toml").exists()
     run("agent-monitor","install","all")
     assert all(row["status"] == "installed" for row in json.loads(run("agent-monitor","doctor","--json")))
+    assert "codex" in run("agent-monitor", "doctor").lower()
+    run("agent-monitor", "hook-log", "--provider", "codex", stdin='{"session_id":"alias","hook_event_name":"SessionEnd"}')
     for event, mode in [("UserPromptSubmit","working"),("Stop","completed")]:
         run("hook-log","--provider","codex","--event",event,stdin='{"session_id":"demo"}')
         status = json.loads(run("agent-monitor","status","--json"))
@@ -76,6 +122,8 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     run("settings","done","0")
     assert json.loads(run("agent-monitor","status","--json"))["mode"] == "idle_ready"
     run("agent-monitor","uninstall","all")
+    run("link", "fixture_receiver_channel")
+    assert json.loads((root/"native/relay.json").read_text())["outbound_channel"] == "fixture_receiver_channel"
     run("profile","export",root/"profile.json")
     run("profile","import",root/"profile.json")
     run("audit", root/"audit.csv")
@@ -108,6 +156,32 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     stream[:] = [dict(message,v=2),message]
     run("relay","receive","sample_channel","--once")
     assert "relay:" in (root/"native/events/grok.jsonl").read_text()
+    # Exercise the actual long-running native writer and its default relay/phone adapters.
+    # Every destination is the private volume or loopback bridge; power assertions stay off.
+    config_file = root/"native/settings.json"
+    previous_config = config_file.read_text()
+    config = json.loads(previous_config)
+    config.update(sleep_prevention_policy="never", swift_closed_lid="never", swift_phone_mirror=True)
+    config_file.write_text(json.dumps(config))
+    relay_file = root/"native/relay.json"
+    previous_relay = relay_file.read_text()
+    relay_config = json.loads(previous_relay)
+    relay_config["receiver_channel"] = "fixture_receive_channel"
+    relay_file.write_text(json.dumps(relay_config))
+    import time
+    writer = subprocess.Popen([cli, "agent-monitor", "leds", "--device", str(volume), "--interval", "0.05"],
+                              env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    time.sleep(0.5)
+    assert writer.poll() is None
+    writer.terminate()
+    stdout, stderr = writer.communicate(timeout=5)
+    assert writer.returncode == 0, stderr
+    assert any(body.get("type") == "agent_event" for _, body in posted)
+    assert any("leds" in body for _, body in posted)
+    posted.clear()
+    config_file.write_text(previous_config)
+    relay_file.write_text(previous_relay)
+
     run("unlink",ios[:12])
     stream[:] = [{"v":1,"type":"ios_registration","device":{"bundle_id":"io.sidepulse.ios","name":"Paired","push_token":ios}}]
     assert "Phone linked" in run("link")

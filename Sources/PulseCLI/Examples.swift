@@ -30,21 +30,32 @@ enum AudioMeter {
         start: { level in
           let input = engine.inputNode
           let format = input.inputFormat(forBus: 0)
-          guard format.channelCount > 0, format.sampleRate > 0 else {
-            throw PulseError("Select an input device in Sound settings.")
-          }
-          input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-            level.update(buffer)
-          }
-          do { try engine.start() } catch {
-            input.removeTap(onBus: 0)
-            throw error
-          }
+          try startInput(
+            channels: format.channelCount, sampleRate: format.sampleRate,
+            install: {
+              input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+                level.update(buffer)
+              }
+            }, start: engine.start, remove: { input.removeTap(onBus: 0) })
         },
         stop: {
           engine.inputNode.removeTap(onBus: 0)
           engine.stop()
         })
+    }
+  }
+  /// A failed start must release its tap before a later attempt can attach another one.
+  static func startInput(
+    channels: UInt32, sampleRate: Double, install: () -> Void,
+    start: () throws -> Void, remove: () -> Void
+  ) throws {
+    guard channels > 0, sampleRate > 0 else {
+      throw PulseError("Select an input device in Sound settings.")
+    }
+    install()
+    do { try start() } catch {
+      remove()
+      throw error
     }
   }
   static func run(

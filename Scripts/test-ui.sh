@@ -16,9 +16,18 @@ finish() {
 }
 trap finish EXIT
 mkdir -p .build/ui-tests
-xcodegen generate
+# Keep the generated project outside Documents too: file coordination on a synced
+# workspace can block Xcode before compilation. Source references stay in the repo.
+python3 - "$PWD" "$stage" <<'PY'
+import json, sys
+from pathlib import Path
+root, stage = map(Path, sys.argv[1:])
+spec = (root / "project.yml").read_text().replace("    path: .\n", "    path: " + json.dumps(str(root)) + "\n")
+(stage / "project.yml").write_text(spec)
+PY
+xcodegen generate --spec "$stage/project.yml" --project "$stage" --project-root "$PWD"
 # Build outside Documents so Finder metadata cannot invalidate the test runner signature.
-xcodebuild -project SidePulse.xcodeproj -scheme SidePulse -destination 'platform=macOS' \
+xcodebuild -project "$stage/SidePulse.xcodeproj" -scheme SidePulse -destination 'platform=macOS' \
   CC="$(xcrun --find clang)" CXX="$(xcrun --find clang++)" \
   -derivedDataPath "$stage/build" -resultBundlePath "$stage/result.xcresult" test "$@"
 profiles=()

@@ -4,19 +4,40 @@ import IOKit
 
 public enum Power {
   public static func lidClosed() -> Bool? { flag("AppleClamshellState") }
-  static func flag(_ key: String) -> Bool? {
-    let entry = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+  static func flag(
+    _ key: String,
+    find: () -> io_service_t = {
+      IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"))
+    }
+  ) -> Bool? {
+    let entry = find()
     guard entry != 0 else { return nil }
     defer { IOObjectRelease(entry) }
     return IORegistryEntryCreateCFProperty(entry, key as CFString, nil, 0)?.takeRetainedValue()
       as? Bool
   }
-  static func externalDisplay() -> Bool? {
+  static func externalDisplay() -> Bool? { externalDisplay(list: CGGetActiveDisplayList) }
+  static func externalDisplay(
+    list: (UInt32, UnsafeMutablePointer<CGDirectDisplayID>?, UnsafeMutablePointer<UInt32>?) ->
+      CGError,
+    isBuiltIn: (CGDirectDisplayID) -> Int32 = CGDisplayIsBuiltin
+  ) -> Bool? {
     var count: UInt32 = 0
-    guard CGGetActiveDisplayList(0, nil, &count) == .success, count > 0 else { return nil }
+    guard list(0, nil, &count) == .success, count > 0 else { return nil }
     var displays = [CGDirectDisplayID](repeating: 0, count: Int(count))
-    guard CGGetActiveDisplayList(count, &displays, &count) == .success else { return nil }
-    return displays.prefix(Int(count)).contains { CGDisplayIsBuiltin($0) == 0 }
+    guard list(count, &displays, &count) == .success else { return nil }
+    return displays.prefix(Int(count)).contains { isBuiltIn($0) == 0 }
+  }
+}
+
+/// The command boundary is injectable without changing the two permitted operations.
+struct PowerCommands {
+  var run: (String, [String]) throws -> Data = SystemCommand.run
+  func disable(_ value: Bool) throws {
+    _ = try run("/usr/bin/sudo", ["-n", "/usr/bin/pmset", "-a", "disablesleep", value ? "1" : "0"])
+  }
+  func sleepDisplay() throws {
+    _ = try run("/usr/bin/pmset", ["displaysleepnow"])
   }
 }
 
@@ -37,14 +58,9 @@ public final class SleepOverride {
     }
     var disabled = { Power.flag("SleepDisabled") }
     var lidClosed = Power.lidClosed
-    var externalDisplay = Power.externalDisplay
-    var disable: (Bool) throws -> Void = { value in
-      try SystemCommand.run(
-        "/usr/bin/sudo", ["-n", "/usr/bin/pmset", "-a", "disablesleep", value ? "1" : "0"])
-    }
-    var sleepDisplay: () throws -> Void = {
-      try SystemCommand.run("/usr/bin/pmset", ["displaysleepnow"])
-    }
+    var externalDisplay: () -> Bool? = Power.externalDisplay
+    var disable: (Bool) throws -> Void = PowerCommands().disable
+    var sleepDisplay: () throws -> Void = PowerCommands().sleepDisplay
   }
   private let system: System
   public convenience init() { self.init(system: System()) }
@@ -74,7 +90,7 @@ public final class SleepOverride {
       }
       lease = fd
     }
-    let policy = settings["swift_closed_lid"] as? String ?? "never"
+    let policy = SleepSettings.closedLid(settings)
     if lastMode != mode {
       if [.done, .blocked, .waiting].contains(mode) {
         grace = system.now().addingTimeInterval(300)
@@ -84,7 +100,7 @@ public final class SleepOverride {
       lastMode = mode
     }
     let minimum =
-      (settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Double ?? 20
+      SleepSettings.minimum(settings)
     let safeBattery = battery.map { $0.plugged || Double($0.percent) >= minimum } ?? true
     let wanted =
       owner && safeBattery

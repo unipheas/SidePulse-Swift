@@ -92,6 +92,25 @@ final class MonitorTests: IsolatedTests {
 }
 
 extension MonitorTests {
+  func testLargeUnreadGapDropsStalePermissionsAndSessions() throws {
+    let log = root.appendingPathComponent("gap.jsonl")
+    try Events.record(
+      provider: "codex", raw: ["session_id": "old"], named: "PermissionRequest", log: log)
+    let monitor = Monitor(logs: ["codex": log])
+    XCTAssertEqual(monitor.sessions().first?.mode, .waiting)
+    let handle = try FileHandle(forWritingTo: log)
+    try handle.seekToEnd()
+    try handle.write(contentsOf: Data(repeating: 32, count: 2_097_153))
+    try handle.write(contentsOf: Data("\n".utf8))
+    try handle.close()
+    try Events.record(provider: "codex", raw: ["session_id": "new"], named: "Stop", log: log)
+    let sessions = monitor.sessions()
+    XCTAssertEqual(sessions.count, 1)
+    XCTAssertEqual(sessions.first?.mode, .done)
+    XCTAssertTrue(sessions.first?.id.contains("new") == true)
+    XCTAssertEqual(monitor.sessions().map(\.id), sessions.map(\.id))
+  }
+
   func testInternalCodexTasksDoNotChangeTheDeviceState() throws {
     for prompt in [
       "Generate 0 to 3 hyperpersonalized suggestions",
@@ -104,5 +123,52 @@ extension MonitorTests {
       XCTAssertNil(Events.parse(provider: "codex", row: row))
       XCTAssertEqual(Events.parse(provider: "claude", row: row)?.mode, .working)
     }
+  }
+}
+
+extension MonitorTests {
+  func testMergedHookSourcesAndTranscriptsChooseNewestSession() throws {
+    let id = "12345678-1234-1234-1234-123456789abc"
+    let now = Date()
+    func hook(at url: URL, date: Date, event: String) throws {
+      try Paths.directory(url.deletingLastPathComponent())
+      var bytes = try JSONSerialization.data(withJSONObject: [
+        "logged_at": Events.timestamp(date), "event": ["session_id": id, "hook_event_name": event],
+      ])
+      bytes.append(10)
+      try bytes.write(to: url)
+    }
+    try hook(
+      at: Paths.legacyState.appendingPathComponent("codex.jsonl"),
+      date: now.addingTimeInterval(-10), event: "Stop")
+    try hook(
+      at: Paths.support.appendingPathComponent("events/codex.jsonl"), date: now,
+      event: "UserPromptSubmit")
+    XCTAssertEqual(Monitor().sessions().first?.mode, .working)
+    try hook(
+      at: Paths.legacyState.appendingPathComponent("codex.jsonl"), date: now.addingTimeInterval(1),
+      event: "Stop")
+    XCTAssertEqual(Monitor().sessions().first?.mode, .done)
+    let directory = Paths.home.appendingPathComponent(".codex/sessions")
+    try Paths.directory(directory)
+    try Settings.update { $0["transcript_monitoring"] = ["codex": true] }
+    for offset in [-20.0, 20.0] {
+      for (index, event) in ["task_started", "task_complete"].enumerated() {
+        let name = index == 0 ? id : "12345678-1234-1234-1234-123456789abd"
+        let row: JSONObject = [
+          "timestamp": Events.timestamp(now.addingTimeInterval(offset)), "payload": ["type": event],
+        ]
+        var bytes = try JSONSerialization.data(withJSONObject: row)
+        bytes.append(10)
+        try bytes.write(to: directory.appendingPathComponent(name + ".jsonl"))
+      }
+      let rows = Monitor().sessions()
+      XCTAssertEqual(rows.count, 2)
+      XCTAssertEqual(rows.first { $0.session == id }?.mode, offset > 0 ? .working : .done)
+    }
+    let custom = Monitor(logs: [
+      "claude": root.appendingPathComponent("a"), "codex": root.appendingPathComponent("b"),
+    ])
+    XCTAssertEqual(custom.sessions().count, 2)
   }
 }
