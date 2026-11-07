@@ -34,6 +34,7 @@ pulse="/Applications/SidePulse Swift.app/Contents/MacOS/sidepulse-swift"
 - **Animations.** Choose a profile, edit an individual state, import or export a SidePulse profile, and preview it on a two- or eight-LED display. The preview uses the upstream firmware simulator through JavaScriptCore.
 - **Hardware.** Mounted-volume LED writes, Pro READ2ME and Dot SPC2 fallback for read-only volumes, battery display, and model-specific firmware package verification. `sdejectguard start` installs an optional per-user eject guard; stop it before intentionally ejecting the Pro.
 - **Mobile.** `link` displays a pairing QR code for the SidePulse mobile app. Use `links`, `push --to ID` and `unlink ID` to manage destinations. `relay send` and `relay receive` exchange agent events through a bridge channel.
+- **Examples.** `audio-meter` animates input level from the microphone. `fifa-final --score 2-1 --dry-run` previews the scoreboard animation.
 - **History.** Export status changes with `history history.csv` or `history history.html`.
 - **Reply classification.** On supported Macs with Apple Intelligence available, `classify` uses Apple's on-device Foundation Models framework.
 

@@ -52,6 +52,7 @@ enum Args {
     sidepulse-swift — native macOS companion
       devices | firmware version [--device PATH]
       firmware upgrade [--device PATH] [--version X.Y.Z | --file ZIP] [--dry-run]
+      audio-meter [--dry-run] | fifa-final [--score 2-1] [--dry-run]
       raw-write /dev/rdiskN [--dry-run] PROGRAM
       write [--device PATH | --all] [--dry-run] PROGRAM
       agent-monitor status [--json] | live | leds | doctor
@@ -92,6 +93,18 @@ enum Args {
         print(
           try await Firmware.upgrade(Args.one(devices), version: version, file: file, dryRun: dry))
       default: throw PulseError("Use firmware version or upgrade.")
+      }
+    case "audio-meter", "fifa-final":
+      let devices = try Args.devices()
+      let dry = Args.flag("--dry-run")
+      let device = dry ? devices.first : try Args.one(devices)
+      if command == "audio-meter" {
+        try Args.end()
+        try await AudioMeter.run(device: device, dryRun: dry)
+      } else {
+        let score = try Args.option("--score")
+        try Args.end()
+        try await Scoreboard.run(device: device, score: score, dryRun: dry)
       }
     case "raw-write":
       let path = try Args.require("whole disk")
@@ -142,7 +155,13 @@ enum Args {
       }
       let event = try Args.option("--event")
       try Args.end()
-      let data = try FileHandle.standardInput.read(upToCount: 2_097_153) ?? Data()
+      var data = Data()
+      while let chunk = try FileHandle.standardInput.read(upToCount: 65536), !chunk.isEmpty {
+        guard data.count + chunk.count <= 2_097_152 else {
+          throw PulseError("Hook payload exceeds 2 MiB.")
+        }
+        data.append(chunk)
+      }
       if let raw = (try? JSONSerialization.jsonObject(with: data)) as? JSONObject {
         try Events.record(provider: provider, raw: raw, named: event)
       }

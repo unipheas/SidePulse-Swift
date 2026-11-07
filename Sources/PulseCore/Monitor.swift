@@ -33,6 +33,11 @@ public struct Session: Codable, Identifiable, Equatable {
 }
 
 public enum Events {
+  static func timestamp(_ date: Date) -> String {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return formatter.string(from: date)
+  }
   public static func date(_ value: Any?) -> Date? {
     guard let string = value as? String else { return nil }
     if let time = try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse(string) {
@@ -127,7 +132,7 @@ public enum Events {
     if let event { payload["hook_event_name"] = event }
     let row: JSONObject = [
       "event": payload,
-      "logged_at": Date().ISO8601Format(.iso8601(timeZone: .gmt, includingFractionalSeconds: true)),
+      "logged_at": timestamp(Date()),
     ]
     let data = try JSONSerialization.data(withJSONObject: row) + Data([10])
     guard data.count <= 2_097_152 else { throw PulseError("Hook payload exceeds 2 MiB.") }

@@ -16,6 +16,11 @@ jobs:
           cli="dist/SidePulse Swift.app/Contents/MacOS/sidepulse-swift"
           "$cli" --version
           "$cli" animations | grep -Fx cyan-roll-8
+          export SIDEPULSE_SWIFT_HOME="$RUNNER_TEMP/sidepulse-settings"
+          printf '%s' '{"hook_event_name":"Stop","session_id":"test"}' | "$cli" hook-log --provider codex
+          "$cli" agent-monitor status --json | jq -e '.mode == "completed"'
+          "$cli" settings done 0
+          "$cli" agent-monitor status --json | jq -e '.mode == "idle_ready"'
           lipo "$cli" -verify_arch arm64 x86_64
       - uses: actions/upload-artifact@v4
         with:

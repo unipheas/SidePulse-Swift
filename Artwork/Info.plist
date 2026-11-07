@@ -13,5 +13,6 @@
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>NSPrincipalClass</key><string>NSApplication</string>
   <key>LSApplicationCategoryType</key><string>public.app-category.developer-tools</string>
+  <key>NSMicrophoneUsageDescription</key><string>The optional audio meter uses input level to animate the LEDs.</string>
   <key>NSRemovableVolumesUsageDescription</key><string>SidePulse reads device status and writes the LED animation you select.</string>
 </dict></plist>

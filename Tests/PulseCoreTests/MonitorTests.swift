@@ -12,6 +12,13 @@ final class MonitorTests: XCTestCase {
     return try XCTUnwrap(
       Events.parse(provider: provider, row: ["event": raw, "logged_at": now.ISO8601Format()]))
   }
+  func testHookTimestampRoundTripsWithTimezoneAndMilliseconds() throws {
+    let expected = now.addingTimeInterval(0.125)
+    let timestamp = Events.timestamp(expected)
+    XCTAssertTrue(timestamp.hasSuffix("Z"))
+    XCTAssertEqual(
+      try XCTUnwrap(Events.date(timestamp)).timeIntervalSince(expected), 0, accuracy: 0.001)
+  }
   func testDoneExpiresAtConfiguredTime() throws {
     let done = try session("Stop")
     let settings: JSONObject = ["agent_list": ["completed_visible_seconds": 15]]
