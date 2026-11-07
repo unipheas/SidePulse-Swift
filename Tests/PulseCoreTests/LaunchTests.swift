@@ -186,13 +186,13 @@ extension LaunchTests {
           if args[0] == "bootout" { stopped = true }
           if args[0] == "bootstrap" {
             starts += 1
-            if starts == 1 { throw PulseError("New service failed") }
+            if try Data(contentsOf: file) != previous { throw PulseError("New service failed") }
             XCTAssertEqual(try Data(contentsOf: file), previous)
           }
           return Data()
-        }))
+        }, wait: { _ in }))
     XCTAssertTrue(stopped)
-    XCTAssertEqual(starts, 2)
+    XCTAssertEqual(starts, 51)
     XCTAssertEqual(try Data(contentsOf: file), previous)
   }
   func testFailedFirstInstallRemovesItsPlistAndRecoveryFailureIsReported() throws {
@@ -202,7 +202,7 @@ extension LaunchTests {
         "service", executable: root, start: true,
         run: { _, args in
           throw PulseError(args[0] == "print" ? "not running" : "bootstrap failed")
-        }))
+        }, wait: { _ in }))
     XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
     try Data("previous".utf8).write(to: file)
     XCTAssertThrowsError(
@@ -211,7 +211,7 @@ extension LaunchTests {
         run: { _, args in
           if args[0] == "bootstrap" { throw PulseError("bootstrap failed") }
           return Data()
-        })
+        }, wait: { _ in })
     ) { XCTAssertTrue($0.localizedDescription.contains("Recovery also failed")) }
     XCTAssertEqual(try Data(contentsOf: file), Data("previous".utf8))
     XCTAssertThrowsError(
@@ -219,5 +219,33 @@ extension LaunchTests {
     ) {
       XCTAssertTrue($0.localizedDescription.contains("executable is missing"))
     }
+  }
+}
+
+extension LaunchTests {
+  func testBootstrapRetriesAsynchronousLaunchdTeardown() throws {
+    var attempts = 0
+    var delays = [TimeInterval]()
+    try Jobs.bootstrap(
+      "gui/501", file: root,
+      run: { tool, args in
+        XCTAssertEqual(tool, "/bin/launchctl")
+        XCTAssertEqual(args, ["bootstrap", "gui/501", self.root.path])
+        attempts += 1
+        if attempts < 3 { throw PulseError("Operation already in progress") }
+        return Data()
+      }, wait: { delays.append($0) })
+    XCTAssertEqual(attempts, 3)
+    XCTAssertEqual(delays, [0.1, 0.1])
+    // Exercise the production delay adapter without waiting on a real service.
+    attempts = 0
+    try Jobs.bootstrap(
+      "gui/501", file: root,
+      run: { _, _ in
+        attempts += 1
+        if attempts == 1 { throw PulseError("Still unloading") }
+        return Data()
+      })
+    XCTAssertEqual(attempts, 2)
   }
 }

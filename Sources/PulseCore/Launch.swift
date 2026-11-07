@@ -41,7 +41,8 @@ public enum Jobs {
   static func configure(
     _ job: String, executable: URL, start: Bool, run: (String, [String]) throws -> Data,
     system: Bool = false, remove: Bool = true, launch: Bool = true,
-    systemDirectory: URL = URL(fileURLWithPath: "/Library/LaunchDaemons")
+    systemDirectory: URL = URL(fileURLWithPath: "/Library/LaunchDaemons"),
+    wait: (TimeInterval) -> Void = Thread.sleep(forTimeInterval:)
   ) throws {
     guard ["service", "sdejectguard", "app"].contains(job) else { throw PulseError("Unknown job.") }
     let label = prefix + job
@@ -75,7 +76,7 @@ public enum Jobs {
         try PropertyListSerialization.data(fromPropertyList: config, format: .xml, options: 0)
           .write(
             to: file, options: .atomic)
-        if launch { _ = try run("/bin/launchctl", ["bootstrap", domain, file.path]) }
+        if launch { try bootstrap(domain, file: file, run: run, wait: wait) }
       } else if remove, FileManager.default.fileExists(atPath: file.path) {
         try FileManager.default.removeItem(at: file)
       }
@@ -84,7 +85,7 @@ public enum Jobs {
       do {
         if let previous {
           try previous.write(to: file, options: .atomic)
-          if wasRunning { _ = try run("/bin/launchctl", ["bootstrap", domain, file.path]) }
+          if wasRunning { try bootstrap(domain, file: file, run: run, wait: wait) }
         } else if FileManager.default.fileExists(atPath: file.path) {
           try FileManager.default.removeItem(at: file)
         }
@@ -93,6 +94,22 @@ public enum Jobs {
           original.localizedDescription + " Recovery also failed: " + error.localizedDescription)
       }
       throw original
+    }
+  }
+  // bootout returns before launchd finishes removing a running job. Retry the
+  // bootstrap while that teardown settles, including when restoring an old job.
+  static func bootstrap(
+    _ domain: String, file: URL, run: CommandRunner,
+    wait: (TimeInterval) -> Void = Thread.sleep(forTimeInterval:)
+  ) throws {
+    for attempt in 0..<50 {
+      do {
+        _ = try run("/bin/launchctl", ["bootstrap", domain, file.path])
+        return
+      } catch {
+        guard attempt < 49 else { throw error }
+        wait(0.1)
+      }
     }
   }
   public static func takeControl() throws { try takeControl(run: SystemCommand.execute) }
