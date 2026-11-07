@@ -2,6 +2,7 @@
 """Real installed-bundle acceptance, exclusively on disposable GitHub-hosted Macs.
 Never invoke on a developer computer. No pairing codes or child output are logged.
 """
+import ctypes
 import os
 import plistlib
 import re
@@ -37,6 +38,25 @@ def launch_environment_members(output, selected):
         r'^\t\t' + re.escape(key) + r' =>(?: .*|)$', blocks[0], re.MULTILINE)}
 
 
+def matching_process_ids(executables):
+    """Match kernel executable paths, never argv or command-line text."""
+    library = ctypes.CDLL('/usr/lib/libproc.dylib', use_errno=True)
+    library.proc_pidpath.argtypes = [ctypes.c_int, ctypes.c_void_p, ctypes.c_uint32]
+    library.proc_pidpath.restype = ctypes.c_int
+    expected = {Path(path).resolve() for path in executables}
+    matches = {path: [] for path in expected}
+    for raw_pid in run('ps', '-axo', 'pid=').stdout.split():
+        pid = int(raw_pid)
+        buffer = ctypes.create_string_buffer(4096)  # PROC_PIDPATHINFO_MAXSIZE
+        if library.proc_pidpath(pid, buffer, len(buffer)) <= 0:
+            # Processes can exit between enumeration and the kernel query.
+            continue
+        path = Path(os.fsdecode(buffer.value)).resolve()
+        if path in matches:
+            matches[path].append(pid)
+    return {path: tuple(pids) for path, pids in matches.items()}
+
+
 def main():
     require(sys.platform == 'darwin' and os.getuid() != 0
             and os.environ.get('GITHUB_ACTIONS') == 'true'
@@ -62,7 +82,7 @@ def main():
                        Path('/Library/LaunchDaemons')):
             require(not (folder / (label + '.plist')).exists(), 'Existing launch plist found.')
     profiles.mkdir(parents=True, exist_ok=True)
-    stage = Path(tempfile.mkdtemp(prefix='sidepulse-installed-'))
+    stage = Path(tempfile.mkdtemp(prefix='sidepulse-installed-')).resolve()
     app = stage / 'SidePulse.app'
     contents = app / 'Contents'
     saved = {}
@@ -76,15 +96,18 @@ def main():
         require(result.returncode == 0, 'Installed CLI command failed: ' + ' '.join(args))
 
     def app_alive():
-        return run('pgrep', '-f', '^' + re.escape(str(contents / 'MacOS/SidePulse')) + '$',
-                   check=False).returncode == 0
+        executable = (contents / 'MacOS/SidePulse').resolve()
+        return bool(matching_process_ids([executable])[executable])
 
     def await_app(expected):
         for _ in range(100):
             if app_alive() == expected:
                 return
             time.sleep(.1)
-        raise RuntimeError('Installed app lifecycle timed out')
+        executable = (contents / 'MacOS/SidePulse').resolve()
+        pids = matching_process_ids([executable])[executable]
+        raise RuntimeError(f'Installed app lifecycle timed out (expected running={expected}; '
+                           f'fixture app PIDs={pids})')
 
     def owned_job(label):
         name = label.removeprefix(prefix)
@@ -103,19 +126,18 @@ def main():
         return programs == [str(executable)]
 
     def fixture_processes_alive():
-        # Exact executable and accepted launch arguments, not arbitrary substring matches.
-        commands = run('ps', '-axo', 'command=').stdout.decode().splitlines()
-        expected = {str(contents / 'MacOS/SidePulse'),
-                    str(contents / 'MacOS/sidepulsectl') + ' service run',
-                    str(contents / 'MacOS/sidepulsectl') + ' sdejectguard run'}
-        return any(command.strip() in expected for command in commands)
+        executables = [contents / 'MacOS/SidePulse', contents / 'MacOS/sidepulsectl']
+        return any(matching_process_ids(executables).values())
 
     def await_fixture_exit():
         for _ in range(100):
             if not fixture_processes_alive():
                 return
             time.sleep(.1)
-        raise RuntimeError('Owned app or service process did not exit')
+        matches = matching_process_ids([contents / 'MacOS/SidePulse',
+                                        contents / 'MacOS/sidepulsectl'])
+        counts = {path.name: len(pids) for path, pids in matches.items()}
+        raise RuntimeError(f'Owned processes did not exit (fixture counts={counts})')
 
     def cleanup_step(description, action):
         try:
