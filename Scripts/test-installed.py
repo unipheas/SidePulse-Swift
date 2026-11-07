@@ -165,10 +165,10 @@ def main():
         registrar = '/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister'
         run(registrar, '-f', app)
         registered = True
-        cli('app', 'start', '--foreground')
+        cli('status-bar', 'start', '--foreground')
         await_app(True)
         time.sleep(7)  # Production Dashboard discovery is asynchronous.
-        cli('app', 'stop')
+        cli('status-bar', 'stop')
         await_app(False)
         cli('service', 'start', '--scope', 'user')
         require(owned_job(prefix + 'service'), 'Unexpected service executable')
@@ -178,7 +178,7 @@ def main():
         for label in labels:
             require(owned_job(label), 'Unexpected setup executable')
         await_app(True)
-        cli('app', 'stop')
+        cli('status-bar', 'stop')
         await_app(False)
         for name in ('service', 'sdejectguard'):
             cli(name, 'uninstall', '--scope', 'user')
