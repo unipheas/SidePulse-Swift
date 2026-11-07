@@ -44,13 +44,16 @@ enum AudioMeter {
       let db = 20 * log10(max(1e-9, level.read()))
       let target = pow(max(0, min(1, (db + 54) / 46)), 0.72)
       smoothed += (target - smoothed) * (1 - exp(-0.04 / (target > smoothed ? 0.045 : 0.32)))
-      let parts = (0..<count).map { i -> String in
+      var parts: [String] = []
+      for i in 0..<count {
         let position = Double(i) / Double(max(1, count - 1))
-        let color = String(
-          format: "#%02X%02X00", Int(min(1, position * 2) * 255),
-          Int(min(1, (1 - position) * 2) * 255))
-        let brightness = Int(20 + 235 * max(0, min(1, smoothed * Double(count) - Double(i))))
-        return "\(i):\(Programs.dim(color,brightness:brightness)) 90ms cosine"
+        let red = Int(min(1.0, position * 2.0) * 255.0)
+        let green = Int(min(1.0, (1.0 - position) * 2.0) * 255.0)
+        let color = String(format: "#%02X%02X00", red, green)
+        let fill = max(0.0, min(1.0, smoothed * Double(count) - Double(i)))
+        let brightness = Int(20.0 + 235.0 * fill)
+        let dimmed = Programs.dim(color, brightness: brightness)
+        parts.append("\(i):\(dimmed) 90ms cosine")
       }
       let program = parts.joined(separator: ";")
       if program != previous {

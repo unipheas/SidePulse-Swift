@@ -2,8 +2,8 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleIdentifier</key><string>com.unipheas.SidePulseSwift</string>
-  <key>CFBundleName</key><string>SidePulse Swift</string>
-  <key>CFBundleDisplayName</key><string>SidePulse Swift</string>
+  <key>CFBundleName</key><string>SidePulse</string>
+  <key>CFBundleDisplayName</key><string>SidePulse</string>
   <key>CFBundleExecutable</key><string>SidePulse</string>
   <key>CFBundleIconFile</key><string>SidePulse.icns</string>
   <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>

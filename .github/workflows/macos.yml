@@ -13,7 +13,7 @@ jobs:
         run: Scripts/package.sh --universal
       - name: Exercise packaged CLI and resources
         run: |
-          cli="dist/SidePulse Swift.app/Contents/MacOS/sidepulse-swift"
+          cli="dist/SidePulse.app/Contents/MacOS/sidepulsectl"
           "$cli" --version
           "$cli" animations | grep -Fx cyan-roll-8
           export SIDEPULSE_SWIFT_HOME="$RUNNER_TEMP/sidepulse-settings"
@@ -24,5 +24,5 @@ jobs:
           lipo "$cli" -verify_arch arm64 x86_64
       - uses: actions/upload-artifact@v4
         with:
-          name: SidePulse-Swift-macOS
-          path: dist/SidePulse-Swift-macOS.zip
+          name: SidePulse-macOS
+          path: dist/SidePulse-macOS.zip

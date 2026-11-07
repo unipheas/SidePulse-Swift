@@ -536,7 +536,7 @@ struct Preferences: View {
   func configure(_ install: Bool) {
     guard
       let cli = Bundle.main.executableURL?.deletingLastPathComponent().appendingPathComponent(
-        "sidepulse-swift"), FileManager.default.isExecutableFile(atPath: cli.path)
+        "sidepulsectl"), FileManager.default.isExecutableFile(atPath: cli.path)
     else {
       model.problem = "Build and launch the packaged app to configure hooks."
       return

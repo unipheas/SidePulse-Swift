@@ -77,7 +77,7 @@ final class MonitorTests: XCTestCase {
     defer { try? FileManager.default.removeItem(at: home) }
     let file = home.appendingPathComponent(".junie/config.json")
     try saveObject(["keep": true, "hooks": ["Stop": [["other": 42]]]], to: file)
-    let executable = home.appendingPathComponent("sidepulse-swift")
+    let executable = home.appendingPathComponent("sidepulsectl")
     for _ in 0..<2 {
       try Hooks.configure("junie", executable: executable, install: true, home: home)
     }

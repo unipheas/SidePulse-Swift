@@ -84,7 +84,7 @@ public enum EjectGuard {
           return Unmanaged.passRetained(
             DADissenterCreate(
               nil, DAReturn(kDAReturnNotPermitted),
-              "SidePulse Swift is protecting the Pro card" as CFString))
+              "SidePulse is protecting the Pro card" as CFString))
         }
         return nil
       }, nil)

@@ -49,7 +49,7 @@ enum Args {
 
 @main struct CLI {
   static let help = """
-    sidepulse-swift — native macOS companion
+    sidepulsectl — native macOS companion
       devices | firmware version [--device PATH]
       firmware upgrade [--device PATH] [--version X.Y.Z | --file ZIP] [--dry-run]
       audio-meter [--dry-run] | fifa-final [--score 2-1] [--dry-run]
@@ -79,7 +79,7 @@ enum Args {
       try SystemCommand.run(
         "/usr/bin/open", ["https://github.com/unipheas/SidePulse-Swift/releases"])
     case "help", "-h", "--help": print(help)
-    case "version", "--version", "-V": print("SidePulse Swift 0.1.0")
+    case "version", "--version", "-V": print("SidePulse 0.1.0")
     case "devices": try listDevices()
     case "firmware":
       switch try Args.require("version or upgrade") {

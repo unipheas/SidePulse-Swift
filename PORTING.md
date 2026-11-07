@@ -1,6 +1,6 @@
 # Port coverage
 
-The comparison baseline is inteliwear/sidepulse at ffb1d3c2 plus the Done duration in 30b5e2c8. This release targets the macOS companion. Its command line uses the name sidepulse-swift so both implementations can be present.
+The comparison baseline is inteliwear/sidepulse at ffb1d3c2 plus the Done duration in 30b5e2c8. This release targets the macOS companion. Its command line uses the name sidepulsectl so both implementations can be present.
 
 | Area | Swift implementation | Verification |
 | --- | --- | --- |

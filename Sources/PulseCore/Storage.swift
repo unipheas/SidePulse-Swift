@@ -12,7 +12,7 @@ public enum Paths {
     if let path = ProcessInfo.processInfo.environment["SIDEPULSE_SWIFT_HOME"] {
       return URL(fileURLWithPath: path, isDirectory: true)
     }
-    return home.appendingPathComponent("Library/Application Support/SidePulse Swift")
+    return home.appendingPathComponent("Library/Application Support/SidePulse")
   }
   static func xdg(_ name: String, fallback: String) -> URL {
     if let value = ProcessInfo.processInfo.environment[name], !value.isEmpty {

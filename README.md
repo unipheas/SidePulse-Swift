@@ -1,6 +1,6 @@
-<img src="Artwork/SidePulse.png" width="96" alt="SidePulse Swift app icon">
+<img src="Artwork/SidePulse.png" width="96" alt="SidePulse app icon">
 
-# SidePulse Swift
+# SidePulse
 
 A native macOS companion for the SidePulse Pro SD card and SidePulse Dot USB device. Follow coding sessions from the menu bar, preview an animation on a virtual LED strip, or drive the lights on your desk. Requires macOS 14 or later.
 
@@ -8,19 +8,19 @@ A native macOS companion for the SidePulse Pro SD card and SidePulse Dot USB dev
 
 ## Try it
 
-1. Unzip the release and drag **SidePulse Swift** into Applications. The preview build is ad-hoc signed. You can also build it locally.
+1. Unzip the release and drag **SidePulse** into Applications. The preview build is ad-hoc signed. You can also build it locally.
 2. Open the app and connect a SidePulse. **Overview** shows the detected model, firmware, and current agent state.
 3. In **Settings**, set **Show Done for** to `15` seconds. The display returns to Idle when the timer expires and other agents are quiet.
 4. If you already run SidePulse, Swift previews its hook events and reads your existing animation settings. Click **Use Swift for device output** when you want to try the native writer. **Restore original SidePulse service** hands the lights back. On a fresh setup, install hooks for your provider in Settings. Follow the provider's normal hook trust prompts.
 
-The app writes its settings under `~/Library/Application Support/SidePulse Swift`. Existing Python preferences are read as initial values. A fresh installation defaults to a 20-minute Done hold. Setup is per user.
+The app writes its settings under `~/Library/Application Support/SidePulse`. Existing Python preferences are read as initial values. A fresh installation defaults to a 20-minute Done hold. Setup is per user.
 
 ## Command line
 
 The app includes a standalone CLI. For the examples below, set a shell variable to its installed path.
 
 ```sh
-pulse="/Applications/SidePulse Swift.app/Contents/MacOS/sidepulse-swift"
+pulse="/Applications/SidePulse.app/Contents/MacOS/sidepulsectl"
 "$pulse" devices
 "$pulse" agent-monitor status --json
 "$pulse" settings done 15
@@ -45,7 +45,7 @@ Open `Package.swift` in Xcode or use a Mac with Xcode 16 or later.
 ```sh
 swift test
 Scripts/package.sh --universal
-open "dist/SidePulse Swift.app"
+open "dist/SidePulse.app"
 ```
 
 The script builds both executables, includes their resources and icon, signs the bundle, and creates a ZIP in `dist`. The core uses Swift and Apple frameworks. A small C adapter provides access to the IOKit USB plug-in vtable. The build has no Python dependency.

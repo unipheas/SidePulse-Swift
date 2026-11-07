@@ -6,7 +6,7 @@ let package = Package(
   platforms: [.macOS(.v14)],
   products: [
     .executable(name: "SidePulse", targets: ["SidePulse"]),
-    .executable(name: "sidepulse-swift", targets: ["PulseCLI"]),
+    .executable(name: "sidepulsectl", targets: ["PulseCLI"]),
     .library(name: "PulseCore", targets: ["PulseCore"]),
   ],
   targets: [
