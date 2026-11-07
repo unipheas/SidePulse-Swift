@@ -26,6 +26,7 @@ enum AudioMeter {
     static func microphone() -> Input {
       let engine = AVAudioEngine()
       let removeTap = { engine.inputNode.removeTap(onBus: 0) }
+      let stop = { stopInput(stop: engine.stop, remove: removeTap) }
       return Input(
         authorize: { await AVCaptureDevice.requestAccess(for: .audio) },
         start: { level in
@@ -37,13 +38,9 @@ enum AudioMeter {
               input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 level.update(buffer)
               }
-            }, start: engine.start, remove: {
-              stopInput(stop: engine.stop, remove: removeTap)
-            })
+            }, start: engine.start, remove: stop)
         },
-        stop: {
-          stopInput(stop: engine.stop, remove: removeTap)
-        })
+        stop: stop)
     }
   }
   /// Stop render callbacks before removing their tap, including after a partial start.
