@@ -140,5 +140,10 @@
     "mobile pairing",
     "firmware flashing",
     "privileged closed-lid power changes"
-  ]
+  ],
+  "production_ci": {
+    "revision": "7c1151f4f8c5af2d72df71aece92a02dea0c8892",
+    "run_url": "https://github.com/unipheas/SidePulse-Swift/actions/runs/42378712699",
+    "result": "All five jobs passed: Apple Silicon native/package, Intel native/package, UI workflows, AddressSanitizer, ThreadSanitizer. Production source fingerprints match the installed build; the subsequent test-only retry check passed locally."
+  }
 }
