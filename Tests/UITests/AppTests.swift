@@ -49,8 +49,11 @@ final class AppTests: XCTestCase {
         with: Data(contentsOf: root.appendingPathComponent("settings.json"))) as? [String: Any])
   }
   private func reveal(_ element: XCUIElement) {
-    for _ in 0..<15 where !element.isHittable {
-      app.scrollViews.element(boundBy: 1).scroll(byDeltaX: 0, deltaY: -180)
+    let scroll = app.scrollViews.element(boundBy: 1)
+    for _ in 0..<20 {
+      let viewport = scroll.frame.insetBy(dx: 0, dy: 8)
+      if element.isHittable && viewport.contains(element.frame) { break }
+      scroll.scroll(byDeltaX: 0, deltaY: element.frame.minY < viewport.minY ? 180 : -180)
     }
     XCTAssertTrue(element.isHittable, app.debugDescription)
   }
@@ -296,6 +299,12 @@ extension AppTests {
     app.buttons["Save to library"].click()
     XCTAssertEqual((try settings()["custom_agent_animations"] as? [String: Any])?.count, 2)
     app.buttons["Cancel"].click()
+    app.buttons["edit-working"].click()
+    preset.click()
+    app.menuItems["cyan-roll-8"].firstMatch.click()
+    XCTAssertFalse((app.textViews["animation-program"].value as? String ?? "").isEmpty)
+    XCTAssertEqual(app.textFields["Reusable animation name"].value as? String, "")
+    app.buttons["Save animation"].click()
     choose(app.popUpButtons["animation-profile"], "Cyan")
     choose(app.popUpButtons["animation-profile"], "Current")
     XCTAssertEqual(try settings()["swift_profile"] as? String, "current")

@@ -5,8 +5,7 @@ import XCTest
 @testable import PulseCore
 @testable import SidePulse
 
-/// Drive native accessibility actions in an injected window, without touching login items,
-/// launchd jobs, firmware, or the user's preferences.
+/// Render empty and incomplete records in a native window using isolated preferences.
 final class HostedActionTests: IsolatedTests {
   @MainActor func host<V: View>(_ view: V, model: Dashboard) -> NSWindow {
     _ = NSApplication.shared

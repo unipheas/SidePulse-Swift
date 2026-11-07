@@ -25,9 +25,10 @@ public enum PowerRegistry {
     return result?.takeRetainedValue() as? JSONObject
   }
   public static let fullChargeWatts: Double = {
-    baseline(properties("product", plane: "IODeviceTree") ?? [:])
+    baseline(properties("product", plane: "IODeviceTree"))
   }()
-  static func baseline(_ properties: JSONObject) -> Double {
+  static func baseline(_ source: JSONObject?) -> Double {
+    let properties = source ?? [:]
     func string(_ key: String) -> String {
       if let data = properties[key] as? Data {
         return String(decoding: data, as: UTF8.self).lowercased()

@@ -31,6 +31,9 @@ import PulseCore
     }
     return Programs.brightness(program, level: config["brightness"] as? Int ?? 255)
   }
+  static func gap(left: NSRect?, right: NSRect?) -> CGFloat {
+    (right?.minX ?? 0) - (left?.maxX ?? 0)
+  }
   func update(_ program: String?, screen: NSScreen? = .main) throws {
     guard let program, let screen else {
       hide()
@@ -54,7 +57,7 @@ import PulseCore
       try lights.load(program)
       source = program
     }
-    let gap = (screen.auxiliaryTopRightArea?.minX ?? 0) - (screen.auxiliaryTopLeftArea?.maxX ?? 0)
+    let gap = Self.gap(left: screen.auxiliaryTopLeftArea, right: screen.auxiliaryTopRightArea)
     lights.hasNotch = screen.safeAreaInsets.top > 0
     window?.setFrame(
       Self.frame(screen: screen.frame, depth: screen.safeAreaInsets.top, gap: gap), display: true)

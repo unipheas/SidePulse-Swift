@@ -48,7 +48,7 @@ final class HardwareTests: IsolatedTests {
     let archive = try Data(contentsOf: zip)
     func download(_ address: String) throws -> Data {
       if address.contains("api.github.com") {
-        return Data(#"[{"name":"v1.1.0"},{"name":"README"}]"#.utf8)
+        return Data(#"[{"name":"v1.0.0"},{"name":"v1.1.0"},{"name":"README"}]"#.utf8)
       }
       if address.hasSuffix("SHA256SUMS.txt") {
         return Data((Firmware.digest(archive) + "  " + zip.lastPathComponent).utf8)
@@ -581,5 +581,29 @@ extension HardwareTests {
     XCTAssertThrowsError(try ReadChannel.upload([1], root: root)) { error in
       XCTAssertTrue(error.localizedDescription.contains("encoding"))
     }
+  }
+}
+
+extension HardwareTests {
+  func testFAT12RejectsSelfReferencingAndOutOfRangeChains() throws {
+    var disk = [UInt8](repeating: 0, count: 512 * 8)
+    disk[11] = 0
+    disk[12] = 2
+    disk[13] = 1
+    disk[14] = 1
+    disk[16] = 1
+    disk[17] = 16
+    disk[19] = 8
+    disk[22] = 1
+    disk[510] = 85
+    disk[511] = 170
+    disk.replaceSubrange(1024..<1035, with: "LEDS    LED".utf8)
+    disk[1050] = 2
+    disk[515] = 3
+    XCTAssertEqual(try RawDisk.layout(disk).data, 1536)
+    disk[515] = 2
+    XCTAssertThrowsError(try RawDisk.layout(disk))
+    disk[515] = 20
+    XCTAssertThrowsError(try RawDisk.layout(disk))
   }
 }

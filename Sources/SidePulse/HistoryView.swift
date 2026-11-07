@@ -113,6 +113,7 @@ struct HistoryView: View {
 }
 struct DiagnosticsView: View {
   @EnvironmentObject var model: Dashboard
+  var readBattery: () -> BatteryDiagnostics? = { BatteryDiagnostics.read() }
   var body: some View {
     Form {
       Section("Agent hooks") {
@@ -131,7 +132,7 @@ struct DiagnosticsView: View {
         Button("Show settings folder") { NSWorkspace.shared.open(Paths.support) }
       }
       Section("Battery and charger") {
-        if let diagnostic = BatteryDiagnostics.read() {
+        if let diagnostic = readBattery() {
           let values = diagnostic.values
           ForEach(
             [

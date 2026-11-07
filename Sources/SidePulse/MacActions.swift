@@ -18,6 +18,9 @@ import ServiceManagement
   var helper: (String, URL) async throws -> String = MacActions.manageHelper
   var takeControl: () throws -> Void = Jobs.takeControl
   var giveBack: () throws -> Void = Jobs.giveBack
+  var previewPhone: (Phone, String) async throws -> Void = {
+    try await Bridge.push(to: $0.id, program: $1, title: nil, message: nil)
+  }
   var openSession: (SessionTarget?, Session, JSONObject) throws -> Void = {
     try SessionOpening.open($0, session: $1, settings: $2)
   }

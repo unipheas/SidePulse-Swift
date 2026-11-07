@@ -6,6 +6,28 @@ import XCTest
 @testable import SidePulse
 
 final class ViewActionTests: IsolatedTests {
+  @MainActor func testFirmwareConfirmationInvokesOnlyTheSelectedFixture() async throws {
+    let device = try volume()
+    let model = Dashboard(discover: { [device] }, outputInUse: { true }, poll: false)
+    var writes = [Device]()
+    let firmware = FirmwareUpdate(upgrade: { selected, dry in
+      XCTAssertFalse(dry)
+      writes.append(selected)
+      return "Fixture installed"
+    })
+    let view = DeviceManagement(firmware: firmware).environmentObject(model)
+    firmware.request(device)
+    try view.inspect().find(ViewType.Form.self).confirmationDialog().actions().find(
+      button: "Install firmware"
+    ).tap()
+    for _ in 0..<10 { await Task.yield() }
+    XCTAssertEqual(writes, [device])
+    XCTAssertEqual(firmware.status, "Fixture installed")
+    XCTAssertFalse(firmware.confirm)
+    let diagnostics = DiagnosticsView(readBattery: { nil }).environmentObject(model)
+    XCTAssertNoThrow(try diagnostics.inspect().find(text: "No internal battery found."))
+  }
+
   @MainActor func testHelperButtonsRunOnlyInjectedActions() async throws {
     var actions = MacActions()
     var installed = false
@@ -68,6 +90,7 @@ extension ViewActionTests {
   @MainActor func testDevicePreviewAndBrightnessPersistToIsolatedDevice() throws {
     let device = try volume()
     let model = Dashboard(discover: { [device] }, outputInUse: { true }, poll: false)
+    model.legacy = false  // This fixture owns its output on CI as well as the development Mac.
     let preview = DevicePreviewMenu(source: "#FF0000").environmentObject(model)
     try preview.inspect().find(button: device.name).tap()
     XCTAssertEqual(
@@ -119,5 +142,82 @@ extension ViewActionTests {
     XCTAssertEqual(
       try view.inspect().find(text: "Verified fixture firmware").string(),
       "Verified fixture firmware")
+  }
+}
+
+extension ViewActionTests {
+  @MainActor func testPreferenceBindingsPersistAndLoginUsesInjectedAction() throws {
+    var actions = MacActions()
+    var loginRequests = [Bool]()
+    actions.login = {
+      loginRequests.append($0)
+      return $0
+    }
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false, actions: actions)
+    let view = Preferences().environmentObject(model)
+    for (label, key, value) in [
+      ("Mirror status on connected devices", "swift_mirror", false),
+      ("Mirror LED states to paired phones", "swift_phone_mirror", true),
+      ("Show menu bar icon", "show_menu_bar_icon", false),
+    ] {
+      let toggle = try view.inspect().find(
+        ViewType.Toggle.self, where: { try $0.labelView().text().string() == label })
+      if try toggle.isOn() != value { try toggle.tap() }
+      XCTAssertEqual(try Settings.read()[key] as? Bool, value)
+    }
+    let login = try view.inspect().find(
+      ViewType.Toggle.self, where: { try $0.labelView().text().string() == "Open at login" })
+    if try !login.isOn() { try login.tap() }
+    XCTAssertEqual(loginRequests, [true])
+    XCTAssertTrue(model.login)
+    let power = PowerPreferences().environmentObject(model)
+    try power.inspect().find(
+      ViewType.Picker.self,
+      where: { try $0.labelView().text().string() == "Keep awake with lid closed" }
+    ).select(value: "never")
+    XCTAssertEqual(try Settings.read()["swift_closed_lid"] as? String, "never")
+  }
+
+  @MainActor func testBatteryBindingsAndExistingChargerSetting() throws {
+    try Settings.update { $0["battery_monitoring"] = ["full_charge_watts": 96] }
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    let view = BatteryPreferences().environmentObject(model)
+    try view.inspect().find(ViewType.Picker.self).select(value: "battery")
+    XCTAssertEqual(try Settings.read()["led_display"] as? String, "battery")
+    try view.inspect().find(ViewType.Toggle.self).tap()
+    XCTAssertEqual(
+      (try Settings.read()["battery_monitoring"] as? JSONObject)?["show_on_power_change"] as? Bool,
+      false)
+    try view.inspect().find(ViewType.Section.self).callOnAppear()
+  }
+}
+
+extension ViewActionTests {
+  @MainActor func testPhonePreviewMenuUsesManualModeAndReportsInvalidPrograms() async throws {
+    try Bridge.store(token: String(repeating: "a", count: 64), name: "Fixture Phone")
+    let phone = try XCTUnwrap(Bridge.phones().first)
+    var actions = MacActions()
+    var sent = [String]()
+    actions.previewPhone = { target, program in
+      XCTAssertEqual(target.id, phone.id)
+      sent.append(program)
+    }
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false, actions: actions)
+    model.legacy = false
+    let view = DevicePreviewMenu(source: "#FF0000").environmentObject(model)
+    try view.inspect().find(button: "Fixture Phone").tap()
+    for _ in 0..<10 { await Task.yield() }
+    XCTAssertEqual(sent, ["#FF0000"])
+    XCTAssertEqual(
+      Settings.device(phone.deviceID, in: try Settings.read())["led_display"] as? String, "custom")
+    await model.preview("invalid command", on: phone)
+    XCTAssertNotNil(model.problem)
+    XCTAssertEqual(sent.count, 1)
+    let picker = DeviceDisplayPreference(id: phone.deviceID, title: "Display", allowsBattery: false)
+      .environmentObject(model)
+    XCTAssertThrowsError(try picker.inspect().find(text: "Battery"))
+    try picker.inspect().find(ViewType.Picker.self).select(value: "agent")
+    XCTAssertEqual(
+      Settings.device(phone.deviceID, in: try Settings.read())["led_display"] as? String, "agent")
   }
 }

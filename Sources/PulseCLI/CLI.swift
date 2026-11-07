@@ -2,7 +2,12 @@ import Foundation
 import PulseCore
 
 enum Args {
-  static var words = Array(CommandLine.arguments.dropFirst())
+  static var words = initial(CommandLine.arguments)
+  static func initial(_ arguments: [String]) -> [String] {
+    let words = Array(arguments.dropFirst())
+    return arguments.first.map { URL(fileURLWithPath: $0).lastPathComponent } == "agent-monitor"
+      ? ["agent-monitor"] + words : words
+  }
   static func pop() -> String? { words.isEmpty ? nil : words.removeFirst() }
   static func flag(_ name: String) -> Bool {
     guard let index = words.firstIndex(of: name) else { return false }
@@ -95,7 +100,10 @@ enum Args {
       exit(1)
     }
   }
-  static func run() async throws {
+  static func run(
+    executable: URL = Bundle.main.executableURL!,
+    launch: (String, [String]) throws -> Data = SystemCommand.run
+  ) async throws {
     let command = Args.pop() ?? "help"
     switch command {
     case "update":
@@ -105,7 +113,7 @@ enum Args {
         print("https://github.com/unipheas/SidePulse-Swift/releases")
         return
       }
-      try SystemCommand.run(
+      try launch(
         "/usr/bin/open", ["sidepulse-native://updates"])
     case "help", "-h", "--help": print(help)
     case "version", "--version", "-V": print("SidePulse 0.2.0")
@@ -150,7 +158,8 @@ enum Args {
         Args.words.insert("hook-log", at: 0)
         try await run()
       case "install", "uninstall": try configure(install: sub == "install")
-      case "version": print("SidePulse 0.2.0")
+      case "version", "--version", "-V": print("SidePulse 0.2.0")
+      case "help", "--help", "-h": print(help)
       case "doctor":
         let json = Args.flag("--json")
         try Args.end()
@@ -213,16 +222,12 @@ enum Args {
       try Settings.migrate()
     case "settings":
       if Args.words.isEmpty {
-        let app =
-          Bundle.main.bundleURL.pathExtension == "app"
-          ? Bundle.main.bundleURL
-          : URL(fileURLWithPath: CommandLine.arguments[0]).standardizedFileURL
-            .deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        guard app.pathExtension == "app" else {
+        guard let app = try? AppInstallation.bundle(for: executable.resolvingSymlinksInPath())
+        else {
           print(Settings.url.path)
           return
         }
-        try SystemCommand.run("/usr/bin/open", ["-a", app.path, "sidepulse-native://settings"])
+        try launch("/usr/bin/open", ["-a", app.path, "sidepulse-native://settings"])
       } else {
         guard Args.pop() == "done", let value = Double(try Args.require("seconds")) else {
           throw PulseError("Use settings done SECONDS.")

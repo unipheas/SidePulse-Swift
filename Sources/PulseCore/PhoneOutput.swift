@@ -25,11 +25,17 @@ public actor PhoneOutput {
       deliveries.removeAll()
       return
     }
-    let recipients = try phones()
+    let recipients = try phones().filter { phone in
+      let display =
+        Settings.device(phone.deviceID, in: settings)["led_display"] as? String
+        ?? settings["led_display"] as? String
+      return display != "custom"
+    }
     // Include the destination and token: re-pairing must invalidate a prior success.
     func key(_ phone: Phone) -> String { phone.server + "/" + phone.token }
     let keys = Set(recipients.map(key))
     deliveries = deliveries.filter { keys.contains($0.key) }
+    guard !recipients.isEmpty else { return }
     let program = try Programs.program(mode, count: 8, settings: settings)
     var failures = [String]()
     for phone in recipients {

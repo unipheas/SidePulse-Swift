@@ -53,6 +53,15 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
         os.close(slave)
     assert "macOS" in run("--help")
     assert "SidePulse" in run("--version")
+    for name in ("sidepulse", "agent-monitor"):
+        alias = root / name
+        alias.symlink_to(cli)
+        for option in ("--version", "--help"):
+            result = subprocess.run([alias, option], capture_output=True, text=True, timeout=20, env=env)
+            assert result.returncode == 0 and "sidepulse" in result.stdout.lower(), result
+        if name == "agent-monitor":
+            result = subprocess.run([alias, "status", "--json"], capture_output=True, text=True, timeout=20, env=env)
+            assert result.returncode == 0 and json.loads(result.stdout) is not None, result
     assert "releases" in run("update","--dry-run")
     assert "cyan-roll-8" in run("animations")
     assert "SidePulse Pro" in run("devices", "--device", volume)
@@ -186,6 +195,16 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     stream[:] = [{"v":1,"type":"ios_registration","device":{"bundle_id":"io.sidepulse.ios","name":"Paired","push_token":ios}}]
     assert "Phone linked" in run("link")
     assert "Paired" in run("unlink")
+    stream[:] = [
+        {"v": 1, "type": "android_registration", "device": {"push_token": android}},
+        {"v": 1, "type": "android_registration", "device": {"package_id": "io.sidepulse.android", "push_token": android}},
+    ]
+    assert "Phone linked" in run("link")
+    assert "Phone" in run("links")
+    stream[:] = [{"v": 1, "type": "agent_event", "event_id": "missing-optional-metadata",
+                 "provider": "grok", "line": {"hook_event_name": "UserPromptSubmit"}}]
+    run("relay", "receive", "sample_channel", "--once")
+    assert "relay:remote:default" in (root/"native/events/grok.jsonl").read_text()
     for args in [("link","invalid"),("unlink","missing"),("firmware","upgrade","--device",volume,"--version","bad"),
                  ("raw-write","invalid","off"),("settings","done","nan"),("unknown",),("hook-log","--provider"),
                  ("agent-monitor","install","none"),("classify",""),("relay","send","bad","badprovider")]:

@@ -224,10 +224,16 @@ struct DevicePreviewMenu: View {
   @EnvironmentObject var model: Dashboard
   let source: String
   var body: some View {
+    let phones = (try? Bridge.phones()) ?? []
     Menu("Show on device") {
       ForEach(model.devices) { device in
         Button(device.name) { model.preview(source, on: device) }
       }
-    }.disabled(model.devices.isEmpty || (model.legacy && !Jobs.running(Jobs.prefix + "service")))
+      ForEach(phones, id: \.id) { phone in
+        Button(phone.name) { Task { await model.preview(source, on: phone) } }
+      }
+    }.disabled(
+      (model.devices.isEmpty && phones.isEmpty)
+        || (model.legacy && !Jobs.running(Jobs.prefix + "service")))
   }
 }

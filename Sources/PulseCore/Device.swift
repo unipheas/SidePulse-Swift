@@ -40,9 +40,12 @@ public struct Device: Identifiable, Equatable, Sendable {
       programFile: fileName)
   }
   public static func discover() -> [Device] {
+    discover(in: URL(fileURLWithPath: "/Volumes"))
+  }
+  static func discover(in directory: URL) -> [Device] {
     let roots =
       (try? FileManager.default.contentsOfDirectory(
-        at: URL(fileURLWithPath: "/Volumes"), includingPropertiesForKeys: nil)) ?? []
+        at: directory, includingPropertiesForKeys: nil)) ?? []
     return roots.compactMap { try? inspect($0) }.sorted { $0.id < $1.id }
   }
   public func write(_ source: String) throws {
@@ -99,8 +102,11 @@ public enum Programs {
     return text
   }
   public static var animationNames: [String] {
+    animationNames(in: Bundle.module.resourceURL!.appendingPathComponent("animations"))
+  }
+  static func animationNames(in directory: URL) -> [String] {
     ((try? FileManager.default.contentsOfDirectory(
-      atPath: Bundle.module.resourceURL!.appendingPathComponent("animations").path)) ?? [])
+      atPath: directory.path)) ?? [])
       .filter { $0.hasSuffix(".LED") }.map { String($0.dropLast(4)) }.sorted()
   }
   public static func preset(_ name: String, count: Int) throws -> String {
@@ -124,7 +130,10 @@ public enum Programs {
     else { throw PulseError("Unknown profile.") }
     return mapping
   }
-  public static func program(_ mode: Mode, count: Int, settings: JSONObject) throws -> String {
+  public static func program(
+    _ mode: Mode, count: Int, settings: JSONObject,
+    defaultProfile: () throws -> [String: String] = { try profile("cyan") }
+  ) throws -> String {
     let entry = (settings["agent_animations"] as? [String: JSONObject])?[mode.rawValue]
     let style = entry?["style"] as? String
     if let style, let entry,
@@ -132,7 +141,7 @@ public enum Programs {
     {
       return program
     }
-    let mapping = try profile("cyan")
+    let mapping = try defaultProfile()
     return try preset(mapping[mode.rawValue] ?? "idle-pulse", count: count)
   }
   static func resolve(style: String, entry: JSONObject, count: Int, settings: JSONObject) throws
@@ -205,12 +214,18 @@ public enum Programs {
 public final class LEDPreview {
   private let context: JSContext
   private let count: Int
-  public init(program: String, count: Int, initialProgram: String? = nil) throws {
+  public convenience init(program: String, count: Int, initialProgram: String? = nil) throws {
+    try self.init(
+      program: program, count: count, initialProgram: initialProgram, context: JSContext(),
+      module: Bundle.module.url(forResource: "sdled", withExtension: "wasm"))
+  }
+  init(
+    program: String, count: Int, initialProgram: String? = nil, context: JSContext?, module: URL?
+  ) throws {
     self.count = count == 2 ? 2 : 8
-    guard let ctx = JSContext(),
-      let url = Bundle.module.url(forResource: "sdled", withExtension: "wasm")
+    guard let ctx = context, let url = module
     else { throw PulseError("Missing LED simulator.") }
-    context = ctx
+    self.context = ctx
     let initial = try initialProgram.map { [UInt8](try Programs.normalize($0).utf8) } ?? []
     ctx.setObject(initial, forKeyedSubscript: "initialBytes" as NSString)
     ctx.setObject([UInt8](try Data(contentsOf: url)), forKeyedSubscript: "moduleBytes" as NSString)

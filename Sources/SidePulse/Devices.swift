@@ -65,6 +65,7 @@ struct DeviceManagement: View {
               } catch { phoneStatus = error.localizedDescription }
             }
           }
+          DeviceDisplayPreference(id: phone.deviceID, title: "Display", allowsBattery: false)
         }
         TextField("Phone name", text: $name).accessibilityIdentifier("phone-name")
         SecureField("Push token", text: $token).accessibilityIdentifier("phone-token")
@@ -121,6 +122,7 @@ struct DeviceDisplayPreference: View {
   @EnvironmentObject var model: Dashboard
   let id: String
   let title: String
+  var allowsBattery = true
   var body: some View {
     Picker(
       title,
@@ -131,7 +133,7 @@ struct DeviceDisplayPreference: View {
         })
     ) {
       Text("Agent status").tag("agent")
-      Text("Battery").tag("battery")
+      if allowsBattery { Text("Battery").tag("battery") }
       Text("Manual").tag("custom")
     }.accessibilityIdentifier("device-display-" + id)
   }

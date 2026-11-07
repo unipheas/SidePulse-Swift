@@ -4,6 +4,7 @@ import Foundation
 
 public struct Phone {
   public let name: String, id: String
+  public var deviceID: String { "ios/" + id }
   let token: String, server: String
   var android: Bool { token.hasPrefix("fcm_") }
   init(token: String, name: String, server: String) throws {
@@ -90,6 +91,11 @@ public enum Bridge {
       }
       phones.remove(at: index)
     }
+    try Settings.update { settings in
+      var devices = settings["devices"] as? [JSONObject] ?? []
+      devices.removeAll { $0["id"] as? String == "ios/" + id }
+      settings["devices"] = devices
+    }
   }
   static func post(_ data: JSONObject, url: URL) async throws {
     var req = URLRequest(url: url)
@@ -114,7 +120,7 @@ public enum Bridge {
     }
     let phone = links[0]
     let event = UUID().uuidString
-    var payload: JSONObject = ["data": ["sidepulse_event_id": event]]
+    var payload: JSONObject = ["data": eventData(event)]
     var alert = [String: String]()
     if let title {
       payload["title"] = title
@@ -134,6 +140,17 @@ public enum Bridge {
     }
     try await post(
       payload, url: address(phone.server, channel: (phone.android ? "" : "apns_") + phone.token))
+  }
+  static func eventData(
+    _ event: String, battery: Battery? = Battery.read(), name: String = Machine.name
+  ) -> JSONObject {
+    var source: JSONObject = ["name": name]
+    if let battery {
+      source["battery"] = [
+        "level": battery.percent, "charging": battery.charging, "plugged_in": battery.plugged,
+      ]
+    }
+    return ["sidepulse_event_id": event, "source": source]
   }
   static func events(_ channel: String, origin: String? = nil, consume: (JSONObject) throws -> Bool)
     async throws

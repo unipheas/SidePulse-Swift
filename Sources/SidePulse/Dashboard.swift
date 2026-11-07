@@ -186,6 +186,17 @@ extension Dashboard {
     return actions.jobRunning(job)
   }
 
+  func preview(_ source: String, on phone: Phone) async {
+    do {
+      _ = try LEDPreview(program: source, count: 8)
+      try Settings.update {
+        Settings.editDevice(phone.deviceID, in: &$0, values: ["led_display": "custom"])
+      }
+      try await actions.previewPhone(phone, source)
+      refresh()
+    } catch { problem = error.localizedDescription }
+  }
+
   func deferSetup() {
     do {
       try Settings.update { $0["setup_screen_completed"] = true }

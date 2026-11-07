@@ -14,7 +14,7 @@ The coverage command runs the Swift tests, real CLI integration tests, a disposa
 
 ## Current evidence
 
-The latest complete run passed **139 native XCTest methods, 2 classifier template tests, and 16 UI workflows**, plus CLI, MLX process, FAT12 image, and eject/remount integration checks. Combined LLVM line coverage is **97.14% (9,588 of 9,870 instrumented lines)**. The classifier helper, prompt renderer, MLX command adapter, and C USB adapter have 100% measured line coverage. Overall coverage is not yet 100%.
+The latest complete run passed **161 native XCTest methods, 2 classifier template tests, and 16 UI workflows**, plus CLI, MLX process, FAT12 image, and eject/remount integration checks. Combined LLVM line coverage is **98.29% (9,746 of 9,916 instrumented lines)**. The classifier helper, prompt renderer, MLX command adapter, and C USB adapter have 100% measured line coverage. Overall coverage is not yet 100%.
 
 The full report includes every production Swift and C file in the main package and the separate native classifier. Set `RUN_CLASSIFIER_TESTS=1` on Apple silicon to include the helper; a run without that flag explicitly reports that it is omitted. Compiler-generated SwiftUI regions can make counts differ between compiler versions.
 
@@ -44,3 +44,5 @@ The audio adapter also passed a brief in-memory microphone capture on the develo
 The optional MLX classifier uses native Swift/Metal with the original Qwen model and few-shot prompt. Token-for-token comparison against Python exposed a Jinja whitespace mismatch; the corrected renderer and four captured Python results now match. This establishes port compatibility, not general model accuracy. Tests use only synthetic messages. The classifier's transitive Collections dependency is pinned for Xcode 16.4 compatibility, and Xcode builds use Xcode's C/C++ compiler to keep coverage runtimes consistent.
 
 Additional regression tests cover in-place library edits, legacy timing and sleep preferences, first-run setup choices and failure recovery, transport deduplication across reconnects, Disk Arbitration daemon restarts, microphone tap cleanup after failed starts, and terminal watch rendering. The new full measurement is pending; focused native and UI checks pass.
+
+ViewInspector is a pinned, test-only dependency for exercising SwiftUI action closures with injected system operations. It is not linked into the app. Native window rendering and the separate XCTest UI suite still validate layout and real interaction. Network adapter tests intercept fixture responses in URLProtocol; they do not download or flash firmware.

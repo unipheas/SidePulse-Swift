@@ -35,9 +35,11 @@ for name in service sdejectguard; do
   if launchctl print "$job" >/dev/null 2>&1; then launchctl kickstart -k "$job"; fi
 done
 mkdir -p "$HOME/.local/bin"
-if [[ ! -e "$HOME/.local/bin/sidepulsectl" || -L "$HOME/.local/bin/sidepulsectl" ]]; then
-  ln -sfn "$target/Contents/MacOS/sidepulsectl" "$HOME/.local/bin/sidepulsectl"
-fi
+for command in sidepulsectl sidepulse agent-monitor; do
+  if [[ ! -e "$HOME/.local/bin/$command" || -L "$HOME/.local/bin/$command" ]]; then
+    ln -sfn "$target/Contents/MacOS/sidepulsectl" "$HOME/.local/bin/$command"
+  fi
+done
 # Keep the distributable ZIP; do not leave another indexed .app in the checkout.
 "$registrar" -u "$source" >/dev/null 2>&1 || true
 rm -rf "$source"

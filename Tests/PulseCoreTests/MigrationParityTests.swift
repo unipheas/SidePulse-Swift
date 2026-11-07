@@ -249,3 +249,73 @@ extension MigrationParityTests {
     XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
   }
 }
+
+extension MigrationParityTests {
+  func testPhoneManualModeSurvivesMigrationAndResumingReassertsTheProgram() async throws {
+    let phone = try Phone(
+      token: String(repeating: "a", count: 64), name: "Phone", server: "https://example.invalid")
+    var programs = [String]()
+    let output = PhoneOutput(phones: { [phone] }, send: { _, program in programs.append(program) })
+    var settings: JSONObject = ["swift_phone_mirror": true]
+    try await output.sync(mode: .idle, settings: settings)
+    Settings.editDevice(phone.deviceID, in: &settings, values: ["led_display": "custom"])
+    try await output.sync(mode: .working, settings: settings)
+    XCTAssertEqual(programs.count, 1)
+    Settings.editDevice(phone.deviceID, in: &settings, values: ["led_display": "agent"])
+    try await output.sync(mode: .idle, settings: settings)
+    XCTAssertEqual(programs.count, 2)
+    settings["devices"] = []
+    settings["led_display"] = "custom"
+    try await output.sync(mode: .working, settings: settings)
+    XCTAssertEqual(programs.count, 2)
+  }
+  func testPhoneEventMetadataAndUnlinkRemoveOnlyThatPhonesPreference() throws {
+    let battery = Battery(percent: 42, charging: true, plugged: true, watts: 30)
+    let data = Bridge.eventData("event", battery: battery, name: "Fixture Mac")
+    let source = try XCTUnwrap(data["source"] as? JSONObject)
+    XCTAssertEqual(source["name"] as? String, "Fixture Mac")
+    XCTAssertEqual((source["battery"] as? JSONObject)?["level"] as? Int, 42)
+    XCTAssertEqual((source["battery"] as? JSONObject)?["charging"] as? Bool, true)
+    XCTAssertNil((Bridge.eventData("event", battery: nil)["source"] as? JSONObject)?["battery"])
+    try Bridge.store(token: String(repeating: "a", count: 64), name: "Phone")
+    let phone = try XCTUnwrap(Bridge.phones().first)
+    try Settings.update {
+      Settings.editDevice(phone.deviceID, in: &$0, values: ["led_display": "custom"])
+      Settings.editDevice("other-device", in: &$0, values: ["led_display": "battery"])
+    }
+    try Bridge.remove(phone.id)
+    XCTAssertTrue(try Bridge.phones().isEmpty)
+    let devices = try XCTUnwrap(Settings.read()["devices"] as? [JSONObject])
+    XCTAssertEqual(devices.compactMap { $0["id"] as? String }, ["other-device"])
+  }
+}
+
+extension MigrationParityTests {
+  func testMonitorReportsRelayAndPhoneFailuresAfterWritingLocalLEDs() async throws {
+    let device = try volume()
+    try Settings.update { $0["sleep_prevention_policy"] = "never" }
+    for relayFailure in [true, false] {
+      if relayFailure {
+        try saveObject(["version": 99], to: RelayConfiguration.file)
+      } else {
+        try FileManager.default.removeItem(at: RelayConfiguration.file)
+        try Settings.update { $0["swift_phone_mirror"] = true }
+      }
+      var reports = [String]()
+      Args.words = ["--once"]
+      do {
+        try await CLI.monitor(
+          "leds", discover: { [device] }, legacyRunning: { false },
+          phoneOutput: PhoneOutput(phones: { throw PulseError("Phone unavailable") }),
+          report: { reports.append($0) })
+        XCTFail("Expected optional output error")
+      } catch {
+        XCTAssertEqual(
+          error.localizedDescription,
+          relayFailure ? "Unsupported relay configuration." : "Phone unavailable")
+      }
+      XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
+      XCTAssertEqual(reports.count, 1)
+    }
+  }
+}

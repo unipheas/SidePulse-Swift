@@ -75,3 +75,13 @@ final class FirmwareNetworkTests: IsolatedTests {
     }
   }
 }
+
+extension FirmwareNetworkTests {
+  func testMalformedReleaseListingFailsBeforeDownloadingAnArchive() async throws {
+    do {
+      _ = try await Firmware.upgrade(
+        volume(), version: nil, file: nil, dryRun: true, fetch: { _ in Data("{}".utf8) })
+      XCTFail("Expected missing releases")
+    } catch { XCTAssertEqual(error.localizedDescription, "No compatible firmware release.") }
+  }
+}

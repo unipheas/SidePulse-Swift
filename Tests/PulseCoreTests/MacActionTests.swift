@@ -309,3 +309,15 @@ extension MacActionTests {
     for _ in 0..<10 { await Task.yield() }
   }
 }
+
+extension MacActionTests {
+  @MainActor func testDashboardReportsInvalidRelayConfigurationAndKeepsLocalOutput() async throws {
+    let device = try volume()
+    try Settings.update { $0["sleep_prevention_policy"] = "never" }
+    try saveObject(["version": 99], to: RelayConfiguration.file)
+    let model = Dashboard(discover: { [device] }, outputInUse: { false }, poll: false)
+    for _ in 0..<10 { await Task.yield() }
+    XCTAssertEqual(model.problem, "Unsupported relay configuration.")
+    XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
+  }
+}

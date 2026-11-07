@@ -155,3 +155,68 @@ extension RemainingBoundaryTests {
     try Jobs.giveBack()
   }
 }
+
+extension RemainingBoundaryTests {
+  func testCompatibilityArgumentsAndApplicationLinks() async throws {
+    XCTAssertEqual(Args.initial([]), [])
+    XCTAssertEqual(Args.initial(["/usr/local/bin/sidepulse", "devices"]), ["devices"])
+    XCTAssertEqual(
+      Args.initial(["/usr/local/bin/agent-monitor", "status"]), ["agent-monitor", "status"])
+    let executable = root.appendingPathComponent("SidePulse.app/Contents/MacOS/sidepulsectl")
+    var commands = [[String]]()
+    for command in ["settings", "update"] {
+      Args.words = [command]
+      try await CLI.run(
+        executable: executable,
+        launch: { tool, arguments in
+          XCTAssertEqual(tool, "/usr/bin/open")
+          commands.append(arguments)
+          return Data()
+        })
+    }
+    XCTAssertEqual(
+      commands,
+      [
+        ["-a", root.appendingPathComponent("SidePulse.app").path, "sidepulse-native://settings"],
+        ["sidepulse-native://updates"],
+      ])
+    Args.words = ["start", "--no-start"]
+    try CLI.appCommand(executable: executable)
+    XCTAssertTrue(
+      FileManager.default.fileExists(
+        atPath: Paths.home.appendingPathComponent(
+          "Library/LaunchAgents/" + Jobs.prefix + "app.plist"
+        ).path))
+  }
+
+  func testCommandDefaultsAndMalformedPollingNumbers() async throws {
+    Args.words = []
+    try await CLI.run()
+    Args.words = ["agent-monitor"]
+    try await CLI.run()
+    Args.words = []
+    try await CLI.batteryCommand(read: {
+      Battery(percent: 70, charging: false, plugged: false, watts: 0)
+    })
+    Args.words = ["leds", "--interval", "invalid"]
+    do {
+      try await CLI.batteryCommand()
+      XCTFail("Expected invalid polling interval")
+    } catch { XCTAssertTrue(error.localizedDescription.contains("positive polling")) }
+    for name in ["--interval", "--max-lines", "--recent-seconds"] {
+      Args.words = [name, "invalid"]
+      do {
+        try await CLI.monitor("status")
+        XCTFail("Expected invalid option")
+      } catch { XCTAssertTrue(error is PulseError) }
+    }
+    Args.words = ["leds", "--once", "--dry-run"]
+    do {
+      try await CLI.batteryCommand(read: {
+        Battery(percent: 70, charging: false, plugged: false, watts: 0)
+      })
+    } catch { XCTAssertTrue(error is PulseError) }
+    Args.words = ["--once", "--dry-run"]
+    try await CLI.monitor("leds")
+  }
+}

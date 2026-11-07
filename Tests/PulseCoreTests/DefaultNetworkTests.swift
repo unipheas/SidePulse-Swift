@@ -7,7 +7,7 @@ import XCTest
 /// Intercept only these read-only fixture requests. No real phone or firmware is contacted.
 private final class DefaultNetworkResponse: URLProtocol {
   override class func canInit(with request: URLRequest) -> Bool {
-    request.url?.host == "api.github.com" || request.url?.host == "site.api.espn.com"
+    ["api.github.com", "site.api.espn.com", "bridge.sidepulse.io"].contains(request.url?.host ?? "")
   }
   override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
   override func startLoading() {
@@ -34,5 +34,16 @@ final class DefaultNetworkTests: IsolatedTests {
       try await Scoreboard.run(device: nil, score: nil, dryRun: true)
       XCTFail("Malformed scoreboard must be reported")
     } catch { XCTAssertEqual(error.localizedDescription, "Scoreboard unavailable.") }
+  }
+}
+
+extension DefaultNetworkTests {
+  @MainActor func testDefaultPhonePreviewAdapterUsesOnlyTheInterceptedFixtureRequest() async throws
+  {
+    XCTAssertTrue(URLProtocol.registerClass(DefaultNetworkResponse.self))
+    defer { URLProtocol.unregisterClass(DefaultNetworkResponse.self) }
+    try Bridge.store(token: String(repeating: "a", count: 64), name: "Fixture Phone")
+    let phone = try XCTUnwrap(Bridge.phones().first)
+    try await MacActions().previewPhone(phone, "off")
   }
 }

@@ -172,3 +172,28 @@ extension MonitorTests {
     XCTAssertEqual(custom.sessions().count, 2)
   }
 }
+
+extension MonitorTests {
+  func testEventsWithoutToolNamesPreserveKnownThreadAndPermissionIdentity() throws {
+    let monitor = Monitor()
+    let log = Paths.support.appendingPathComponent("events/codex.jsonl")
+    try Events.record(
+      provider: "codex",
+      raw: [
+        "agent_id": "shared", "session_id": "thread", "hook_event_name": "PermissionRequest",
+        "tool_input": ["command": "test"],
+      ])
+    XCTAssertEqual(monitor.sessions().first?.threadID, "thread")
+    try Events.record(
+      provider: "codex",
+      raw: [
+        "agent_id": "shared", "hook_event_name": "PostToolUse", "tool_input": ["command": "test"],
+      ])
+    let item = try XCTUnwrap(monitor.sessions().first)
+    XCTAssertEqual(item.threadID, "thread")
+    XCTAssertEqual(item.mode, .working)
+    try Data("invalid".utf8).write(to: Settings.url)
+    XCTAssertEqual(monitor.sessions().first?.threadID, "thread")
+    XCTAssertTrue(FileManager.default.fileExists(atPath: log.path))
+  }
+}
