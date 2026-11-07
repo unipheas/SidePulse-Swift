@@ -25,11 +25,14 @@ import SwiftUI
   private var sending = false
   private let notch = NotchDisplay()
   let actions: MacActions
-  private let discover: () -> [Device]
+  private let discover: (() -> [Device])?
+  private let backgroundDiscover: @Sendable () -> [Device]
+  private(set) var discoveryTask: Task<Void, Never>?
   private let outputInUse: (() -> Bool)?
   private(set) var ownershipTask: Task<Void, Never>?
   init(
-    discover: @escaping () -> [Device] = Device.discover,
+    discover: (() -> [Device])? = nil,
+    backgroundDiscover: @escaping @Sendable () -> [Device] = Device.discover,
     outputInUse: (() -> Bool)? = nil,
     poll: Bool = true, actions: MacActions? = nil,
     sleepOverride: SleepOverride = SleepOverride(), phoneOutput: PhoneOutput = PhoneOutput()
@@ -38,6 +41,7 @@ import SwiftUI
     self.sleepOverride = sleepOverride
     self.phoneOutput = phoneOutput
     self.discover = discover
+    self.backgroundDiscover = backgroundDiscover
     self.outputInUse = outputInUse
     do { try Settings.migrate() } catch { problem = error.localizedDescription }
     history = History.recent().suffix(500).map { ($0.date, $0.mode) }
@@ -80,9 +84,20 @@ import SwiftUI
     do {
       receiveSettings(try Settings.read())
       if ticks % 5 == 0 {
-        let found = discover()
-        if devices != found { devices = found }
-        receiveSettings(try Settings.remember(devices, settings: settings))
+        if let discover {
+          try receiveDevices(discover())
+        } else if discoveryTask == nil {
+          // A removable-volume consent prompt or stalled disk must not block window creation.
+          let discover = backgroundDiscover
+          discoveryTask = Task { [weak self] in
+            let found = await Task.detached(priority: .utility, operation: discover).value
+            guard !Task.isCancelled else { return }
+            do { try self?.receiveDevices(found) } catch {
+              self?.problem = error.localizedDescription
+            }
+            self?.discoveryTask = nil
+          }
+        }
         if let outputInUse {
           let active = outputInUse()
           if legacy != active { legacy = active }
@@ -167,6 +182,10 @@ import SwiftUI
         keepingAwake: output.isKeepingAwake, power: PowerSnapshot.read())
     } catch { problem = error.localizedDescription }
   }
+  private func receiveDevices(_ found: [Device]) throws {
+    if devices != found { devices = found }
+    receiveSettings(try Settings.remember(devices, settings: settings))
+  }
   private func receiveSettings(_ value: JSONObject) {
     if !NSDictionary(dictionary: settings).isEqual(to: value) {
       settings = value
@@ -178,6 +197,7 @@ import SwiftUI
   deinit {
     timer?.invalidate()
     ownershipTask?.cancel()
+    discoveryTask?.cancel()
   }
   func change(_ body: (inout JSONObject) throws -> Void) {
     do {

@@ -57,12 +57,14 @@ public func saveObject(_ value: JSONObject, to url: URL) throws {
 }
 
 @discardableResult
-func withLock<T>(_ url: URL, _ action: () throws -> T) throws -> T {
+func withLock<T>(
+  _ url: URL, lock: (Int32, Int32) -> Int32 = flock, _ action: () throws -> T
+) throws -> T {
   try Paths.directory(url.deletingLastPathComponent())
   let fd = open(url.path, O_CREAT | O_RDWR | O_NOFOLLOW, 0o600)
   guard fd >= 0 else { throw POSIXError(.EACCES) }
   defer { close(fd) }
-  guard flock(fd, LOCK_EX) == 0 else { throw POSIXError(.EIO) }
+  guard lock(fd, LOCK_EX) == 0 else { throw POSIXError(.EIO) }
   return try action()
 }
 

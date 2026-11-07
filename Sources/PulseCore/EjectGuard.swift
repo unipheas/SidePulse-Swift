@@ -75,8 +75,8 @@ final class GuardContext {
     let model = description[kDADiskDescriptionDeviceModelKey] as? String ?? ""
     return transport.contains("Secure Digital") || model.contains("SDXC")
   }
-  func refresh() {
-    for device in Device.discover() where device.model == "Pro" {
+  func refresh(discover: () -> [Device] = Device.discover) {
+    for device in discover() where device.model == "Pro" {
       guard let disk = DADiskCreateFromVolumePath(nil, session, device.root as CFURL),
         let whole = DADiskCopyWholeDisk(disk), let name = DADiskGetBSDName(whole)
       else { continue }
@@ -94,9 +94,11 @@ final class GuardContext {
       }
     }
   }
-  func approve(_ disk: DADisk) -> Unmanaged<DADissenter>? {
+  func approve(
+    _ disk: DADisk, bsdName: (DADisk) -> UnsafePointer<CChar>? = DADiskGetBSDName
+  ) -> Unmanaged<DADissenter>? {
     let whole = DADiskCopyWholeDisk(disk) ?? disk
-    guard let rawName = DADiskGetBSDName(whole) else { return nil }
+    guard let rawName = bsdName(whole) else { return nil }
     let name = String(cString: rawName)
     let description = DADiskCopyDescription(whole) as NSDictionary? ?? [:]
     guard protected[name] != nil || Self.builtInSD(description) else { return nil }
