@@ -4,6 +4,8 @@ import SwiftUI
 
 struct Animations: View {
   @EnvironmentObject var model: Dashboard
+  var selectImportURL: (NSOpenPanel) -> URL? = { $0.runModal() == .OK ? $0.url : nil }
+  var selectExportURL: (NSSavePanel) -> URL? = { $0.runModal() == .OK ? $0.url : nil }
   @State private var count = 8
   @State private var profileName = ""
   @State private var namingProfile = false
@@ -81,7 +83,7 @@ struct Animations: View {
   private func importProfile() {
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [.json]
-    if panel.runModal() == .OK, let url = panel.url {
+    if let url = selectImportURL(panel) {
       do {
         try Profiles.load(from: url)
         model.refresh()
@@ -91,7 +93,7 @@ struct Animations: View {
   private func exportProfile() {
     let panel = NSSavePanel()
     panel.nameFieldStringValue = "SidePulse Profile.json"
-    if panel.runModal() == .OK, let url = panel.url {
+    if let url = selectExportURL(panel) {
       do { try Profiles.export(to: url) } catch { model.problem = error.localizedDescription }
     }
   }
