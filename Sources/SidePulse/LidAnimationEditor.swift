@@ -4,9 +4,15 @@ import SwiftUI
 struct LidAnimationEditor: View {
   @EnvironmentObject var model: Dashboard
   let state: String
-  @State private var expanded = true
-  @State private var source = ""
-  @State private var duration = 1.3
+  @State private var expanded: Bool
+  @State private var source: String
+  @State private var duration: Double
+  init(state: String) {
+    self.state = state
+    _expanded = State(initialValue: true)
+    _source = State(initialValue: "")
+    _duration = State(initialValue: 1.3)
+  }
   var body: some View {
     DisclosureGroup(state == "lid_open" ? "Lid opened" : "Lid closed", isExpanded: $expanded) {
       ProgramEditor(

@@ -109,10 +109,17 @@ private struct AnimationCard: View {
   @EnvironmentObject var model: Dashboard
   let mode: Mode
   let count: Int
-  @State private var editing = false
-  @State private var draft = ""
-  @State private var animationName = ""
+  @State private var editing: Bool
+  @State private var draft: String
+  @State private var animationName: String
   @State private var libraryID: String?
+  init(mode: Mode, count: Int) {
+    self.mode = mode
+    self.count = count
+    _editing = State(initialValue: false)
+    _draft = State(initialValue: "")
+    _animationName = State(initialValue: "")
+  }
   private var program: String {
     Programs.preview { try Programs.program(mode, count: count, settings: model.settings) }
   }
@@ -200,7 +207,13 @@ struct ProgramEditor: View {
   @Binding var source: String
   let count: Int
   var initialProgram: String? = nil
-  @State private var replay = UUID()
+  @State private var replay: UUID
+  init(source: Binding<String>, count: Int, initialProgram: String? = nil) {
+    _source = source
+    self.count = count
+    self.initialProgram = initialProgram
+    _replay = State(initialValue: UUID())
+  }
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {

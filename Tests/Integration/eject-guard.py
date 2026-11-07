@@ -9,6 +9,8 @@ import sys
 import tempfile
 import time
 
+from disk_support import eject_disk
+
 cli = str(Path(sys.argv[1]).resolve())
 with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
     root = Path(directory)
@@ -23,14 +25,12 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         disk = next(row["dev-entry"] for row in info if re.fullmatch(r"/dev/disk[0-9]+", row["dev-entry"]))
         mount = Path(next(row["mount-point"] for row in info if "mount-point" in row))
         return disk, mount
-    def eject():
-        return subprocess.run(["diskutil", "eject", whole], capture_output=True, text=True, timeout=30)
     try:
         whole, mount = attach()
         # Establish the baseline before identifying the image as a SidePulse. This
         # keeps any installed companion from treating the baseline as a device.
-        baseline = eject()
-        assert baseline.returncode == 0, "Another guard prevented the baseline eject: " + baseline.stderr
+        baseline = eject_disk(whole, allow_settle=True)
+        assert baseline.returncode == 0, "The ordinary fixture could not eject before guard startup: " + baseline.stderr
         whole = None
         whole, mount = attach()
         (mount / "STATUS.TXT").write_text("release_version 1.1.0\nserial guard-fixture\n")
@@ -41,7 +41,7 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         time.sleep(0.5)
         assert guard.poll() is None, "Native guard did not remain running"
-        denied = eject()
+        denied = eject_disk(whole)
         assert denied.returncode != 0, "The native guard allowed the simulated Pro to eject"
         deadline = time.monotonic() + 8
         while not (mount / "STATUS.TXT").exists() and time.monotonic() < deadline:
@@ -57,8 +57,10 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         guard = subprocess.Popen([cli, "sdejectguard", "run"], env=env,
                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         time.sleep(0.5)
-        allowed = eject()
-        assert allowed.returncode == 0, "The native guard blocked an ordinary disk image: " + allowed.stderr
+        assert guard.poll() is None, "Native guard exited before ordinary-volume check"
+        allowed = eject_disk(whole, allow_settle=True)
+        assert guard.poll() is None, "Native guard exited during ordinary-volume check"
+        assert allowed.returncode == 0, "The ordinary fixture did not eject with the native guard active: " + allowed.stderr
         whole = None
     finally:
         if guard is not None:

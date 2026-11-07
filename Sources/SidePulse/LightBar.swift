@@ -8,8 +8,15 @@ struct LightBar: View {
   var compact = false
   var initialProgram: String? = nil
   @State private var simulator: LEDPreview?
-  @State private var start = Date()
+  @State private var start: Date
   @State private var error: String?
+  init(source: String, count: Int, compact: Bool = false, initialProgram: String? = nil) {
+    self.source = source
+    self.count = count
+    self.compact = compact
+    self.initialProgram = initialProgram
+    _start = State(initialValue: Date())
+  }
   var body: some View {
     VStack(alignment: .leading) {
       TimelineView(.animation(minimumInterval: compact ? 1 / 12 : 1 / 20)) { time in

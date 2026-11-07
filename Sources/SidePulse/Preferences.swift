@@ -209,7 +209,12 @@ struct SessionTimingPreference: View {
   @EnvironmentObject var model: Dashboard
   let key: String
   let label: String
-  @State private var draft = ""
+  @State private var draft: String
+  init(key: String, label: String) {
+    self.key = key
+    self.label = label
+    _draft = State(initialValue: "")
+  }
   var body: some View {
     HStack {
       Text(label)
