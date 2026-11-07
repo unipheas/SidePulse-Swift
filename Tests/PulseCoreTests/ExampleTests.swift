@@ -267,3 +267,11 @@ extension ExampleTests {
     do { try await task.value } catch is CancellationError {}
   }
 }
+
+extension ExampleTests {
+  func testAudioShutdownStopsCallbacksBeforeRemovingTap() {
+    var calls = [String]()
+    AudioMeter.stopInput(stop: { calls.append("stop") }, remove: { calls.append("remove") })
+    XCTAssertEqual(calls, ["stop", "remove"])
+  }
+}

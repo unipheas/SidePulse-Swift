@@ -46,4 +46,47 @@ final class AppTerminationRaceTests: XCTestCase {
     XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - started, 0.04)
   }
 
+  func testLaunchingAppIsReadyBeforeReceivingOneTerminationRequest() {
+    var waits = 0
+    var requests = 0
+    XCTAssertTrue(AppInstallation.finishTermination(isTerminated: { false }, terminate: {
+      requests += 1
+      XCTAssertEqual(waits, 3)
+      return true
+    }, isReady: { waits >= 3 }, wait: { _ in waits += 1 }))
+    XCTAssertEqual(requests, 1)
+  }
+  func testAppExitingDuringLaunchNeedsNoTerminationRequest() {
+    var waits = 0
+    XCTAssertTrue(AppInstallation.finishTermination(isTerminated: { waits >= 2 }, terminate: {
+      XCTFail("Exited app must not receive a request")
+      return false
+    }, isReady: { false }, wait: { _ in waits += 1 }))
+  }
+  func testStuckLaunchStillFailsWithoutForcingQuit() {
+    var waits = 0
+    XCTAssertFalse(AppInstallation.finishTermination(isTerminated: { false }, terminate: {
+      XCTFail("Unready app must not receive an ineffective request")
+      return false
+    }, isReady: { false }, wait: { _ in waits += 1 }))
+    XCTAssertEqual(waits, 100)
+  }
+
+  @MainActor func testDefaultWaitServicesMainRunLoopStateChanges() {
+    var exited = false
+    let timer = Timer.scheduledTimer(withTimeInterval: 0.01, repeats: false) { _ in exited = true }
+    defer { timer.invalidate() }
+    XCTAssertTrue(AppInstallation.finishTermination(isTerminated: { exited }, terminate: { false }))
+    XCTAssertTrue(exited)
+  }
+  @MainActor func testBackgroundCallerCanAdvanceApplicationStateWithoutBlockingMainActor() async {
+    await withCheckedContinuation { continuation in
+      DispatchQueue.global().async {
+        XCTAssertFalse(Thread.isMainThread)
+        AppInstallation.waitForApplicationState(0.01)
+        continuation.resume()
+      }
+    }
+  }
+
 }

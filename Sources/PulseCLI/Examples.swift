@@ -37,13 +37,19 @@ enum AudioMeter {
               input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 level.update(buffer)
               }
-            }, start: engine.start, remove: removeTap)
+            }, start: engine.start, remove: {
+              stopInput(stop: engine.stop, remove: removeTap)
+            })
         },
         stop: {
-          removeTap()
-          engine.stop()
+          stopInput(stop: engine.stop, remove: removeTap)
         })
     }
+  }
+  /// Stop render callbacks before removing their tap, including after a partial start.
+  static func stopInput(stop: () -> Void, remove: () -> Void) {
+    stop()
+    remove()
   }
   /// A failed start must release its tap before a later attempt can attach another one.
   static func startInput(
