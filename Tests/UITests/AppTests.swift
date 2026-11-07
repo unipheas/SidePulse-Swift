@@ -40,13 +40,20 @@ final class AppTests: XCTestCase {
   }
   func testToolbarAppearanceChoicesPersistAcrossLaunches() throws {
     for choice in ["Light", "Dark", "Auto"] {
-      let control = app.menuButtons["appearance-menu"]
+      // AppKit exposes Menu as a popup on macOS 15 and a menu button on newer macOS.
+      let control = app.descendants(matching: .any).matching(identifier: "appearance-menu")
+        .firstMatch
       XCTAssertTrue(control.waitForExistence(timeout: 3), app.debugDescription)
+      XCTAssertLessThan(app.windows.firstMatch.frame.maxX - control.frame.maxX, 65)
       control.click()
       let item = app.menuItems[choice].firstMatch
       XCTAssertTrue(item.waitForExistence(timeout: 3), app.debugDescription)
       item.click()
       XCTAssertEqual(try settings()["appearance"] as? String, choice.lowercased())
+      let capture = XCTAttachment(screenshot: app.windows.firstMatch.screenshot())
+      capture.name = "Appearance " + choice
+      capture.lifetime = .keepAlways
+      add(capture)
       app.terminate()
       app.launch()
       XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
@@ -66,6 +73,11 @@ final class AppTests: XCTestCase {
   private func reveal(_ element: XCUIElement) {
     let scroll = app.scrollViews.element(boundBy: 1)
     for _ in 0..<20 {
+      // Form creates conditional rows lazily; reveal them before asking for geometry.
+      if !element.exists {
+        scroll.scroll(byDeltaX: 0, deltaY: -180)
+        continue
+      }
       let viewport = scroll.frame.insetBy(dx: 0, dy: 8)
       if element.isHittable && viewport.contains(element.frame) { break }
       scroll.scroll(byDeltaX: 0, deltaY: element.frame.minY < viewport.minY ? 180 : -180)

@@ -11,6 +11,7 @@ fi
 cd Classifier
 # Explicit standard-library includes accommodate newer Apple libc++ releases.
 xcodebuild -scheme SidePulseClassifier -destination 'generic/platform=macOS' ARCHS=arm64 ONLY_ACTIVE_ARCH=NO \
+  "ENABLE_CODE_COVERAGE=${CLASSIFIER_COVERAGE:-NO}" \
   CC="$(xcrun --find clang)" CXX="$(xcrun --find clang++)" \
   -configuration "$configuration" -derivedDataPath "$root/.build/classifier" \
   'OTHER_CPLUSPLUSFLAGS=$(inherited) -include exception -include algorithm' \

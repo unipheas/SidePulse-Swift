@@ -33,7 +33,7 @@ struct DashboardView: View {
       }
       .navigationSplitViewColumnWidth(min: 150, ideal: 170, max: 205)
     } detail: {
-      Group {
+      VStack(spacing: 0) {
         switch selection ?? .overview {
         case .overview: Overview()
         case .sessions: SessionList()
