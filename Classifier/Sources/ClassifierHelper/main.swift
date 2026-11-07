@@ -1,3 +1,4 @@
+import ClassifierPrompt
 import Foundation
 import MLX
 import MLXLLM

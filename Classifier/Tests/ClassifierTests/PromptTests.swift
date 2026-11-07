@@ -1,6 +1,6 @@
 import XCTest
 
-@testable import ClassifierHelper
+@testable import ClassifierPrompt
 
 final class PromptTests: XCTestCase {
   func testTemplateWhitespaceMatchesPythonAndPreservesTheAssistantNewline() throws {

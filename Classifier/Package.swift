@@ -14,14 +14,15 @@ let package = Package(
     .package(url: "https://github.com/huggingface/swift-jinja.git", exact: "2.5.2"),
   ],
   targets: [
+    .target(name: "ClassifierPrompt", dependencies: [.product(name: "Jinja", package: "swift-jinja")]),
     .executableTarget(
       name: "ClassifierHelper",
       dependencies: [
+        "ClassifierPrompt",
         .product(name: "MLX", package: "mlx-swift"),
-        .product(name: "Jinja", package: "swift-jinja"),
         .product(name: "MLXLLM", package: "mlx-swift-lm"),
         .product(name: "MLXLMCommon", package: "mlx-swift-lm"),
       ]),
-    .testTarget(name: "ClassifierTests", dependencies: ["ClassifierHelper"]),
+    .testTarget(name: "ClassifierTests", dependencies: ["ClassifierPrompt"]),
   ]
 )

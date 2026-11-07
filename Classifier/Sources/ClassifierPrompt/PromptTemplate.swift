@@ -3,8 +3,8 @@ import Jinja
 
 /// Hugging Face's Python renderer trims block whitespace and the template's final
 /// newline. Using the Swift tokenizer's default Jinja options changes prompt tokens.
-enum PromptTemplate {
-  static func render(config: Data, messages: [[String: String]]) throws -> String {
+public enum PromptTemplate {
+  public static func render(config: Data, messages: [[String: String]]) throws -> String {
     let values = try JSONSerialization.jsonObject(with: config) as? [String: Any] ?? [:]
     let selected =
       values["chat_template"] as? String
