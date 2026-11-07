@@ -117,13 +117,16 @@ def main():
         if not file.is_file():
             return False
         config = plistlib.loads(file.read_bytes())
-        if config.get('Label') != label or config.get('ProgramArguments') != arguments:
+        actual = config.get('ProgramArguments', [])
+        if (config.get('Label') != label or not actual
+                or Path(actual[0]).resolve() != executable.resolve()
+                or actual[1:] != arguments[1:]):
             return False
         status = run('launchctl', 'print', f'{domain}/{label}', check=False)
         if status.returncode != 0:
             return False
         programs = re.findall(r'^\s*program = (.+)$', status.stdout.decode(), re.MULTILINE)
-        return programs == [str(executable)]
+        return len(programs) == 1 and Path(programs[0]).resolve() == executable.resolve()
 
     def fixture_processes_alive():
         executables = [contents / 'MacOS/SidePulse', contents / 'MacOS/sidepulsectl']
@@ -198,7 +201,7 @@ def main():
         cli('service', 'uninstall', '--scope', 'user')
         cli('setup', '--sd-eject-guard-scope', 'user')
         for label in labels:
-            require(owned_job(label), 'Unexpected setup executable')
+            require(owned_job(label), 'Unexpected setup executable: ' + label)
         await_app(True)
         cli('status-bar', 'stop')
         await_app(False)
