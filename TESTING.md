@@ -4,9 +4,11 @@ Use a Mac with Xcode selected as the active developer directory. UI tests also r
 
 ```sh
 swift test
-RUN_UI_TESTS=1 RUN_CLASSIFIER_TESTS=1 MIN_COVERAGE=80 Scripts/test-coverage.sh
+RUN_UI_TESTS=1 RUN_CLASSIFIER_TESTS=1 MIN_COVERAGE=99.9 Scripts/test-coverage.sh
 Scripts/package.sh --universal
 ```
+
+Stop an installed native eject guard with `sidepulsectl sdejectguard stop` before the disposable-disk tests, then restore it with `sidepulsectl sdejectguard start` afterward. A second guard can correctly protect the test fixture and interfere with its cleanup.
 
 The coverage command runs the Swift tests, real CLI integration tests, a disposable FAT12 disk image, and optionally XCTest UI automation. Test configuration, hooks, relay tokens, and event logs live in temporary directories. CLI bridge tests use a loopback HTTP server. UI tests disable hardware output and privileged power changes. The disk test attaches its own tiny image and detaches it afterward; it does not select an existing disk.
 
@@ -14,7 +16,9 @@ The coverage command runs the Swift tests, real CLI integration tests, a disposa
 
 ## Current evidence
 
-The latest complete run passed **209 native XCTest methods, 2 classifier template tests, and 19 UI workflows**, plus CLI, MLX process, FAT12 image, and eject/remount integration checks. Combined LLVM line coverage is **99.92% (10,143 of 10,151 instrumented lines)**. The classifier helper, prompt renderer, MLX command adapter, and C USB adapter have 100% measured line coverage. Overall coverage is not yet 100%.
+The final validation passed **212 native XCTest methods (one opt-in hardware check skipped in the ordinary suite), 2 classifier template tests, and 20 UI workflows**, plus CLI, MLX process, FAT12 image, and eject/remount integration checks. The opt-in Pro test passed separately. Combined LLVM line coverage is **100% (10,172 of 10,172 instrumented lines across 70 production files)**; function coverage is **1,509/1,509**, and the C adapter covers **58/58 instrumented branches**. See [the source fingerprint and measurement evidence](Tests/Evidence/coverage-0.2.0.json).
+
+The total combines the refreshed native suite, explicit installed-app acceptance, and the successful UI run. UI sources did not change after that run; the only subsequent production change was the launch retry helper, which the refreshed native suite exercises. The UI profile contains no counters for that helper. LLVM region coverage is 97.81% and generic instantiation coverage is 99.62%; 100% line coverage is not a claim that every compiler region or possible behavior was exercised.
 
 The full report includes every production Swift and C file in the main package and the separate native classifier. Set `RUN_CLASSIFIER_TESTS=1` on Apple silicon to include the helper; a run without that flag explicitly reports that it is omitted. Compiler-generated SwiftUI regions can make counts differ between compiler versions.
 
@@ -31,11 +35,11 @@ GitHub Actions runs the native suite and universal packaging on Apple Silicon an
 
 ## Physical acceptance
 
-A connected Pro running firmware 1.1.0 passed a mounted-volume working → done → idle cycle. With Done configured for 15 seconds, the custom All Clear program returned to Night Patrol after 14.7 seconds between file observations. This test exposed and fixed a DNS lookup that had blocked the native monitoring loop.
+A connected Pro running firmware 1.1.0 passed a mounted-volume working → done → idle cycle. With Done configured for 15 seconds, the custom All Clear program returned to Night Patrol after 14.9 seconds between file observations in the final installed-app check. This test exposed and fixed a DNS lookup that had blocked the native monitoring loop.
 
-The native eject guard now passes a real Disk Arbitration test against a disposable HFS+ image: baseline eject succeeds, a simulated Pro is protected and remounted, and an ordinary image can eject. This exposed and fixed a lookup performed after macOS had already unmounted the volume. The installed guard has not yet been replaced.
+The native eject guard now passes a real Disk Arbitration test against a disposable HFS+ image: baseline eject succeeds, a simulated Pro is protected and remounted, and an ordinary image can eject. This exposed and fixed a lookup performed after macOS had already unmounted the volume. The installed guard has been replaced by the native implementation.
 
-Physical Dot, mobile pairing, read-only Pro transport, firmware flashing, and closed-lid power changes remain unverified. Protocol simulations and dry runs do not replace those checks. Dot and mobile testing are deferred until the devices are available. No real firmware or privileged sleep settings were changed during the automated suite.
+The physical Pro READ2ME check passed: the real device acknowledged the transaction, CRC and byte count, then its original light program was restored. Physical Dot, mobile pairing, firmware flashing, and closed-lid power changes remain unverified. Protocol simulations and dry runs do not replace those checks. Dot and mobile testing are deferred until the devices are available. No real firmware or privileged sleep settings were changed during the automated suite.
 
 The expanded suite includes injected USB discovery/transfer failures, raw-device sizing errors, Dot transport release/reconciliation, bounded firmware streaming, transcript cache updates, relay stop/restart and retry behavior, synthetic audio RMS/smoothing/cancellation, scoreboard feed errors, notch geometry/rendering, and local Apple Intelligence generation when the model is available. Hardware fault simulations do not imply that a physical Dot was tested.
 
@@ -43,8 +47,14 @@ The audio adapter also passed a brief in-memory microphone capture on the develo
 
 The optional MLX classifier uses native Swift/Metal with the original Qwen model and few-shot prompt. Token-for-token comparison against Python exposed a Jinja whitespace mismatch; the corrected renderer and four captured Python results now match. This establishes port compatibility, not general model accuracy. Tests use only synthetic messages. The classifier's transitive Collections dependency is pinned for Xcode 16.4 compatibility, and Xcode builds use Xcode's C/C++ compiler to keep coverage runtimes consistent.
 
-Additional regression tests cover in-place library edits, legacy timing and sleep preferences, first-run setup choices and failure recovery, transport deduplication across reconnects, Disk Arbitration daemon restarts, microphone tap cleanup after failed starts, and terminal watch rendering. The latest focused native run executes 211 methods with zero failures and one opt-in Pro test skipped. A new combined measurement is in progress. The native menu-bar, URL-routing, and update-error workflows pass.
+Additional regression tests cover in-place library edits, legacy timing and sleep preferences, first-run setup choices and failure recovery, transport deduplication across reconnects, Disk Arbitration daemon restarts, microphone tap cleanup after failed starts, and terminal watch rendering. The final native run executes 212 methods with zero failures and one opt-in Pro test skipped; that hardware check passes when run explicitly against the connected Pro. The native menu-bar, URL-routing, and update-error workflows pass.
 
 ViewInspector is a pinned, test-only dependency for exercising SwiftUI action closures with injected system operations. It is not linked into the app. Native window rendering and the separate XCTest UI suite still validate layout and real interaction. Network adapter tests intercept fixture responses in URLProtocol; they do not download or flash firmware.
 
 `ProAcceptanceTests` is an explicit live-device check. Set `SIDEPULSE_PRO_ACCEPTANCE=1` and run only that suite after stopping other SidePulse writers. It exercises the Pro READ2ME transport, checks the firmware acknowledgement and restores the original light program. Ordinary automated runs skip this test.
+
+## Installed-app coverage
+
+The isolated suite deliberately avoids replacing the user's installed app or launch agents. The final three lifecycle lines are measured during explicit installation acceptance: stopping the installed GUI, configuring its service, and completing native setup. Use an instrumented app built from the same source revision, set `LLVM_PROFILE_FILE` to a private acceptance directory, and preserve settings and launch configurations before this check. Never run this on an unattended CI worker as an implicit installation step.
+
+Keep a copy of the complete suite's `all.profdata` before subsequent tests. The acceptance directory's `sources.json` records SHA-256 hashes of every production Swift and C source, including the classifier. `Scripts/merge-install-coverage.py BASE.profdata ACCEPTANCE_DIRECTORY` refuses changed source fingerprints, merges the real profiles, checks that every production source appears, and requires exactly 100% line coverage. It writes the HTML/JSON reports and `acceptance-evidence.json` without modifying the installation.
