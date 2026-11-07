@@ -4,17 +4,22 @@ permissions:
   contents: read
 jobs:
   native:
-    runs-on: macos-15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-15, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - name: Test macOS app, hardware protocols, and CLI
         run: Scripts/test-coverage.sh
         env:
-          MIN_COVERAGE: 72
+          MIN_COVERAGE: 80
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: SidePulse-coverage
+          name: SidePulse-coverage-${{ matrix.os }}
           path: .build/coverage-report
       - name: Build and verify universal app
         run: Scripts/package.sh --universal
@@ -31,5 +36,16 @@ jobs:
           lipo "$cli" -verify_arch arm64 x86_64
       - uses: actions/upload-artifact@v4
         with:
-          name: SidePulse-macOS
+          name: SidePulse-macOS-${{ matrix.os }}
           path: dist/SidePulse-macOS.zip
+  sanitizers:
+    strategy:
+      fail-fast: false
+      matrix:
+        sanitizer: [address, thread]
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check memory safety and concurrent access
+        run: swift test --sanitize=${{ matrix.sanitizer }}
