@@ -152,3 +152,28 @@ the package byte-for-byte and contain no profiling sections. All sixteen custom
 programs and both saved profiles are preserved. The old Python-only runtime and
 its three startup entries were moved to recoverable Trash after backup and native
 physical verification; general Python, settings, and history were retained.
+
+### Follow-up coverage work
+
+The follow-up candidate adds seven tests for failed-lock cleanup, CLI diagnostics,
+missing disk identity, rendered telemetry, and export button cancellation/success/
+errors. History and audit exports are seeded with distinct records and checked
+for dataset and format identity. Chart bitmap checks are rendering smoke tests,
+not assertions about the exact plotted geometry. Narrow injected defaults retain
+real flock, device discovery, and save-panel behavior in production.
+
+The complete fresh run passed 231 native tests (five explicit skips), the two
+classifier template tests and integration cases, CLI/FAT12/eject-guard integration,
+and all 21 UI workflows (579.931 seconds). Actual save-panel/export UI tests passed.
+The current automated measurement is **10,304/10,360 (99.46%), all 71 production
+files**; HistoryView.swift is 507/507. This is not a new installed-app acceptance
+measurement and must not be combined with the earlier source fingerprint. The
+48 microphone-adapter lines still require an available input and microphone
+permission. Existing hardware-independent audio tests already use injected input;
+moving those framework calls behind further abstractions would not verify them.
+No permission was requested or privacy setting changed to pursue the metric.
+
+Both latest Intel CI runs at commit 0a0a24b passed unchanged. The earlier failed
+run also reported an OS `Resource busy` disk-image eject; the failure alone does
+not establish a native eject-guard defect. New changes still require their own CI.
+The requested 100% acceptance condition remains unmet, so the PR stays draft.

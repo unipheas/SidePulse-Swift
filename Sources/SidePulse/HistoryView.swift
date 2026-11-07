@@ -17,7 +17,15 @@ struct HistoryView: View {
         }
       })
   }
-  @State private var metric = "Agent state"
+  @State private var metric: String
+  var selectSaveURL: (NSSavePanel) -> URL?
+  init(
+    metric: String = "Agent state",
+    selectSaveURL: @escaping (NSSavePanel) -> URL? = { $0.runModal() == .OK ? $0.url : nil }
+  ) {
+    _metric = State(initialValue: metric)
+    self.selectSaveURL = selectSaveURL
+  }
   var body: some View {
     let changes = History.recent().filter {
       hours == 0 || Date().timeIntervalSince($0.date) <= Double(hours) * 3600
@@ -40,8 +48,7 @@ struct HistoryView: View {
         }.labelsHidden().accessibilityIdentifier("history-metric").frame(width: 170)
         Spacer()
         Menu("Export…") {
-          Button("CSV") { export("csv") }
-          Button("HTML") { export("html") }
+          HistoryExportButtons(audit: false, selectSaveURL: selectSaveURL)
         }.accessibilityIdentifier("history-export")
       }
       if changes.isEmpty {
@@ -103,16 +110,11 @@ struct HistoryView: View {
       }
     }.padding(20)
   }
-  private func export(_ format: String) {
-    let panel = NSSavePanel()
-    panel.nameFieldStringValue = "SidePulse History." + format
-    if panel.runModal() == .OK, let url = panel.url {
-      do { try History.export(to: url) } catch { model.problem = error.localizedDescription }
-    }
-  }
+
 }
 struct DiagnosticsView: View {
   @EnvironmentObject var model: Dashboard
+  var selectSaveURL: (NSSavePanel) -> URL? = { $0.runModal() == .OK ? $0.url : nil }
   var readBattery: () -> BatteryDiagnostics? = { BatteryDiagnostics.read() }
   var body: some View {
     Form {
@@ -150,8 +152,7 @@ struct DiagnosticsView: View {
       }
       Section("Event debug log") {
         HStack {
-          Button("Export event CSV…") { exportAudit("csv") }
-          Button("Export event HTML…") { exportAudit("html") }
+          HistoryExportButtons(audit: true, selectSaveURL: selectSaveURL)
         }
         Text(
           "Includes hook payload previews and session details. Review the file before sharing it."
@@ -165,11 +166,24 @@ struct DiagnosticsView: View {
       }
     }.formStyle(.grouped)
   }
-  private func exportAudit(_ format: String) {
+}
+
+/// Keeps export actions independent of chart rendering and diagnostics discovery.
+struct HistoryExportButtons: View {
+  @EnvironmentObject var model: Dashboard
+  let audit: Bool
+  var selectSaveURL: (NSSavePanel) -> URL?
+  var body: some View {
+    Button(audit ? "Export event CSV…" : "CSV") { export("csv") }
+    Button(audit ? "Export event HTML…" : "HTML") { export("html") }
+  }
+  private func export(_ format: String) {
     let panel = NSSavePanel()
-    panel.nameFieldStringValue = "SidePulse Events." + format
-    if panel.runModal() == .OK, let url = panel.url {
-      do { try Audit.export(to: url) } catch { model.problem = error.localizedDescription }
+    panel.nameFieldStringValue = "SidePulse " + (audit ? "Events." : "History.") + format
+    if let url = selectSaveURL(panel) {
+      do {
+        if audit { try Audit.export(to: url) } else { try History.export(to: url) }
+      } catch { model.problem = error.localizedDescription }
     }
   }
 }

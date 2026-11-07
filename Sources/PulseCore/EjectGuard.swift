@@ -75,8 +75,8 @@ final class GuardContext {
     let model = description[kDADiskDescriptionDeviceModelKey] as? String ?? ""
     return transport.contains("Secure Digital") || model.contains("SDXC")
   }
-  func refresh() {
-    for device in Device.discover() where device.model == "Pro" {
+  func refresh(discover: () -> [Device] = Device.discover) {
+    for device in discover() where device.model == "Pro" {
       guard let disk = DADiskCreateFromVolumePath(nil, session, device.root as CFURL),
         let whole = DADiskCopyWholeDisk(disk), let name = DADiskGetBSDName(whole)
       else { continue }
