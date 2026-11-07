@@ -305,6 +305,10 @@ extension AppTests {
     XCTAssertFalse((app.textViews["animation-program"].value as? String ?? "").isEmpty)
     XCTAssertEqual(app.textFields["Reusable animation name"].value as? String, "")
     app.buttons["Save animation"].click()
+    let dismissed = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "exists == false"),
+      object: app.textViews["animation-program"])
+    XCTAssertEqual(XCTWaiter.wait(for: [dismissed], timeout: 5), .completed)
     choose(app.popUpButtons["animation-profile"], "Cyan")
     choose(app.popUpButtons["animation-profile"], "Current")
     XCTAssertEqual(try settings()["swift_profile"] as? String, "current")
