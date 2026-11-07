@@ -17,7 +17,9 @@ static DADiskRef disk_create(CFAllocatorRef allocator, DASessionRef session, CFU
     return scenario == 2 ? NULL : (DADiskRef)CFStringCreateWithCString(NULL, "disk", kCFStringEncodingUTF8);
 }
 static io_service_t media_copy(DADiskRef disk) { return scenario == 3 ? 0 : 10; }
-static boolean_t conforms(io_object_t object, const io_name_t name) { return object == 20 && scenario != 4; }
+static boolean_t conforms(io_object_t object, const io_name_t name) {
+    return object == 20 && scenario != 4 && (scenario != 16 || strcmp(name, "IOUSBDevice") == 0);
+}
 static kern_return_t parent(io_registry_entry_t node, const io_name_t plane, io_registry_entry_t *parent) {
     *parent = node == 10 ? 20 : 0; return KERN_SUCCESS;
 }
@@ -87,11 +89,20 @@ int test_usb_adapter(void) {
             if (device_releases != 1 || plugin_releases != 1 || releases != 2) return 400 + scenario;
         }
     }
+    // An empty file-system representation cannot form a volume URL.
+    scenario = 0;
+    PulseUSB *empty = pulse_usb_connect_using("", &api);
+    if (empty) { pulse_usb_release(empty); return 500; }
+    // Older registry trees expose IOUSBDevice rather than IOUSBHostDevice.
+    scenario = 16;
+    PulseUSB *legacy = pulse_usb_connect_using("/tmp", &api);
+    if (!legacy) return 501;
+    pulse_usb_release(legacy);
     pulse_usb_release(NULL);
     return 0;
 }
 static int fake_stat(int fd, struct stat *info) {
-    memset(info, 0, sizeof(*info)); info->st_mode = scenario == 1 ? S_IFREG : S_IFCHR;
+    memset(info, 0, sizeof(*info)); info->st_mode = scenario == 1 ? S_IFREG : scenario == 7 ? S_IFBLK : S_IFCHR;
     return scenario == 0 ? -1 : 0;
 }
 static int fake_ioctl(int fd, unsigned long request, void *value) {
@@ -101,9 +112,9 @@ static int fake_ioctl(int fd, unsigned long request, void *value) {
     return 0;
 }
 int test_raw_size_adapter(void) {
-    for (scenario = 0; scenario <= 6; scenario++) {
+    for (scenario = 0; scenario <= 7; scenario++) {
         int size = pulse_raw_size_using(0, fake_stat, fake_ioctl);
-        if (size != (scenario == 6 ? 65536 : -1)) return scenario + 1;
+        if (size != (scenario >= 6 ? 65536 : -1)) return scenario + 1;
     }
     return 0;
 }
