@@ -93,7 +93,11 @@ def main():
     def cli(*args):
         result = subprocess.run([str(contents / 'MacOS/sidepulsectl'), *args], env=env,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=45)
-        require(result.returncode == 0, 'Installed CLI command failed: ' + ' '.join(args))
+        # Report only known error classifications, never arbitrary child output or tokens.
+        failure = ('app-refused-to-quit' if b'SidePulse could not quit.' in result.stderr
+                   else 'unclassified')
+        require(result.returncode == 0, 'Installed CLI command failed: ' + ' '.join(args)
+                + f' (exit={result.returncode}, category={failure})')
 
     def app_alive():
         executable = (contents / 'MacOS/SidePulse').resolve()

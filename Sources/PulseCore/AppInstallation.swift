@@ -19,12 +19,30 @@ public enum AppInstallation {
     bundleIdentifier: String = "com.unipheas.SidePulseSwift",
     terminate: (String) -> Bool = { identifier in
       NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
-        .map { $0.terminate() }.allSatisfy { $0 }
+        .map { application in
+          finishTermination(
+            isTerminated: { application.isTerminated }, terminate: { application.terminate() })
+        }.allSatisfy { $0 }
     }
   ) throws {
     guard terminate(bundleIdentifier) else {
       throw PulseError("SidePulse could not quit. Close its windows and try again.")
     }
+  }
+  /// launchd bootout can begin termination before the app receives this request.
+  /// A rejected request only counts as success if that same app actually exits.
+  @usableFromInline
+  static func finishTermination(
+    isTerminated: () -> Bool, terminate: () -> Bool,
+    wait: (TimeInterval) -> Void = Thread.sleep(forTimeInterval:)
+  ) -> Bool {
+    if isTerminated() { return true }
+    if terminate() { return true }
+    for _ in 0..<20 {
+      if isTerminated() { return true }
+      wait(0.05)
+    }
+    return isTerminated()
   }
   public static func sleepHelper(
     action: String, executable: URL, dryRun: Bool, administratorPrompt: Bool = false,

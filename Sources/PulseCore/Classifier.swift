@@ -14,13 +14,13 @@ public enum ReplyClassifier {
     }
   }
   public static func classify(
-    _ text: String, generate: (String) async throws -> String = generate
+    _ text: String, generate: (String) async throws -> String = { try await ReplyClassifier.generate($0) }
   ) async throws -> String {
     try await result(text, generate: generate).label
   }
   public static func result(
     _ text: String,
-    generate: (String) async throws -> String = generate
+    generate: (String) async throws -> String = { try await ReplyClassifier.generate($0) }
   ) async throws -> Classification {
     guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
       throw PulseError("Enter a message to classify.")
