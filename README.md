@@ -15,6 +15,8 @@ A native macOS companion for the SidePulse Pro SD card and SidePulse Dot USB dev
 
 The app writes its settings under `~/Library/Application Support/SidePulse`. Existing Python preferences are read as initial values. A fresh installation defaults to a 20-minute Done hold. Setup is per user.
 
+Use the appearance icon at the top right of the window to choose **Auto**, **Light**, or **Dark**. Auto follows macOS; an explicit choice applies throughout SidePulse and is remembered after relaunch.
+
 ## Command line
 
 The app includes a standalone CLI. For the examples below, set a shell variable to its installed path.

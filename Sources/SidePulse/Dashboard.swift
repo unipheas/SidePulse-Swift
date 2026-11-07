@@ -10,7 +10,7 @@ import SwiftUI
   @Published var settings: JSONObject = [:]
   @Published var problem: String?
   @Published var needsSetup = false
-  @Published var legacy = false
+  @Published var legacy = true
   @Published var login = SMAppService.mainApp.status == .enabled
   @Published var history = [(Date, Mode)]()
   let monitor = Monitor(), output = Output()
@@ -25,12 +25,11 @@ import SwiftUI
   private let notch = NotchDisplay()
   let actions: MacActions
   private let discover: () -> [Device]
-  private let outputInUse: () -> Bool
+  private let outputInUse: (() -> Bool)?
+  private(set) var ownershipTask: Task<Void, Never>?
   init(
     discover: @escaping () -> [Device] = Device.discover,
-    outputInUse: @escaping () -> Bool = {
-      Output.legacyRunning() || Jobs.running(Jobs.prefix + "service")
-    },
+    outputInUse: (() -> Bool)? = nil,
     poll: Bool = true, actions: MacActions? = nil,
     sleepOverride: SleepOverride = SleepOverride(), phoneOutput: PhoneOutput = PhoneOutput()
   ) {
@@ -54,6 +53,9 @@ import SwiftUI
     }
   }
   var mirror: Bool { settings["swift_mirror"] as? Bool ?? true }
+  var appearance: AppAppearance {
+    AppAppearance(rawValue: settings["appearance"] as? String ?? "auto") ?? .auto
+  }
   var menuBarVisible: Bool { settings["show_menu_bar_icon"] as? Bool ?? true }
   var menuBarInsertion: Binding<Bool> {
     Binding(get: { self.menuBarVisible }, set: menuBarVisibilityChanged)
@@ -75,17 +77,32 @@ import SwiftUI
   }
   func refresh() {
     do {
-      settings = try Settings.read()
+      receiveSettings(try Settings.read())
       if ticks % 5 == 0 {
-        devices = discover()
-        settings = try Settings.remember(devices, settings: settings)
-        legacy = outputInUse()
+        let found = discover()
+        if devices != found { devices = found }
+        receiveSettings(try Settings.remember(devices, settings: settings))
+        if let outputInUse {
+          let active = outputInUse()
+          if legacy != active { legacy = active }
+        } else if ownershipTask == nil {
+          // launchctl can wait for process teardown; never block animation frames.
+          ownershipTask = Task { [weak self] in
+            let active = await Task.detached(priority: .utility) {
+              Output.legacyRunning() || Jobs.running(Jobs.prefix + "service")
+            }.value
+            if self?.legacy != active { self?.legacy = active }
+            self?.ownershipTask = nil
+          }
+        }
       }
       ticks += 1
       let retention = Settings.seconds(
         settings, "recent_session_retention_seconds", default: 172800)
-      sessions = monitor.sessions().filter { Date().timeIntervalSince($0.date) <= retention }
-      mode = Monitor.aggregate(sessions, settings: settings)
+      let recent = monitor.sessions().filter { Date().timeIntervalSince($0.date) <= retention }
+      if sessions != recent { sessions = recent }
+      let currentMode = Monitor.aggregate(sessions, settings: settings)
+      if mode != currentMode { mode = currentMode }
       if history.last?.1 != mode {
         history.append((Date(), mode))
         if history.count > 500 { history.removeFirst() }
@@ -142,6 +159,18 @@ import SwiftUI
         mode, battery: battery?.percent, snapshot: battery,
         keepingAwake: output.isKeepingAwake, power: PowerSnapshot.read())
     } catch { problem = error.localizedDescription }
+  }
+  private func receiveSettings(_ value: JSONObject) {
+    if !NSDictionary(dictionary: settings).isEqual(to: value) {
+      settings = value
+      if NSApplication.shared.appearance?.name != appearance.native?.name {
+        NSApplication.shared.appearance = appearance.native
+      }
+    }
+  }
+  deinit {
+    timer?.invalidate()
+    ownershipTask?.cancel()
   }
   func change(_ body: (inout JSONObject) throws -> Void) {
     do {

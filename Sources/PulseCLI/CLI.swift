@@ -116,7 +116,7 @@ enum Args {
       try launch(
         "/usr/bin/open", ["sidepulse-native://updates"])
     case "help", "-h", "--help": print(help)
-    case "version", "--version", "-V": print("SidePulse 0.2.0")
+    case "version", "--version", "-V": print("SidePulse 0.2.1")
     case "devices": try listDevices()
     case "firmware":
       switch try Args.require("version or upgrade") {
@@ -158,7 +158,7 @@ enum Args {
         Args.words.insert("hook-log", at: 0)
         try await run()
       case "install", "uninstall": try configure(install: sub == "install")
-      case "version", "--version", "-V": print("SidePulse 0.2.0")
+      case "version", "--version", "-V": print("SidePulse 0.2.1")
       case "help", "--help", "-h": print(help)
       case "doctor":
         let json = Args.flag("--json")

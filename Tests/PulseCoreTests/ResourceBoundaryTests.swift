@@ -36,6 +36,9 @@ final class ResourceBoundaryTests: IsolatedTests {
     let context = try XCTUnwrap(JSContext())
     let preview = try LEDPreview(program: "off", count: 8, context: context, module: wasm)
     XCTAssertEqual(preview.frame(milliseconds: 0).count, 24)
+    context.evaluateScript("var OriginalArray = Uint8Array; Uint8Array = function() { return []; }")
+    XCTAssertEqual(preview.frame(milliseconds: 1), [])
+    context.evaluateScript("Uint8Array = OriginalArray")
     context.evaluateScript("engine = null")
     XCTAssertEqual(preview.frame(milliseconds: 1), [])
   }

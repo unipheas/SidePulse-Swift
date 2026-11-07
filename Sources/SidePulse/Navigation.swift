@@ -44,6 +44,9 @@ struct DashboardView: View {
         case .settings: Preferences()
         }
       }.navigationTitle((selection ?? .overview).rawValue)
+        .toolbar {
+          ToolbarItem(placement: .primaryAction) { AppearanceMenu() }
+        }
     }.frame(minWidth: 675, minHeight: 460)
       .onOpenURL { url in
         if url.scheme == "sidepulse-native", url.host == "settings" { selection = .settings }

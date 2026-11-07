@@ -217,6 +217,7 @@ public enum Programs {
 /// The same bytecode shipped with the device simulator validates and renders the LED language.
 public final class LEDPreview {
   private let context: JSContext
+  private let renderFrame: JSValue
   private let count: Int
   public convenience init(program: String, count: Int, initialProgram: String? = nil) throws {
     try self.init(
@@ -247,17 +248,34 @@ public final class LEDPreview {
           engine.sdled_step(ledCount,1000);
         }
         new Uint8Array(engine.memory.buffer,engine.sdled_input_ptr(),512).set(programBytes);
-        engine.sdled_parse(ledCount,programBytes.length,0);
+        var parsed = engine.sdled_parse(ledCount,programBytes.length,0);
+        function renderFrame(now) {
+          engine.sdled_step(ledCount,now);
+          return new Uint8Array(engine.memory.buffer,engine.sdled_output_ptr(),ledCount*3);
+        }
+        parsed;
         """)?.toUInt32() ?? 0
     guard ctx.exception == nil, packed & 1 != 0 else {
       throw PulseError("LED syntax error at line \((packed >> 16) & 255), column \(packed >> 24).")
     }
+    renderFrame = ctx.objectForKeyedSubscript("renderFrame")!
   }
   public func frame(milliseconds: Int) -> [UInt8] {
-    context.setObject(max(0, milliseconds), forKeyedSubscript: "now" as NSString)
-    let result = context.evaluateScript(
-      "engine.sdled_step(ledCount,now); Array.from(new Uint8Array(engine.memory.buffer,engine.sdled_output_ptr(),ledCount*3))"
-    )
-    return (result?.toArray() as? [NSNumber] ?? []).map(\.uint8Value)
+    // Compile once and copy the 6/24 output bytes directly, avoiding script parsing
+    // and an intermediate JavaScript array plus boxed numbers on every frame.
+    guard let result = renderFrame.call(withArguments: [max(0, milliseconds)]),
+      let object = JSValueToObject(context.jsGlobalContextRef, result.jsValueRef, nil)
+    else { return [] }
+    let offset = JSObjectGetTypedArrayByteOffset(context.jsGlobalContextRef, object, nil)
+    guard JSObjectGetTypedArrayLength(context.jsGlobalContextRef, object, nil) == count * 3,
+      let bytes = JSObjectGetTypedArrayBytesPtr(context.jsGlobalContextRef, object, nil)
+    else { return [] }
+    // JavaScriptCore returns the backing buffer, not the typed array's slice.
+    // Copy immediately: another JavaScriptCore call could invalidate this pointer.
+    return withExtendedLifetime(result) {
+      Array(
+        UnsafeBufferPointer(
+          start: bytes.advanced(by: offset).assumingMemoryBound(to: UInt8.self), count: count * 3))
+    }
   }
 }

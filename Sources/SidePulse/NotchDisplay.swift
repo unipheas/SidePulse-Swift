@@ -1,11 +1,12 @@
 import AppKit
 import PulseCore
+import QuartzCore
 
 /// A click-through LED band at the camera housing, or screen edge on notchless Macs.
 @MainActor final class NotchDisplay {
   static let deviceID = "virtual:status-bar"
   private(set) var window: NSPanel?
-  private var timer: Timer?
+  private var animationLink: CADisplayLink?
   private var source: String?
   private var powerPreview = PowerChangePreview()
   private let lights = NotchLights(frame: .zero)
@@ -64,50 +65,78 @@ import PulseCore
     }
     let gap = Self.gap(left: screen.auxiliaryTopLeftArea, right: screen.auxiliaryTopRightArea)
     lights.hasNotch = screen.safeAreaInsets.top > 0
-    window?.setFrame(
-      Self.frame(screen: screen.frame, depth: screen.safeAreaInsets.top, gap: gap), display: true)
-    window?.orderFrontRegardless()
-    if timer == nil {
-      timer = Timer.scheduledTimer(withTimeInterval: 1 / 30, repeats: true) { [weak lights] _ in
-        MainActor.assumeIsolated { lights?.needsDisplay = true }
-      }
+    let frame = Self.frame(screen: screen.frame, depth: screen.safeAreaInsets.top, gap: gap)
+    if window?.frame != frame { window?.setFrame(frame, display: true) }
+    if window?.isVisible != true { window?.orderFrontRegardless() }
+    if animationLink == nil {
+      let link = lights.displayLink(
+        target: lights, selector: #selector(NotchLights.displayFrame(_:)))
+      link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 60, preferred: 60)
+      link.add(to: .main, forMode: .common)
+      animationLink = link
     }
   }
   func hide() {
-    timer?.invalidate()
-    timer = nil
+    animationLink?.invalidate()
+    animationLink = nil
     window?.orderOut(nil)
   }
-  deinit { timer?.invalidate() }
+  deinit { animationLink?.invalidate() }
 }
 
 @MainActor final class NotchLights: NSView {
-  var hasNotch = false
-  private var simulator: LEDPreview?
-  private var start = Date()
-  func load(_ source: String) throws {
-    simulator = try LEDPreview(program: source, count: 8)
-    start = Date()
-    needsDisplay = true
+  var hasNotch = false {
+    didSet { if hasNotch != oldValue { layoutLights() } }
   }
-  override func draw(_ dirtyRect: NSRect) {
+  private var simulator: LEDPreview?
+  private var start: CFTimeInterval = 0
+  private let gradient = CAGradientLayer()
+  private var previousRGB = [UInt8]()
+
+  func load(_ source: String) throws {
+    let next = try LEDPreview(program: source, count: 8)
+    if layer == nil {
+      wantsLayer = true
+      layer?.masksToBounds = true
+      gradient.startPoint = CGPoint(x: 0, y: 0.5)
+      gradient.endPoint = CGPoint(x: 1, y: 0.5)
+      layer?.addSublayer(gradient)
+    }
+    simulator = next
+    start = CACurrentMediaTime()
+    previousRGB = []
+    layoutLights()
+    render(at: start)
+  }
+  override func layout() {
+    super.layout()
+    layoutLights()
+  }
+  private func layoutLights() {
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    layer?.backgroundColor = hasNotch ? NSColor.black.cgColor : NSColor.clear.cgColor
+    layer?.cornerRadius = hasNotch ? 8 : 0
+    gradient.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 5)
+    CATransaction.commit()
+  }
+  @objc func displayFrame(_ link: CADisplayLink) {
+    render(at: link.targetTimestamp)
+  }
+  func render(at timestamp: CFTimeInterval) {
     guard let simulator else { return }
-    let rgb = simulator.frame(milliseconds: Int(Date().timeIntervalSince(start) * 1000))
-    let colors: [NSColor] = stride(from: 0, to: rgb.count, by: 3).map { index in
+    let rgb = simulator.frame(milliseconds: max(0, Int((timestamp - start) * 1000)))
+    guard rgb.count == 24, rgb != previousRGB else { return }
+    previousRGB = rgb
+    CATransaction.begin()
+    CATransaction.setDisableActions(true)
+    let colors: [CGColor] = stride(from: 0, to: rgb.count, by: 3).map { index in
       let red = CGFloat(rgb[index]) / 255
       let green = CGFloat(rgb[index + 1]) / 255
       let blue = CGFloat(rgb[index + 2]) / 255
-      return NSColor(srgbRed: red, green: green, blue: blue, alpha: 1)
+      return CGColor(srgbRed: red, green: green, blue: blue, alpha: 1)
     }
-    NSGraphicsContext.saveGraphicsState()
-    defer { NSGraphicsContext.restoreGraphicsState() }
-    if hasNotch {
-      let body = NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8)
-      NSColor.black.setFill()
-      body.fill()
-      body.addClip()
-    }
-    NSGradient(colors: colors)?.draw(
-      in: NSRect(x: 0, y: 0, width: bounds.width, height: 5), angle: 0)
+    gradient.colors = colors
+    CATransaction.commit()
   }
 }

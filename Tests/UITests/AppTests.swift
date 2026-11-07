@@ -38,6 +38,21 @@ final class AppTests: XCTestCase {
     }
     XCTAssertTrue(app.windows[title].waitForExistence(timeout: 3))
   }
+  func testToolbarAppearanceChoicesPersistAcrossLaunches() throws {
+    for choice in ["Light", "Dark", "Auto"] {
+      let control = app.menuButtons["appearance-menu"]
+      XCTAssertTrue(control.waitForExistence(timeout: 3), app.debugDescription)
+      control.click()
+      let item = app.menuItems[choice].firstMatch
+      XCTAssertTrue(item.waitForExistence(timeout: 3), app.debugDescription)
+      item.click()
+      XCTAssertEqual(try settings()["appearance"] as? String, choice.lowercased())
+      app.terminate()
+      app.launch()
+      XCTAssertTrue(app.windows.firstMatch.waitForExistence(timeout: 10))
+      XCTAssertEqual(try settings()["appearance"] as? String, choice.lowercased())
+    }
+  }
   private func replace(_ field: XCUIElement, with value: String) {
     field.click()
     field.typeKey("a", modifierFlags: .command)

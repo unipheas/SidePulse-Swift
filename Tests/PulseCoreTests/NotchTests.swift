@@ -1,10 +1,34 @@
 import AppKit
+import QuartzCore
 import XCTest
 
 @testable import PulseCore
 @testable import SidePulse
 
 final class NotchTests: IsolatedTests {
+  @MainActor func testNotchReusesItsLayerAndRendersExactSimulatorColors() throws {
+    let view = NotchLights(frame: NSRect(x: 0, y: 0, width: 220, height: 37))
+    view.render(at: 0)
+    try view.load("#123456")
+    let gradient = try XCTUnwrap(view.layer?.sublayers?.first as? CAGradientLayer)
+    let colors = try XCTUnwrap(gradient.colors as? [CGColor])
+    XCTAssertEqual(colors.count, 8)
+    XCTAssertEqual(colors[0].components, [18.0 / 255, 52.0 / 255, 86.0 / 255, 1])
+    view.render(at: CACurrentMediaTime() + 1)
+    XCTAssertEqual(gradient.colors as? [CGColor], colors)
+    view.hasNotch = true
+    view.hasNotch = true
+    view.layout()
+    XCTAssertEqual(view.layer?.cornerRadius, 8)
+    XCTAssertEqual(gradient.frame, NSRect(x: 0, y: 0, width: 220, height: 5))
+    try view.load("#ABCDEF")
+    XCTAssertTrue(view.layer?.sublayers?.first === gradient)
+    XCTAssertNotEqual(gradient.colors as? [CGColor], colors)
+    view.hasNotch = false
+    XCTAssertEqual(view.layer?.cornerRadius, 0)
+    XCTAssertThrowsError(try view.load("not an animation"))
+    XCTAssertEqual((gradient.colors as? [CGColor])?.count, 8)
+  }
   @MainActor func testNotchGeometrySupportsCameraHousingAndExternalScreens() {
     let screen = NSRect(x: 100, y: 200, width: 1600, height: 1000)
     XCTAssertEqual(
