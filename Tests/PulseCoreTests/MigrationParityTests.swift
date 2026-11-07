@@ -181,3 +181,71 @@ extension MigrationParityTests {
     }.value
   }
 }
+
+extension MigrationParityTests {
+  func testPhoneOutputRetriesEachRecipientAndTracksPairingAndProgramChanges() async throws {
+    let first = try Phone(
+      token: String(repeating: "a", count: 64), name: "First", server: "https://example.invalid")
+    let second = try Phone(
+      token: String(repeating: "b", count: 64), name: "Second", server: "https://example.invalid")
+    var recipients = [first, second]
+    var now = Date(timeIntervalSince1970: 100)
+    var fail = true
+    var calls: [String] = []
+    let output = PhoneOutput(
+      phones: { recipients },
+      send: { phone, _ in
+        calls.append(phone.name)
+        if fail && phone.id == first.id { throw PulseError("Offline") }
+      }, now: { now })
+    let enabled: JSONObject = ["swift_phone_mirror": true]
+    do {
+      try await output.sync(mode: .idle, settings: enabled)
+      XCTFail("Must report failed recipient")
+    } catch { XCTAssertEqual(error.localizedDescription, "First: Offline") }
+    XCTAssertEqual(calls, ["First", "Second"])
+    try await output.sync(mode: .idle, settings: enabled)
+    XCTAssertEqual(calls.count, 2)
+    now.addTimeInterval(10)
+    fail = false
+    try await output.sync(mode: .idle, settings: enabled)
+    XCTAssertEqual(calls, ["First", "Second", "First"])
+    try await output.sync(mode: .working, settings: enabled)
+    XCTAssertEqual(calls.count, 5)
+    recipients = [second]
+    try await output.sync(mode: .working, settings: enabled)
+    recipients = [first, second]
+    try await output.sync(mode: .working, settings: enabled)
+    XCTAssertEqual(calls.count, 6)
+    try await output.sync(mode: .working, settings: [:])
+    try await output.sync(mode: .working, settings: enabled)
+    XCTAssertEqual(calls.count, 8)
+    recipients = [
+      try Phone(
+        token: String(repeating: "a", count: 64), name: "Moved", server: "https://other.invalid")
+    ]
+    try await output.sync(mode: .working, settings: enabled)
+    XCTAssertEqual(calls.last, "Moved")
+    recipients = []
+    try await output.sync(mode: .working, settings: enabled)
+    XCTAssertEqual(calls.count, 9)
+  }
+
+  func testMissingSleepHelperDoesNotPreventMonitorLEDOutput() async throws {
+    let device = try volume()
+    try Settings.update {
+      $0["swift_closed_lid"] = "always"
+      $0["sleep_prevention_policy"] = "never"
+    }
+    var system = SleepOverride.System()
+    system.helperInstalled = { false }
+    system.disable = { _ in XCTFail("Must never change system sleep") }
+    var errors = [String]()
+    Args.words = ["--once"]
+    try await CLI.monitor(
+      "leds", discover: { [device] }, legacyRunning: { false },
+      sleep: SleepOverride(system: system), report: { errors.append($0) })
+    XCTAssertTrue(errors.contains { $0.contains("optional sleep helper") })
+    XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
+  }
+}

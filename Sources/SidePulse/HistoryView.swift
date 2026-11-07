@@ -42,7 +42,7 @@ struct HistoryView: View {
         Menu("Export…") {
           Button("CSV") { export("csv") }
           Button("HTML") { export("html") }
-        }
+        }.accessibilityIdentifier("history-export")
       }
       if changes.isEmpty {
         ContentUnavailableView(

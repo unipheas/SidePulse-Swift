@@ -1,0 +1,50 @@
+import Foundation
+
+/// Track delivery per recipient so an unavailable phone cannot block the others.
+public actor PhoneOutput {
+  private struct Delivery {
+    let program: String
+    let retryAfter: Date
+  }
+  private var deliveries = [String: Delivery]()
+  private let phones: () throws -> [Phone]
+  private let send: (Phone, String) async throws -> Void
+  private let now: () -> Date
+  public init(
+    phones: @escaping () throws -> [Phone] = Bridge.phones,
+    send: @escaping (Phone, String) async throws -> Void = {
+      try await Bridge.push(to: $0.id, program: $1, title: nil, message: nil)
+    }, now: @escaping () -> Date = Date.init
+  ) {
+    self.phones = phones
+    self.send = send
+    self.now = now
+  }
+  public func sync(mode: Mode, settings: JSONObject) async throws {
+    guard settings["swift_phone_mirror"] as? Bool == true else {
+      deliveries.removeAll()
+      return
+    }
+    let recipients = try phones()
+    // Include the destination and token: re-pairing must invalidate a prior success.
+    func key(_ phone: Phone) -> String { phone.server + "/" + phone.token }
+    let keys = Set(recipients.map(key))
+    deliveries = deliveries.filter { keys.contains($0.key) }
+    let program = try Programs.program(mode, count: 8, settings: settings)
+    var failures = [String]()
+    for phone in recipients {
+      let id = key(phone)
+      if let previous = deliveries[id], previous.program == program,
+        now() < previous.retryAfter
+      {
+        continue
+      }
+      deliveries[id] = Delivery(program: program, retryAfter: now().addingTimeInterval(10))
+      do {
+        try await send(phone, program)
+        deliveries[id] = Delivery(program: program, retryAfter: .distantFuture)
+      } catch { failures.append(phone.name + ": " + error.localizedDescription) }
+    }
+    if !failures.isEmpty { throw PulseError(failures.joined(separator: "\n")) }
+  }
+}

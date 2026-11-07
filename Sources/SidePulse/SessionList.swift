@@ -54,8 +54,7 @@ struct SessionOpenMenu<Label: View>: View {
   }
   private func open(_ action: SessionAction) {
     do {
-      try SessionOpening.open(
-        session.target(for: action), session: session, settings: model.settings)
+      try model.actions.openSession(session.target(for: action), session, model.settings)
     } catch { model.problem = error.localizedDescription }
   }
 }

@@ -13,13 +13,14 @@ import SwiftUI
   @Published var legacy = false
   @Published var login = SMAppService.mainApp.status == .enabled
   @Published var history = [(Date, Mode)]()
-  let monitor = Monitor(), output = Output(), sleepOverride = SleepOverride()
+  let monitor = Monitor(), output = Output()
+  let sleepOverride: SleepOverride
   var timer: Timer?
   private let relay = Relay()
   private var relaying = false
   private var ownsOutput = false
   private var ticks = 0
-  private var lastPhoneMode: Mode?
+  private let phoneOutput: PhoneOutput
   private var sending = false
   private let notch = NotchDisplay()
   let actions: MacActions
@@ -30,9 +31,12 @@ import SwiftUI
     outputInUse: @escaping () -> Bool = {
       Output.legacyRunning() || Jobs.running(Jobs.prefix + "service")
     },
-    poll: Bool = true, actions: MacActions? = nil
+    poll: Bool = true, actions: MacActions? = nil,
+    sleepOverride: SleepOverride = SleepOverride(), phoneOutput: PhoneOutput = PhoneOutput()
   ) {
     self.actions = actions ?? MacActions()
+    self.sleepOverride = sleepOverride
+    self.phoneOutput = phoneOutput
     self.discover = discover
     self.outputInUse = outputInUse
     do { try Settings.migrate() } catch { problem = error.localizedDescription }
@@ -74,7 +78,9 @@ import SwiftUI
         try? notch.update(nil)
         problem = "Notch lights: " + error.localizedDescription
       }
-      try sleepOverride.update(mode: mode, settings: settings, battery: battery, owner: !legacy)
+      do {
+        try sleepOverride.update(mode: mode, settings: settings, battery: battery, owner: !legacy)
+      } catch { problem = "Sleep control: " + error.localizedDescription }
       if !legacy {
         ownsOutput = true
         if !relaying {
@@ -88,23 +94,19 @@ import SwiftUI
           }
         }
         output.updateAwake(mode: mode, settings: settings, battery: battery)
-        try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
-        if settings["swift_phone_mirror"] as? Bool == true, !sending, lastPhoneMode != mode {
+        do {
+          try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
+        } catch { problem = error.localizedDescription }
+        if !sending {
           let current = mode
           let config = settings
-          lastPhoneMode = current
           sending = true
           Task {
             defer { sending = false }
             do {
-              let program = try Programs.program(current, count: 8, settings: config)
-              for phone in try Bridge.phones() {
-                try await Bridge.push(to: phone.id, program: program, title: nil, message: nil)
-              }
+              try await phoneOutput.sync(mode: current, settings: config)
             } catch { problem = error.localizedDescription }
           }
-        } else if settings["swift_phone_mirror"] as? Bool != true {
-          lastPhoneMode = nil
         }
 
       } else {

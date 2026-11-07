@@ -57,7 +57,10 @@ final class AppTests: XCTestCase {
   private func choose(_ picker: XCUIElement, _ value: String) {
     reveal(picker)
     picker.click()
-    app.menuItems[value].firstMatch.click()
+    let item = app.menuItems[value].firstMatch
+    if !item.waitForExistence(timeout: 2) { picker.click() }
+    XCTAssertTrue(item.waitForExistence(timeout: 3))
+    item.click()
   }
   func testSessionPreferencesAndTranscriptTogglesPersist() throws {
     select("Settings")
@@ -389,7 +392,10 @@ extension AppTests {
   func testHistoryAndEventExportsContainRecordedData() throws {
     for format in ["CSV", "HTML"] {
       select("History")
-      app.menuButtons["Export…"].click()
+      let exportMenu = app.descendants(matching: .any).matching(identifier: "history-export")
+        .firstMatch
+      XCTAssertTrue(exportMenu.waitForExistence(timeout: 3))
+      exportMenu.click()
       app.menuItems[format].firstMatch.click()
       let history = root.appendingPathComponent("history." + format.lowercased())
       filePanel(history, action: "Save")

@@ -11,24 +11,32 @@ import ServiceManagement
     try Jobs.configure($0, executable: $1, start: $2)
   }
   var jobRunning: (String) -> Bool = { Jobs.running(Jobs.prefix + $0) }
-  var login: (Bool) throws -> Bool = MacActions.setLogin
+  var login: (Bool) throws -> Bool = { try MacActions.setLogin($0) }
   var helperInstalled: () -> Bool = {
     FileManager.default.fileExists(atPath: "/etc/sudoers.d/sidepulse-swift-disablesleep")
   }
   var helper: (String, URL) async throws -> String = MacActions.manageHelper
   var takeControl: () throws -> Void = Jobs.takeControl
   var giveBack: () throws -> Void = Jobs.giveBack
+  var openSession: (SessionTarget?, Session, JSONObject) throws -> Void = {
+    try SessionOpening.open($0, session: $1, settings: $2)
+  }
   var hooks: (String, URL, Bool) throws -> Void = {
     try Hooks.configure($0, executable: $1, install: $2)
   }
 
-  static func setLogin(_ enabled: Bool) throws -> Bool {
+  static func setLogin(
+    _ enabled: Bool,
+    register: () throws -> Void = SMAppService.mainApp.register,
+    unregister: () throws -> Void = SMAppService.mainApp.unregister,
+    status: () -> Bool = { SMAppService.mainApp.status == .enabled }
+  ) throws -> Bool {
     if enabled {
-      try SMAppService.mainApp.register()
+      try register()
     } else {
-      try SMAppService.mainApp.unregister()
+      try unregister()
     }
-    return SMAppService.mainApp.status == .enabled
+    return status()
   }
   nonisolated static func manageHelper(_ action: String, executable: URL) async throws -> String {
     try await Task.detached {

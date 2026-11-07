@@ -46,8 +46,14 @@ public enum PowerRegistry {
 public struct BatteryDiagnostics {
   /// Compatible names and units with the original battery status JSON.
   public let values: JSONObject
-  public var adapterPower: Double { values["adapter_power"] as? Double ?? 0 }
-  public var charged: Bool { values["is_charged"] as? Bool ?? false }
+  public let adapterPower: Double
+  public let charged: Bool
+  private struct PowerProfile {
+    let voltage: Double
+    let current: Double
+    var watts: Double { voltage * current }
+    var json: [String: Double] { ["voltage": voltage, "current": current, "watts": watts] }
+  }
   public init(properties p: JSONObject, fullWatts: Double = PowerRegistry.fullChargeWatts) {
     func number(_ key: String, in object: JSONObject, fallback: Double = 0) -> Double {
       guard let value = object[key] as? NSNumber, value.doubleValue.isFinite else {
@@ -63,14 +69,14 @@ public struct BatteryDiagnostics {
       number(key, in: adapter, fallback: fallback)
     }
     var profiles = (adapter["UsbHvcMenu"] as? [Any] ?? []).compactMap {
-      entry -> [String: Double]? in
+      entry -> PowerProfile? in
       guard let entry = entry as? JSONObject else { return nil }
       let voltage = number("MaxVoltage", in: entry) / 1000
       let current = number("MaxCurrent", in: entry) / 1000
       guard voltage > 0 && current > 0 else { return nil }
-      return ["voltage": voltage, "current": current, "watts": voltage * current]
+      return PowerProfile(voltage: voltage, current: current)
     }
-    profiles.sort { $0["watts", default: 0] < $1["watts", default: 0] }
+    profiles.sort { $0.watts < $1.watts }
     let adapterVoltage = a("AdapterVoltage", a("Voltage")) / 1000
     let adapterCurrent = a("Current") / 1000
     let watts = a("Watts", -1)
@@ -78,7 +84,7 @@ public struct BatteryDiagnostics {
       watts > 0
       ? watts
       : adapterVoltage * adapterCurrent > 0
-        ? adapterVoltage * adapterCurrent : profiles.last?["watts"] ?? 0
+        ? adapterVoltage * adapterCurrent : profiles.last?.watts ?? 0
     let voltage = n("Voltage") / 1000
     let amperage = (n("Amperage") == 0 ? n("InstantAmperage") : n("Amperage")) / 1000
     let rawMax = n("AppleRawMaxCapacity", -1)
@@ -88,10 +94,12 @@ public struct BatteryDiagnostics {
     let percent = capacity >= 0 && capacity <= 100 ? capacity : n("StateOfCharge")
     let temperature = n("Temperature", -1)
     let baseline = fullWatts.isFinite ? max(1, fullWatts) : 100
+    adapterPower = power
+    charged = p["FullyCharged"] as? Bool ?? false
     values = [
       "percent": Int(min(100, max(0, percent))),
       "is_charging": p["IsCharging"] as? Bool ?? false,
-      "is_charged": p["FullyCharged"] as? Bool ?? false,
+      "is_charged": charged,
       "is_plugged": p["ExternalConnected"] as? Bool ?? false,
       "battery_present": p["BatteryInstalled"] as? Bool ?? true,
       "voltage": voltage, "amperage": amperage, "battery_watts": voltage * amperage,
@@ -112,7 +120,7 @@ public struct BatteryDiagnostics {
       "adapter_manufacturer": adapter["Manufacturer"] as? String ?? "",
       "adapter_model": adapter["Model"] as? String ?? "",
       "adapter_serial": (adapter["SerialString"] ?? adapter["SerialNumber"]) as? String ?? "",
-      "adapter_family": Self.family(Int(a("FamilyCode", -1))), "pd_profiles": profiles,
+      "adapter_family": Self.family(Int(a("FamilyCode", -1))), "pd_profiles": profiles.map(\.json),
       "full_charge_watts": baseline, "charge_speed_ratio": min(1, max(0, power / baseline)),
     ]
   }

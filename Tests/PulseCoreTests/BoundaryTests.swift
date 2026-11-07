@@ -203,7 +203,7 @@ extension BoundaryTests {
         count?.pointee = 1
         if capacity > 0 { displays?.pointee = UInt32.max }
         return .success
-      }, isBuiltIn: { _ in 0 })
+      }, isBuiltIn: { _ in false })
     XCTAssertEqual(external, true)
   }
 }

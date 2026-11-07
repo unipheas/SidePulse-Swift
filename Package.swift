@@ -9,7 +9,10 @@ let package = Package(
     .executable(name: "sidepulsectl", targets: ["PulseCLI"]),
     .library(name: "PulseCore", targets: ["PulseCore"]),
   ],
-  dependencies: [.package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1")],
+  dependencies: [
+    .package(url: "https://github.com/sparkle-project/Sparkle", exact: "2.10.1"),
+    .package(url: "https://github.com/nalexn/ViewInspector", exact: "0.10.5"),
+  ],
   targets: [
     .target(
       name: "USBControl",
@@ -31,7 +34,10 @@ let package = Package(
       publicHeadersPath: "include"),
     .testTarget(
       name: "PulseCoreTests",
-      dependencies: ["PulseCore", "SidePulse", "PulseCLI", "USBTestSupport"],
+      dependencies: [
+        "PulseCore", "SidePulse", "PulseCLI", "USBTestSupport",
+        .product(name: "ViewInspector", package: "ViewInspector"),
+      ],
       resources: [.copy("Fixtures")]),
   ]
 )

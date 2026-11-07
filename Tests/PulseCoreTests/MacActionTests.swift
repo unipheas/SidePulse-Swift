@@ -217,3 +217,95 @@ extension MacActionTests {
     XCTAssertEqual(model.problem, "Permission declined")
   }
 }
+
+extension MacActionTests {
+  @MainActor func testDefaultMacAdaptersValidateUnknownJobsAndConfigureIsolatedHooks() async throws
+  {
+    var actions = MacActions()
+    actions.executable = root.appendingPathComponent("sidepulsectl")
+    try Data("#!/bin/sh\nexit 0\n".utf8).write(to: actions.executable!)
+    try FileManager.default.setAttributes(
+      [.posixPermissions: 0o700], ofItemAtPath: actions.executable!.path)
+    XCTAssertThrowsError(try actions.job("invalid-fixture", start: true))
+    XCTAssertFalse(actions.jobRunning("invalid-fixture"))
+    try actions.configureHooks("codex", install: true)
+    let config = Paths.home.appendingPathComponent(".codex/config.toml")
+    XCTAssertTrue(try String(contentsOf: config).contains("SidePulse Swift hooks"))
+    try actions.configureHooks("codex", install: false)
+    XCTAssertFalse(try String(contentsOf: config).contains("SidePulse Swift hooks"))
+    let status = try await actions.helper("status", actions.executable!)
+    XCTAssertTrue(["installed", "not installed"].contains(status))
+  }
+  @MainActor func testDeferringSetupPersistsAndReportsUnwritableSettings() throws {
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    XCTAssertTrue(model.needsSetup)
+    model.deferSetup()
+    XCTAssertFalse(model.needsSetup)
+    XCTAssertEqual(try Settings.read()["setup_screen_completed"] as? Bool, true)
+    try FileManager.default.removeItem(at: Settings.url)
+    try FileManager.default.createDirectory(at: Settings.url, withIntermediateDirectories: false)
+    model.needsSetup = true
+    model.deferSetup()
+    XCTAssertTrue(model.needsSetup)
+    XCTAssertNotNil(model.problem)
+  }
+}
+
+extension MacActionTests {
+  @MainActor func testMissingSleepHelperDoesNotPreventDashboardLEDOutput() throws {
+    let device = try volume()
+    try Settings.update {
+      $0["swift_closed_lid"] = "always"
+      $0["sleep_prevention_policy"] = "never"
+    }
+    var system = SleepOverride.System()
+    system.helperInstalled = { false }
+    system.disable = { _ in XCTFail("Must not change system sleep") }
+    let model = Dashboard(
+      discover: { [device] }, outputInUse: { false }, poll: false,
+      sleepOverride: SleepOverride(system: system))
+    XCTAssertTrue(model.problem?.contains("optional sleep helper") == true)
+    XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
+  }
+}
+
+extension MacActionTests {
+  @MainActor func testLoginRegistrationReportsActualStatusAndFailures() throws {
+    var enabled = false
+    for desired in [true, false] {
+      XCTAssertEqual(
+        try MacActions.setLogin(
+          desired, register: { enabled = true },
+          unregister: { enabled = false }, status: { enabled }), desired)
+    }
+    XCTAssertThrowsError(
+      try MacActions.setLogin(
+        true, register: { throw PulseError("Denied") },
+        unregister: {}, status: { false }))
+    XCTAssertThrowsError(
+      try MacActions.setLogin(
+        false, register: {},
+        unregister: { throw PulseError("Denied") }, status: { true }))
+  }
+
+  @MainActor func testDashboardReportsPhoneAndNotchErrorsWithoutStoppingLocalOutput() async throws {
+    let device = try volume()
+    try Settings.update {
+      $0["swift_phone_mirror"] = true
+      $0["virtual_status_device_enabled"] = true
+      $0["sleep_prevention_policy"] = "never"
+      $0["agent_animations"] = [
+        Mode.idle.rawValue: ["style": "custom", "custom_program": "invalid command"]
+      ]
+    }
+    let phoneOutput = PhoneOutput(phones: { throw PulseError("Pairing data unreadable") })
+    let model = Dashboard(
+      discover: { [device] }, outputInUse: { false }, poll: false, phoneOutput: phoneOutput)
+    XCTAssertTrue(model.problem?.contains("Notch lights") == true)
+    for _ in 0..<10 { await Task.yield() }
+    XCTAssertEqual(model.problem, "Pairing data unreadable")
+    XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
+    model.change { $0["virtual_status_device_enabled"] = false }
+    for _ in 0..<10 { await Task.yield() }
+  }
+}

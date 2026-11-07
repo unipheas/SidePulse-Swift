@@ -14,7 +14,7 @@ The coverage command runs the Swift tests, real CLI integration tests, a disposa
 
 ## Current evidence
 
-The latest complete run passed **123 native XCTest methods, 2 classifier template tests, and 15 UI workflows**, plus CLI, MLX process, FAT12 image, and eject/remount integration checks. Combined LLVM line coverage is **95.67% (9,203 of 9,620 instrumented lines)**. The classifier helper, prompt renderer, MLX command adapter, and C USB adapter have 100% measured line coverage. Overall coverage is not yet 100%.
+The latest complete run passed **139 native XCTest methods, 2 classifier template tests, and 16 UI workflows**, plus CLI, MLX process, FAT12 image, and eject/remount integration checks. Combined LLVM line coverage is **97.14% (9,588 of 9,870 instrumented lines)**. The classifier helper, prompt renderer, MLX command adapter, and C USB adapter have 100% measured line coverage. Overall coverage is not yet 100%.
 
 The full report includes every production Swift and C file in the main package and the separate native classifier. Set `RUN_CLASSIFIER_TESTS=1` on Apple silicon to include the helper; a run without that flag explicitly reports that it is omitted. Compiler-generated SwiftUI regions can make counts differ between compiler versions.
 

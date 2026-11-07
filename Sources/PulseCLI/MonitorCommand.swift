@@ -7,6 +7,7 @@ extension CLI {
     legacyRunning: () -> Bool = Output.legacyRunning,
     wait: (Double) async throws -> Void = Polling.wait,
     interactive: Bool = isatty(STDOUT_FILENO) != 0,
+    sleep: SleepOverride = SleepOverride(), phoneOutput: PhoneOutput = PhoneOutput(),
     report: (String) -> Void = { FileHandle.standardError.write(Data(($0 + "\n").utf8)) }
   ) async throws {
     try Settings.migrate()
@@ -40,14 +41,12 @@ extension CLI {
     defer { if redraw { print("\u{1B}[?25h", terminator: "") } }
     let monitor = Monitor(logs: logs, maxLines: maxLines)
     let output = Output()
-    let sleep = SleepOverride()
     defer {
       try? sleep.restore()
       output.keepAwake(false)
     }
     let relay = Relay()
     defer { Task { await relay.stop() } }
-    var lastPhoneMode: Mode?
     repeat {
       var settings = try Settings.read()
       var timing = settings["agent_list"] as? JSONObject ?? [:]
@@ -82,21 +81,28 @@ extension CLI {
           } else {
             settings = try Settings.remember(devices, settings: settings)
             let battery = Battery.read()
-            try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
+            do {
+              try sleep.update(mode: mode, settings: settings, battery: battery, owner: true)
+            } catch { report("Sleep control: " + error.localizedDescription) }
             output.updateAwake(mode: mode, settings: settings, battery: battery)
-            try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
-            try History.record(
-              mode, battery: battery?.percent, snapshot: battery,
-              keepingAwake: output.isKeepingAwake,
-              power: PowerSnapshot.read())
-            try await relay.sync(rows)
-            if settings["swift_phone_mirror"] as? Bool == true, lastPhoneMode != mode {
-              let program = try Programs.program(mode, count: 8, settings: settings)
-              for phone in try Bridge.phones() {
-                try await Bridge.push(to: phone.id, program: program, title: nil, message: nil)
-              }
-              lastPhoneMode = mode
+            var failure: Error?
+            do {
+              try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
+            } catch { failure = error }
+            do {
+              try History.record(
+                mode, battery: battery?.percent, snapshot: battery,
+                keepingAwake: output.isKeepingAwake, power: PowerSnapshot.read())
+              try await relay.sync(rows)
+            } catch {
+              report(error.localizedDescription)
+              if failure == nil { failure = error }
             }
+            do { try await phoneOutput.sync(mode: mode, settings: settings) } catch {
+              report(error.localizedDescription)
+              if failure == nil { failure = error }
+            }
+            if let failure { throw failure }
           }
         } catch {
           if once { throw error }

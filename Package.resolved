@@ -1,5 +1,5 @@
 {
-  "originHash" : "f9ff3cd92fc5e86dbf06ce10049950e4a306fed36b294412cf45e8d86439fda8",
+  "originHash" : "ce3cfd6100b64d05c1dafd96d7eacf6748ab971a456a23fb58e68054e3f049a3",
   "pins" : [
     {
       "identity" : "sparkle",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "ab7d71291238df6e0492143b120c9b696a35f603",
         "version" : "2.10.1"
+      }
+    },
+    {
+      "identity" : "viewinspector",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/nalexn/ViewInspector",
+      "state" : {
+        "revision" : "2dacb6e514be19379c605a5a11564d0f3fea89d9",
+        "version" : "0.10.5"
       }
     }
   ],

@@ -20,13 +20,13 @@ public enum Power {
   static func externalDisplay(
     list: (UInt32, UnsafeMutablePointer<CGDirectDisplayID>?, UnsafeMutablePointer<UInt32>?) ->
       CGError,
-    isBuiltIn: (CGDirectDisplayID) -> Int32 = CGDisplayIsBuiltin
+    isBuiltIn: (CGDirectDisplayID) -> Bool = { CGDisplayIsBuiltin($0) != 0 }
   ) -> Bool? {
     var count: UInt32 = 0
     guard list(0, nil, &count) == .success, count > 0 else { return nil }
     var displays = [CGDirectDisplayID](repeating: 0, count: Int(count))
     guard list(count, &displays, &count) == .success else { return nil }
-    return displays.prefix(Int(count)).contains { isBuiltIn($0) == 0 }
+    return displays.prefix(Int(count)).contains { !isBuiltIn($0) }
   }
 }
 
