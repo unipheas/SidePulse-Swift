@@ -49,7 +49,7 @@ final class AppTests: XCTestCase {
     replace(seconds, with: "not a number")
     app.buttons["Apply"].click()
     XCTAssertTrue(app.staticTexts["Enter a number of seconds."].waitForExistence(timeout: 3))
-    app.buttons["OK"].firstMatch.click()
+    app.windows.buttons["OK"].firstMatch.click()
     replace(seconds, with: "15")
     app.buttons["Apply"].click()
     XCTAssertEqual(
