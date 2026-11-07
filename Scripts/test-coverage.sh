@@ -18,17 +18,17 @@ if [[ "${RUN_UI_TESTS:-0}" == 1 ]]; then
   Scripts/test-ui.sh
   profiles+=(".build/ui-tests/coverage.profdata")
 fi
-xcrun llvm-profdata merge -sparse "${profiles[@]}" -o "$work/all.profdata"
+xcrun llvm-profdata merge -sparse "${profiles[@]}" -o "$report/all.profdata"
 testbinary=""
 for candidate in "$bin"/*.xctest/Contents/MacOS/*; do
   if [[ -f "$candidate" && -x "$candidate" ]]; then testbinary="$candidate"; break; fi
 done
 test -n "$testbinary"
 # SwiftPM names the XCTest binary differently between the Xcode and native build systems.
-coverage=("$testbinary" -object "$bin/SidePulse" -object "$bin/sidepulsectl" -instr-profile "$work/all.profdata")
+coverage=("$testbinary" -object "$bin/SidePulse" -object "$bin/sidepulsectl" -instr-profile "$report/all.profdata")
 sources=()
 while IFS= read -r source; do sources+=("$PWD/$source"); done < <(find Sources \( -name '*.swift' -o -name '*.c' \) | sort)
-xcrun llvm-cov export "${coverage[@]}" -summary-only -sources "${sources[@]}" > "$report/coverage.json"
+xcrun llvm-cov export "${coverage[@]}" -sources "${sources[@]}" > "$report/coverage.json"
 xcrun llvm-cov show "${coverage[@]}" -format=html -output-dir="$report/html" -sources "${sources[@]}"
 python3 - "$report/coverage.json" "${MIN_COVERAGE:-0}" "${sources[@]}" <<'PY'
 import json, sys

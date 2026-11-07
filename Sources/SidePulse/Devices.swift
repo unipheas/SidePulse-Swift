@@ -16,20 +16,13 @@ struct DeviceManagement: View {
       Section("Connected devices") {
         ForEach(model.devices) { device in
           LabeledContent("SidePulse " + device.model, value: device.firmware)
-          let config =
-            (model.settings["devices"] as? [JSONObject])?.first { $0["id"] as? String == device.id }
-            ?? [:]
+          let config = Settings.device(device.id, in: model.settings)
           Slider(
             value: Binding(
               get: { Double(config["brightness"] as? Int ?? 255) },
               set: { value in
                 model.change { settings in
-                  var devices = settings["devices"] as? [JSONObject] ?? []
-                  var row = devices.first { $0["id"] as? String == device.id } ?? ["id": device.id]
-                  row["brightness"] = Int(value)
-                  devices.removeAll { $0["id"] as? String == device.id }
-                  devices.append(row)
-                  settings["devices"] = devices
+                  Settings.editDevice(device.id, in: &settings, values: ["brightness": Int(value)])
                 }
               }), in: 0...255, step: 1
           ) { Text("Brightness") }
@@ -60,8 +53,8 @@ struct DeviceManagement: View {
             }
           }
         }
-        TextField("Phone name", text: $name)
-        SecureField("Push token", text: $token)
+        TextField("Phone name", text: $name).accessibilityIdentifier("phone-name")
+        SecureField("Push token", text: $token).accessibilityIdentifier("phone-token")
         Button("Link phone") {
           do {
             try Bridge.store(token: token, name: name.isEmpty ? "Phone" : name)

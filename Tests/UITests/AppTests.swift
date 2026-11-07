@@ -30,7 +30,12 @@ final class AppTests: XCTestCase {
     if let root { try FileManager.default.removeItem(at: root) }
   }
   private func select(_ title: String) {
-    app.staticTexts[title].firstMatch.click()
+    app.activate()
+    app.outlines["Sidebar"].staticTexts[title].firstMatch.click()
+    if !app.windows[title].waitForExistence(timeout: 2) {
+      app.outlines["Sidebar"].staticTexts[title].firstMatch.click()
+    }
+    XCTAssertTrue(app.windows[title].waitForExistence(timeout: 3))
   }
   private func replace(_ field: XCUIElement, with value: String) {
     field.click()
@@ -42,16 +47,94 @@ final class AppTests: XCTestCase {
       JSONSerialization.jsonObject(
         with: Data(contentsOf: root.appendingPathComponent("settings.json"))) as? [String: Any])
   }
+  private func reveal(_ element: XCUIElement) {
+    for _ in 0..<15 where !element.isHittable {
+      app.scrollViews.element(boundBy: 1).scroll(byDeltaX: 0, deltaY: -180)
+    }
+    XCTAssertTrue(element.isHittable, app.debugDescription)
+  }
+  private func choose(_ picker: XCUIElement, _ value: String) {
+    reveal(picker)
+    picker.click()
+    app.menuItems[value].firstMatch.click()
+  }
+  func testSessionPreferencesAndTranscriptTogglesPersist() throws {
+    select("Settings")
+    choose(app.popUpButtons["session-terminal"], "Custom")
+    reveal(app.textFields["custom-terminal-path"])
+    replace(app.textFields["custom-terminal-path"], with: "/Applications/Fixture.app")
+    XCTAssertEqual(
+      (try settings()["session_terminal"] as? [String: Any])?["custom_path"] as? String,
+      "/Applications/Fixture.app")
+    choose(app.popUpButtons["session-terminal"], "Ghostty")
+    for provider in ["codex", "claude", "grok", "junie"] {
+      choose(app.popUpButtons["open-session-" + provider], "Terminal")
+      XCTAssertEqual(
+        (try settings()["session_open_preferences"] as? [String: String])?[provider], "terminal")
+      choose(app.popUpButtons["open-session-" + provider], "Automatic")
+      XCTAssertNil((try settings()["session_open_preferences"] as? [String: String])?[provider])
+    }
+    for (label, key, value) in [
+      ("Mark activity stale after", "idle_timeout_seconds", "600"),
+      ("Keep recent sessions for", "recent_session_retention_seconds", "86400"),
+    ] {
+      let field = app.textFields[key]
+      reveal(field)
+      replace(field, with: value)
+      app.buttons[key + "-apply"].click()
+      XCTAssertEqual((try settings()["agent_list"] as? [String: Any])?[key] as? Int, Int(value))
+    }
+    for provider in ["codex", "claude"] {
+      let toggle = app.switches["transcript-" + provider]
+      reveal(toggle)
+      toggle.click()
+      XCTAssertEqual((try settings()["transcript_monitoring"] as? [String: Bool])?[provider], true)
+      toggle.click()
+      XCTAssertEqual((try settings()["transcript_monitoring"] as? [String: Bool])?[provider], false)
+    }
+  }
+  func testLidAnimationPreviewSaveValidationAndReset() throws {
+    select("Settings")
+    let duration = app.textFields["lid_open-duration"]
+    reveal(duration)
+    replace(duration, with: "-1")
+    app.buttons["lid_open-save"].click()
+    XCTAssertTrue(app.windows.buttons["OK"].firstMatch.waitForExistence(timeout: 3))
+    app.windows.buttons["OK"].firstMatch.click()
+    replace(duration, with: "2.5")
+    app.buttons["lid_open-save"].click()
+    XCTAssertEqual(
+      (try settings()["lid_open_animation"] as? [String: Any])?["duration_seconds"] as? Double, 2.5)
+    app.buttons["lid_open-reset"].click()
+    XCTAssertEqual(
+      (try settings()["lid_open_animation"] as? [String: Any])?["duration_seconds"] as? Double, 1)
+    XCTAssertTrue(app.buttons["Replay"].firstMatch.exists)
+    app.buttons["Replay"].firstMatch.click()
+  }
+  func testPhoneLinkValidationAndRemovalStayLocal() throws {
+    select("Devices")
+    reveal(app.textFields["phone-name"])
+    replace(app.textFields["phone-name"], with: "Fixture Phone")
+    let token = app.secureTextFields["phone-token"]
+    replace(token, with: "invalid")
+    app.buttons["Link phone"].click()
+    XCTAssertTrue(app.staticTexts["Invalid phone token."].waitForExistence(timeout: 3))
+    replace(token, with: String(repeating: "a", count: 64))
+    app.buttons["Link phone"].click()
+    XCTAssertTrue(app.staticTexts["Fixture Phone"].waitForExistence(timeout: 3))
+    app.buttons["Remove"].click()
+    XCTAssertFalse(app.staticTexts["Fixture Phone"].exists)
+  }
   func testDoneDurationValidatesPersistsAndSurvivesRelaunch() throws {
     select("Settings")
     let seconds = app.textFields["done-seconds"]
     XCTAssertTrue(seconds.waitForExistence(timeout: 3))
     replace(seconds, with: "not a number")
-    app.buttons["Apply"].click()
+    app.buttons["save-done-duration"].click()
     XCTAssertTrue(app.staticTexts["Enter a number of seconds."].waitForExistence(timeout: 3))
     app.windows.buttons["OK"].firstMatch.click()
     replace(seconds, with: "15")
-    app.buttons["Apply"].click()
+    app.buttons["save-done-duration"].click()
     XCTAssertEqual(
       (try settings()["agent_list"] as? [String: Any])?["completed_visible_seconds"] as? Int, 15)
     app.terminate()
@@ -151,5 +234,48 @@ extension AppTests {
     let mapping = try settings()["agent_animations"] as? [String: [String: Any]]
     XCTAssertEqual(mapping?["working"]?["custom_program"] as? String, "#FF0000")
     XCTAssertNil(mapping?["completed"])
+  }
+}
+
+extension AppTests {
+  func testBatteryAndSleepSettingsValidationAndPersistence() throws {
+    select("Settings")
+    replace(app.textFields["power-preview-seconds"], with: "3.5")
+    replace(app.textFields["charger-watts"], with: "65")
+    app.buttons["Save battery settings"].click()
+    let battery = try settings()["battery_monitoring"] as? [String: Any]
+    XCTAssertEqual(battery?["power_change_preview_seconds"] as? Double, 3.5)
+    XCTAssertEqual(battery?["full_charge_watts"] as? Double, 65)
+    let minimum = app.textFields["sleep-minimum"]
+    for _ in 0..<12 where !minimum.isHittable {
+      app.scrollViews.element(boundBy: 1).scroll(byDeltaX: 0, deltaY: -200)
+    }
+    replace(minimum, with: "101")
+    app.buttons["save-sleep-minimum"].click()
+    XCTAssertTrue(
+      app.staticTexts["Enter a battery percentage from 0 to 100."].waitForExistence(timeout: 3))
+    app.windows.buttons["OK"].firstMatch.click()
+    replace(minimum, with: "25.5")
+    app.buttons["save-sleep-minimum"].click()
+    XCTAssertEqual(
+      (try settings()["sleep_prevention"] as? [String: Any])?["min_battery_percent"] as? Double,
+      25.5)
+  }
+  func testNamedAnimationsCanBeSavedAndReused() throws {
+    select("Animations")
+    app.buttons["edit-working"].click()
+    replace(app.textViews["animation-program"], with: "#102030")
+    replace(app.textFields["Reusable animation name"], with: "Reusable fixture")
+    app.buttons["Save to library"].click()
+    let registry = try XCTUnwrap(
+      try settings()["custom_agent_animations"] as? [String: [String: Any]])
+    XCTAssertTrue(registry.values.contains { $0["name"] as? String == "Reusable fixture" })
+    app.buttons["Cancel"].click()
+    app.buttons["edit-idle_ready"].click()
+    app.menuButtons["Load preset"].click()
+    app.menuItems["Reusable fixture"].firstMatch.click()
+    app.buttons["Save animation"].click()
+    let entries = try settings()["agent_animations"] as? [String: [String: Any]]
+    XCTAssertEqual(entries?["idle_ready"]?["custom_program"] as? String, "#102030")
   }
 }

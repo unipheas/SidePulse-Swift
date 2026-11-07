@@ -6,10 +6,18 @@ import JavaScriptCore
 
 public struct Device: Identifiable, Equatable, Sendable {
   public let root: URL, model: String, firmware: String, serial: String
+  public var programFile: String = "LEDS.LED"
   public var id: String { root.path }
   public var count: Int { model == "Dot" ? 2 : 8 }
   public var name: String { root.lastPathComponent }
-  public static func inspect(_ root: URL) throws -> Device {
+  public static func inspect(_ path: URL, fileName: String = "LEDS.LED") throws -> Device {
+    let isFile = path.pathExtension.lowercased() == "led"
+    let root = isFile ? path.deletingLastPathComponent() : path
+    let fileName = isFile ? path.lastPathComponent : fileName
+    guard fileName.range(of: #"^[A-Za-z0-9_-]+\.[Ll][Ee][Dd]$"#, options: .regularExpression) != nil
+    else {
+      throw PulseError("Use a plain .LED filename without directories.")
+    }
     let url = root.appendingPathComponent("STATUS.TXT")
     let handle = try FileHandle(forReadingFrom: url)
     defer { try? handle.close() }
@@ -28,7 +36,8 @@ public struct Device: Identifiable, Equatable, Sendable {
     guard dot != pro else { throw PulseError("Unrecognized SidePulse volume at \(root.path).") }
     return Device(
       root: root.standardizedFileURL, model: dot ? "Dot" : "Pro",
-      firmware: fields[dot ? "app_version" : "release_version"]!, serial: fields["serial"] ?? "")
+      firmware: fields[dot ? "app_version" : "release_version"]!, serial: fields["serial"] ?? "",
+      programFile: fileName)
   }
   public static func discover() -> [Device] {
     let roots =
@@ -43,14 +52,14 @@ public struct Device: Identifiable, Equatable, Sendable {
     }.joined()
     let lock = Paths.home.appendingPathComponent(".cache/sidepulse/device-locks/" + digest)
     try withLock(lock) {
-      guard try Device.inspect(root) == self else {
+      guard try Device.inspect(root, fileName: programFile) == self else {
         throw PulseError("The device changed before the write.")
       }
-      let url = root.appendingPathComponent("LEDS.LED")
+      let url = root.appendingPathComponent(programFile)
       let fd = open(url.path, O_NOFOLLOW | O_CREAT | O_TRUNC | O_WRONLY, 0o600)
       if fd < 0 {
         let failure = errno
-        guard [EROFS, EACCES, EPERM].contains(failure),
+        guard programFile == "LEDS.LED", [EROFS, EACCES, EPERM].contains(failure),
           firmware.compare("1.1.0", options: .numeric) != .orderedAscending
         else {
           throw POSIXError(POSIXErrorCode(rawValue: failure) ?? .EIO)

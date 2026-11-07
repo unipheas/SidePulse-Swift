@@ -84,8 +84,8 @@ public final class SleepOverride {
       lastMode = mode
     }
     let minimum =
-      (settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Int ?? 20
-    let safeBattery = battery.map { $0.plugged || $0.percent >= minimum } ?? true
+      (settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Double ?? 20
+    let safeBattery = battery.map { $0.plugged || Double($0.percent) >= minimum } ?? true
     let wanted =
       owner && safeBattery
       && (policy == "always"

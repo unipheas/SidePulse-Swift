@@ -16,9 +16,11 @@ import SwiftUI
   var timer: Timer?
   private let relay = Relay()
   private var relaying = false
+  private var ownsOutput = false
   private var ticks = 0
   private var lastPhoneMode: Mode?
   private var sending = false
+  private let notch = NotchDisplay()
   private let discover: () -> [Device]
   private let outputInUse: () -> Bool
   init(
@@ -61,8 +63,10 @@ import SwiftUI
         if history.count > 500 { history.removeFirst() }
       }
       let battery = Battery.read()
+      try notch.update(NotchDisplay.program(settings: settings, mode: mode, battery: battery))
       try sleepOverride.update(mode: mode, settings: settings, battery: battery, owner: !legacy)
       if !legacy {
+        ownsOutput = true
         if !relaying {
           relaying = true
           let currentSessions = sessions
@@ -94,6 +98,10 @@ import SwiftUI
         }
 
       } else {
+        if ownsOutput {
+          ownsOutput = false
+          Task { await relay.stop() }
+        }
         output.reset()
         output.keepAwake(false)
       }

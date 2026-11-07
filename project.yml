@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     macOS: '14.0'
 packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.1
   SidePulseCore:
     path: .
 settings:
@@ -24,6 +27,7 @@ targets:
         inputFiles: ["$(BUILT_PRODUCTS_DIR)/sidepulsectl"]
         outputFiles: ["$(TARGET_BUILD_DIR)/$(EXECUTABLE_FOLDER_PATH)/sidepulsectl"]
     dependencies:
+      - package: Sparkle
       - target: SidePulseCommand
         link: false
       - package: SidePulseCore

@@ -62,6 +62,31 @@ extension Terminal {
           return "0"
         end run
         """
+    } else if name == "ghostty" {
+      script = """
+        on run argv
+          if application "Ghostty" is not running then return "0"
+          tell application "Ghostty"
+            repeat with w in windows
+              repeat with t in tabs of w
+                repeat with s in terminals of t
+                  set titleText to (name of w) & " " & (name of t) & " " & (name of s)
+                  repeat with marker in argv
+                    if titleText contains (marker as text) then
+                      select tab t
+                      focus s
+                      activate window w
+                      activate
+                      return "1"
+                    end if
+                  end repeat
+                end repeat
+              end repeat
+            end repeat
+          end tell
+          return "0"
+        end run
+        """
     } else {
       return false
     }

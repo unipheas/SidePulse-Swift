@@ -2,7 +2,10 @@ import Foundation
 import PulseCore
 
 extension CLI {
-  static func batteryCommand() async throws {
+  static func batteryCommand(
+    read: () -> Battery? = Battery.read,
+    diagnostics: (Double) -> JSONObject? = { BatteryDiagnostics.read(fullWatts: $0)?.values }
+  ) async throws {
     let action = Args.pop() ?? "status"
     let full = try Args.option("--full-watts")
     let fullWatts: Double?
@@ -33,18 +36,19 @@ extension CLI {
       throw PulseError("Enter a positive polling interval.")
     }
     let path = try Args.option("--device")
+    let fileName = try Args.option("--file-name") ?? "LEDS.LED"
     try Args.end()
     guard ["status", "leds"].contains(action) else {
       throw PulseError("Use battery status, leds or configure.")
     }
     repeat {
-      guard let battery = Battery.read() else { throw PulseError("No internal battery found.") }
+      guard let battery = read() else { throw PulseError("No internal battery found.") }
       if action == "status" {
         if json {
           try jsonPrint(
-            BatteryDiagnostics.read(
-              fullWatts: fullWatts ?? (try Settings.read()["battery_monitoring"] as? JSONObject)?[
-                "full_charge_watts"] as? Double ?? PowerRegistry.fullChargeWatts)?.values ?? [
+            diagnostics(
+              fullWatts ?? (try Settings.read()["battery_monitoring"] as? JSONObject)?[
+                "full_charge_watts"] as? Double ?? PowerRegistry.fullChargeWatts) ?? [
                 "percent": battery.percent, "is_charging": battery.charging,
                 "is_plugged": battery.plugged, "adapter_watts": battery.watts,
               ])
@@ -56,7 +60,8 @@ extension CLI {
         return
       }
       let devices =
-        try path.map { [try Device.inspect(URL(fileURLWithPath: $0))] } ?? Device.discover()
+        try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
+        ?? Device.discover()
       let device = try Args.one(devices)
       let settings = try Settings.read()
       let baseline =

@@ -7,6 +7,21 @@ import SwiftUI
   var body: some Scene {
     Window("SidePulse", id: "main") {
       DashboardView().environmentObject(model)
+        .task {
+          if Bundle.main.bundleIdentifier == "com.unipheas.SidePulseSwift",
+            let executable = Bundle.main.executableURL,
+            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+          {
+            do {
+              try AppInstallation.refreshServices(
+                executable: executable.deletingLastPathComponent().appendingPathComponent(
+                  "sidepulsectl"), version: version)
+            } catch { model.problem = error.localizedDescription }
+          }
+        }
+        .onOpenURL { url in
+          if url.host == "updates" { AppUpdates.shared.check() }
+        }
         .alert(
           "SidePulse",
           isPresented: Binding(
@@ -17,6 +32,9 @@ import SwiftUI
           Text(model.problem ?? "")
         }
     }.defaultSize(width: 800, height: 535)
+      .commands {
+        CommandGroup(after: .appInfo) { CheckUpdatesButton() }
+      }
     Window("Virtual SidePulse", id: "leds") {
       LightBar(
         source: (try? Programs.program(model.mode, count: 8, settings: model.settings)) ?? "off",

@@ -4,9 +4,9 @@ final class TranscriptReader {
   struct Entry { let date: Date, size: Int, session: Session? }
   private var files = [URL: Entry]()
   private var nextScan = Date.distantPast
-  func read(settings: JSONObject) -> [Session] {
-    if Date() >= nextScan {
-      nextScan = Date().addingTimeInterval(5)
+  func read(settings: JSONObject, now: Date = Date()) -> [Session] {
+    if now >= nextScan {
+      nextScan = now.addingTimeInterval(5)
       var next = [URL: Entry]()
       let enabled = settings["transcript_monitoring"] as? [String: Bool] ?? [:]
       for (provider, path) in [("codex", ".codex/sessions"), ("claude", ".claude/projects")]
@@ -21,7 +21,7 @@ final class TranscriptReader {
         for case let url as URL in walker where url.pathExtension == "jsonl" {
           guard let info = try? url.resourceValues(forKeys: keys),
             let date = info.contentModificationDate,
-            Date().timeIntervalSince(date) < 172800
+            now.timeIntervalSince(date) < 172800
           else { continue }
           recent.append((url, date, info.fileSize ?? 0))
         }

@@ -4,7 +4,7 @@ import PulseCore
 
 /// Convert the current microphone RMS to a smoothed VU meter. Audio samples stay in memory.
 enum AudioMeter {
-  private final class Level {
+  final class Level {
     let lock = NSLock()
     var rms: Double = 0
     func update(_ buffer: AVAudioPCMBuffer) {
@@ -19,24 +19,46 @@ enum AudioMeter {
     }
     func read() -> Double { lock.withLock { rms } }
   }
-  static func run(device: Device?, dryRun: Bool) async throws {
-    guard await AVCaptureDevice.requestAccess(for: .audio) else {
+  struct Input {
+    var authorize: () async -> Bool
+    var start: (Level) throws -> Void
+    var stop: () -> Void
+    static func microphone() -> Input {
+      let engine = AVAudioEngine()
+      return Input(
+        authorize: { await AVCaptureDevice.requestAccess(for: .audio) },
+        start: { level in
+          let input = engine.inputNode
+          let format = input.inputFormat(forBus: 0)
+          guard format.channelCount > 0, format.sampleRate > 0 else {
+            throw PulseError("Select an input device in Sound settings.")
+          }
+          input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
+            level.update(buffer)
+          }
+          do { try engine.start() } catch {
+            input.removeTap(onBus: 0)
+            throw error
+          }
+        },
+        stop: {
+          engine.inputNode.removeTap(onBus: 0)
+          engine.stop()
+        })
+    }
+  }
+  static func run(
+    device: Device?, dryRun: Bool, input: Input? = nil,
+    wait: () async throws -> Void = { try await Task.sleep(for: .milliseconds(40)) },
+    output: (String) -> Void = { print($0) }
+  ) async throws {
+    let input = input ?? .microphone()
+    guard await input.authorize() else {
       throw PulseError("Microphone access is required for the audio meter.")
     }
-    let engine = AVAudioEngine()
     let level = Level()
-    let input = engine.inputNode
-    let format = input.inputFormat(forBus: 0)
-    guard format.channelCount > 0, format.sampleRate > 0 else {
-      throw PulseError("Select an input device in Sound settings.")
-    }
-    input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in level.update(buffer)
-    }
-    defer {
-      input.removeTap(onBus: 0)
-      engine.stop()
-    }
-    try engine.start()
+    try input.start(level)
+    defer { input.stop() }
     var smoothed = 0.0
     var previous = ""
     let count = device?.count ?? 8
@@ -57,16 +79,23 @@ enum AudioMeter {
       }
       let program = parts.joined(separator: ";")
       if program != previous {
-        if dryRun { print(program) } else { try device?.write(program) }
+        if dryRun { output(program) } else { try device?.write(program) }
         previous = program
       }
-      try await Task.sleep(for: .milliseconds(40))
+      try await wait()
     }
   }
 }
 
 enum Scoreboard {
-  static func run(device: Device?, score: String?, dryRun: Bool) async throws {
+  static func run(
+    device: Device?, score: String?, dryRun: Bool,
+    fetch: (URL) async throws -> (Data, URLResponse) = {
+      try await URLSession.shared.data(from: $0)
+    },
+    wait: () async throws -> Void = { try await Task.sleep(for: .seconds(30)) },
+    output: (String) -> Void = { print($0) }
+  ) async throws {
     var previous: [Int] = []
     repeat {
       let goals: [Int]
@@ -81,7 +110,7 @@ enum Scoreboard {
       } else {
         let url = URL(
           string: "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard")!
-        let (data, response) = try await URLSession.shared.data(from: url)
+        let (data, response) = try await fetch(url)
         guard (response as? HTTPURLResponse)?.statusCode == 200,
           let json = try JSONSerialization.jsonObject(with: data) as? JSONObject,
           let events = json["events"] as? [JSONObject]
@@ -116,11 +145,11 @@ enum Scoreboard {
           let color = left ? "#FF0000" : "#0000FF"
           return "\(i):\(Programs.dim(color,brightness:lit ? 255 : 3)) 250ms cosine"
         }.joined(separator: ";")
-        if dryRun { print(program) } else { try device?.write(program) }
+        if dryRun { output(program) } else { try device?.write(program) }
         previous = goals
       }
       if score != nil { return }
-      try await Task.sleep(for: .seconds(30))
+      try await wait()
     } while !Task.isCancelled
   }
 }

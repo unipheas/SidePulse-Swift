@@ -41,7 +41,7 @@ public enum Hooks {
     }
   }
   public static func configure(
-    _ provider: String, executable: URL, install: Bool, home: URL = Paths.home
+    _ provider: String, executable: URL, install: Bool, home: URL = Paths.home, log: URL? = nil
   ) throws {
     guard let relative = configs[provider], let names = events[provider] else {
       throw PulseError("Choose one of: \(providers.joined(separator: ", ")).")
@@ -52,7 +52,9 @@ public enum Hooks {
       if !install && !exists { return }
       let original = exists ? try Data(contentsOf: file) : Data()
       let path = shellQuote(executable.standardizedFileURL.path)
-      let prefix = path + " hook-log --provider " + provider
+      let prefix =
+        path + " hook-log --provider " + provider
+        + (log.map { " --log " + shellQuote($0.standardizedFileURL.path) } ?? "")
       let output: Data
       if provider == "codex" {
         guard var text = String(data: original, encoding: .utf8) else {
@@ -113,8 +115,8 @@ public enum Hooks {
             let command =
               entry["command"] as? String
               ?? (nested?.count == 1 ? nested?.first?["command"] as? String : nil)
-            return command?.hasSuffix(
-              " hook-log --provider \(provider) --event \(name) # sidepulse-swift") == true
+            return command?.contains(" hook-log --provider \(provider)") == true
+              && command?.hasSuffix(" --event \(name) # sidepulse-swift") == true
           }
           if install {
             let command = prefix + " --event " + name + " # sidepulse-swift"

@@ -1,0 +1,4 @@
+module USBControl {
+  umbrella "."
+  export *
+}

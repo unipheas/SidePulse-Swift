@@ -4,6 +4,7 @@ import PulseCore
 extension CLI {
   static func deliver(preferPhone: Bool) async throws {
     let path = try Args.option("--device")
+    let fileName = try Args.option("--file-name") ?? "LEDS.LED"
     let all = Args.flag("--all")
     let dry = Args.flag("--dry-run")
     let requested = try Args.option("--to")
@@ -16,11 +17,9 @@ extension CLI {
     let source = Args.words.isEmpty && notification ? nil : try Args.program()
     let devices: [Device]
     if let path {
-      var url = URL(fileURLWithPath: path)
-      if url.lastPathComponent.uppercased() == "LEDS.LED" { url.deleteLastPathComponent() }
-      devices = [try Device.inspect(url)]
+      devices = [try Device.inspect(URL(fileURLWithPath: path), fileName: fileName)]
     } else {
-      devices = Device.discover()
+      devices = try Device.discover().map { try Device.inspect($0.root, fileName: fileName) }
     }
     let destinations = try Destination.select(
       devices: devices, phones: path == nil ? Bridge.phones() : [],

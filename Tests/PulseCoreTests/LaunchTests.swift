@@ -117,7 +117,7 @@ extension LaunchTests {
       provider: "codex", session: "agent", name: "Task\u{1b} name", event: "Stop",
       date: Date(), threadID: "fixture-id", mode: .done)
     XCTAssertFalse(Terminal.title(for: session).contains("\u{1b}"))
-    for app in ["terminal", "iterm"] {
+    for app in ["terminal", "iterm", "ghostty"] {
       var calls = [[String]]()
       try Terminal.open(
         "codex resume fixture-id", settings: ["session_terminal": ["app": app]], session: session,

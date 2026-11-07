@@ -32,8 +32,8 @@ public final class Output {
     if [.working, .tool, .progress].contains(mode) { awakeUntil = .distantPast }
     lastMode = mode
     let minimum =
-      (settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Int ?? 20
-    let safeBattery = battery.map { $0.plugged || $0.percent >= minimum } ?? true
+      (settings["sleep_prevention"] as? JSONObject)?["min_battery_percent"] as? Double ?? 20
+    let safeBattery = battery.map { $0.plugged || Double($0.percent) >= minimum } ?? true
     let policy = settings["sleep_prevention_policy"] as? String ?? "agents"
     let enabled = settings["swift_keep_awake"] as? Bool ?? (policy != "never")
     let active =

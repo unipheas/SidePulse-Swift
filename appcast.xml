@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
+  <channel>
+    <title>SidePulse updates</title>
+    <link>https://github.com/unipheas/SidePulse-Swift/releases</link>
+    <description>Signed native macOS SidePulse updates.</description>
+    <language>en</language>
+  </channel>
+</rss>

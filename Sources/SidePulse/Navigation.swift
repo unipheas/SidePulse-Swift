@@ -45,5 +45,8 @@ struct DashboardView: View {
         }
       }.navigationTitle((selection ?? .overview).rawValue)
     }.frame(minWidth: 675, minHeight: 460)
+      .onOpenURL { url in
+        if url.scheme == "sidepulse-native", url.host == "settings" { selection = .settings }
+      }
   }
 }

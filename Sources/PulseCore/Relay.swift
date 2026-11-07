@@ -66,10 +66,23 @@ public actor Relay {
   private var configuration: RelayConfiguration?
   private var receiver: Task<Void, Never>?
   private var forwarded = [String: Date]()
-  public init() {}
+  private let send: (String, String, JSONObject, String) async throws -> Void
+  private let receive: (String, String) async throws -> Void
+  public init(
+    send: @escaping (String, String, JSONObject, String) async throws -> Void = {
+      try await Bridge.send(channel: $0, provider: $1, row: $2, origin: $3)
+    },
+    receive: @escaping (String, String) async throws -> Void = {
+      try await Bridge.receive(channel: $0, origin: $1)
+    }
+  ) {
+    self.send = send
+    self.receive = receive
+  }
   public func stop() {
     receiver?.cancel()
     receiver = nil
+    configuration = nil
   }
   public func sync(_ sessions: [Session]) async throws {
     let config = try RelayConfiguration.read()
@@ -77,8 +90,9 @@ public actor Relay {
       receiver?.cancel()
       receiver = nil
       if !config.receiverChannel.isEmpty {
+        let receive = self.receive
         receiver = Task {
-          try? await Bridge.receive(channel: config.receiverChannel, origin: config.server)
+          try? await receive(config.receiverChannel, config.server)
         }
       }
       forwarded = [:]
@@ -97,8 +111,7 @@ public actor Relay {
           "session_title": item.name,
         ],
       ]
-      try await Bridge.send(
-        channel: config.outboundChannel, provider: item.provider, row: row, origin: config.server)
+      try await send(config.outboundChannel, item.provider, row, config.server)
       forwarded[item.id] = item.date
     }
     forwarded = forwarded.filter { key, _ in sessions.contains { $0.id == key } }

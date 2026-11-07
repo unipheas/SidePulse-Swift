@@ -3,10 +3,23 @@ import PulseCore
 
 extension CLI {
   static func serviceCommand(_ job: String) async throws {
+    let scopeName = try Args.option("--scope") ?? "user"
+    guard let scope = Jobs.Scope(rawValue: scopeName) else {
+      throw PulseError("Choose auto, user or system scope.")
+    }
+    let interactive = Args.flag("--interactive") || Args.flag("-it")
     let action = Args.pop() ?? "status"
     if job == "service", action == "code" {
       try Args.end()
       print("sidepulsectl link " + (try RelayConfiguration.receiver()).receiverChannel)
+      return
+    }
+    if interactive {
+      guard job == "sdejectguard", action == "start" else {
+        throw PulseError("Interactive mode requires sdejectguard start.")
+      }
+      try Args.end()
+      try EjectGuard.run()
       return
     }
     if action == "logs" {
@@ -15,7 +28,7 @@ extension CLI {
       try Args.end()
       guard count >= 0, count <= 10000 else { throw PulseError("Use 0–10000 log lines.") }
       let logs = ["out", "err"].map {
-        Paths.support.appendingPathComponent(job + "." + $0 + ".log")
+        Jobs.logDirectory(scope: scope).appendingPathComponent(job + "." + $0 + ".log")
       }
       for file in logs {
         print("== " + file.lastPathComponent + " ==")
@@ -40,16 +53,17 @@ extension CLI {
     switch action {
     case "status":
       try Args.end()
-      print(Jobs.running(Jobs.prefix + job) ? "running" : "stopped")
+      print(Jobs.running(job, scope: scope) ? "running" : "stopped")
     case "start", "restart", "stop", "uninstall":
       let dry = Args.flag("--dry-run")
       try Args.end()
       if dry {
-        print("Would \(action) \(job)")
+        print("Would \(action) \(job) (\(scope.rawValue) scope)")
         return
       }
       try Jobs.configure(
-        job, executable: Bundle.main.executableURL!, start: ["start", "restart"].contains(action))
+        job, executable: Bundle.main.executableURL!, start: ["start", "restart"].contains(action),
+        scope: scope, remove: action == "uninstall")
     case "run":
       if job == "service" {
         try await monitor("leds")

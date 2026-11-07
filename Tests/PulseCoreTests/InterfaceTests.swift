@@ -5,6 +5,37 @@ import XCTest
 @testable import SidePulse
 
 final class InterfaceTests: IsolatedTests {
+  @MainActor func testDashboardOwnsOutputHandlesFailuresAndYieldsToService() async throws {
+    _ = NSApplication.shared
+    try Settings.update { $0["sleep_prevention_policy"] = "never" }
+    let device = try volume()
+    var service = false
+    let dashboard = Dashboard(discover: { [device] }, outputInUse: { service }, poll: false)
+    XCTAssertTrue(
+      FileManager.default.fileExists(atPath: device.root.appendingPathComponent("LEDS.LED").path))
+    dashboard.history = Array(repeating: (Date(), .unknown), count: 500)
+    dashboard.refresh()
+    XCTAssertEqual(dashboard.history.count, 500)
+    dashboard.change { $0["swift_phone_mirror"] = true }
+    for _ in 0..<5 { await Task.yield() }
+    XCTAssertNil(dashboard.problem)
+    dashboard.change { $0["swift_phone_mirror"] = false }
+    dashboard.change { _ in throw PulseError("Settings are read-only") }
+    XCTAssertEqual(dashboard.problem, "Settings are read-only")
+    dashboard.problem = nil
+    dashboard.setProfile("missing-profile")
+    XCTAssertNotNil(dashboard.problem)
+    dashboard.problem = nil
+    service = true
+    for _ in 0..<5 { dashboard.refresh() }
+    XCTAssertTrue(dashboard.legacy)
+    NotificationCenter.default.post(name: NSApplication.willTerminateNotification, object: nil)
+    try Data("invalid JSON".utf8).write(to: Settings.url)
+    dashboard.refresh()
+    XCTAssertNotNil(dashboard.problem)
+    let broken = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    XCTAssertNotNil(broken.problem)
+  }
   @MainActor func testDashboardReflectsSettingsAndHookTransitionsInHostedScreens() throws {
     _ = NSApplication.shared
     let device = try volume()

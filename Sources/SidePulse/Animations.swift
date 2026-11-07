@@ -108,6 +108,7 @@ private struct AnimationCard: View {
   let count: Int
   @State private var editing = false
   @State private var draft = ""
+  @State private var animationName = ""
   private var program: String {
     (try? Programs.program(mode, count: count, settings: model.settings)) ?? "off"
   }
@@ -127,7 +128,26 @@ private struct AnimationCard: View {
             Text(mode.label + " animation").font(.headline)
             ProgramEditor(source: $draft, count: count)
             HStack {
+              TextField("Reusable animation name", text: $animationName).textFieldStyle(
+                .roundedBorder)
+              Button("Save to library") {
+                do {
+                  try Settings.saveAnimation(name: animationName, program: draft, count: count)
+                  animationName = ""
+                  model.refresh()
+                } catch { model.problem = error.localizedDescription }
+              }.disabled(animationName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            HStack {
               Menu("Load preset") {
+                let custom =
+                  model.settings["custom_agent_animations"] as? [String: JSONObject] ?? [:]
+                ForEach(custom.keys.sorted(), id: \.self) { id in
+                  Button(custom[id]?["name"] as? String ?? id) {
+                    draft = custom[id]?["program"] as? String ?? draft
+                  }
+                }
+                Divider()
                 ForEach(Programs.animationNames, id: \.self) { name in
                   Button(name) { draft = (try? Programs.preset(name, count: count)) ?? draft }
                 }
@@ -183,7 +203,7 @@ struct ProgramEditor: View {
   }
 }
 
-private struct DevicePreviewMenu: View {
+struct DevicePreviewMenu: View {
   @EnvironmentObject var model: Dashboard
   let source: String
   var body: some View {

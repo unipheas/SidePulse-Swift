@@ -67,6 +67,18 @@ func withLock<T>(_ url: URL, _ action: () throws -> T) throws -> T {
 }
 
 public enum Settings {
+  public static func device(_ id: String, in settings: JSONObject) -> JSONObject {
+    (settings["devices"] as? [JSONObject])?.first { $0["id"] as? String == id } ?? ["id": id]
+  }
+  public static func editDevice(_ id: String, in settings: inout JSONObject, values: JSONObject) {
+    var devices = settings["devices"] as? [JSONObject] ?? []
+    var entry = device(id, in: settings)
+    entry.merge(values) { _, new in new }
+    entry["id"] = id
+    devices.removeAll { $0["id"] as? String == id }
+    devices.append(entry)
+    settings["devices"] = devices
+  }
   public static var url: URL { Paths.support.appendingPathComponent("settings.json") }
   public static func read() throws -> JSONObject {
     for file in [url, Paths.legacyConfig.appendingPathComponent("settings.json")]
@@ -77,6 +89,7 @@ public enum Settings {
   }
   /// Materialize legacy file-backed programs before the previous installation is removed.
   public static func migrate() throws {
+    try History.importLegacy()
     try withLock(Paths.support.appendingPathComponent("settings.lock")) {
       for filename in ["links.json", "relay.json"] {
         let source = Paths.legacyConfig.appendingPathComponent(filename)
@@ -188,5 +201,35 @@ extension Settings {
       $0["agent_animations"] = mapping
       $0["swift_profile"] = "current"
     }
+  }
+}
+
+extension Settings {
+  public static func setSleepMinimum(_ text: String) throws {
+    guard let value = Double(text), value.isFinite, (0...100).contains(value) else {
+      throw PulseError("Enter a battery percentage from 0 to 100.")
+    }
+    try update {
+      var settings = $0["sleep_prevention"] as? JSONObject ?? [:]
+      settings["min_battery_percent"] = value
+      $0["sleep_prevention"] = settings
+    }
+  }
+}
+
+extension Settings {
+  @discardableResult
+  public static func saveAnimation(name: String, program: String, count: Int = 8) throws -> String {
+    let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty else { throw PulseError("Enter an animation name.") }
+    let program = try Programs.normalize(program)
+    _ = try LEDPreview(program: program, count: count)
+    let id = "custom:" + UUID().uuidString
+    try update {
+      var animations = $0["custom_agent_animations"] as? [String: JSONObject] ?? [:]
+      animations[id] = ["name": name, "program": program]
+      $0["custom_agent_animations"] = animations
+    }
+    return id
   }
 }

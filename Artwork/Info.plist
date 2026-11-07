@@ -16,4 +16,10 @@
   <key>NSAppleEventsUsageDescription</key><string>SidePulse opens or focuses the terminal for a coding session you select.</string>
   <key>NSMicrophoneUsageDescription</key><string>The optional audio meter uses input level to animate the LEDs.</string>
   <key>NSRemovableVolumesUsageDescription</key><string>SidePulse reads device status and writes the LED animation you select.</string>
+  <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLName</key><string>SidePulse commands</string><key>CFBundleURLSchemes</key><array><string>sidepulse-native</string></array></dict></array>
+  <key>SUFeedURL</key><string>https://raw.githubusercontent.com/unipheas/SidePulse-Swift/main/appcast.xml</string>
+  <key>SUPublicEDKey</key><string>kUM8BQIf9FC7aSw5YBD6GZcBqaJdzcHBmsqZ46L6Pl8=</string>
+  <key>SUEnableAutomaticChecks</key><false/>
+  <key>SUAutomaticallyUpdate</key><false/>
+  <key>SUVerifyUpdateBeforeExtraction</key><true/>
 </dict></plist>

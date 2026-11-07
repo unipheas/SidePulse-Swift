@@ -94,7 +94,7 @@ enum Args {
         return
       }
       try SystemCommand.run(
-        "/usr/bin/open", ["https://github.com/unipheas/SidePulse-Swift/releases"])
+        "/usr/bin/open", ["sidepulse-native://updates"])
     case "help", "-h", "--help": print(help)
     case "version", "--version", "-V": print("SidePulse 0.2.0")
     case "devices": try listDevices()
@@ -128,10 +128,32 @@ enum Args {
       let dry = Args.flag("--dry-run")
       try RawDisk.write(path: path, program: Args.program(), dryRun: dry)
     case "write", "push": try await deliver(preferPhone: command == "push")
-    case "setup": try configure(install: true)
+    case "status-bar": try appCommand()
+    case "setup":
+      let noApp = Args.flag("--no-status-bar")
+      let scopeName = try Args.option("--sd-eject-guard-scope") ?? "auto"
+      guard let scope = Jobs.Scope(rawValue: scopeName) else {
+        throw PulseError("Choose auto, user or system scope.")
+      }
+      let dry = Args.words.contains("--dry-run")
+      let executable = Bundle.main.executableURL!
+      let bundle = !noApp && !dry ? try AppInstallation.bundle(for: executable) : nil
+      guard scope != .system || getuid() == 0 else {
+        throw PulseError("System scope requires root.")
+      }
+      try configure(install: true)
+      if let bundle {
+        try Jobs.configure("sdejectguard", executable: executable, start: true, scope: scope)
+        try Jobs.configure(
+          "app", executable: bundle.appendingPathComponent("Contents/MacOS/SidePulse"), start: true)
+      }
     case "agent-monitor":
       let sub = Args.pop() ?? "status"
       switch sub {
+      case "status-bar": try appCommand()
+      case "hook-log":
+        Args.words.insert("hook-log", at: 0)
+        try await run()
       case "install", "uninstall": try configure(install: sub == "install")
       case "version": print("SidePulse 0.2.0")
       case "doctor":
@@ -148,16 +170,23 @@ enum Args {
       }
     case "service", "sdejectguard": try await serviceCommand(command)
     case "classify":
+      let json = Args.flag("--json")
       let message =
         Args.words.isEmpty
         ? String(decoding: FileHandle.standardInput.readDataToEndOfFile(), as: UTF8.self)
         : Args.words.joined(separator: " ")
-      print(try await ReplyClassifier.classify(message))
+      let result = try await ReplyClassifier.result(message)
+      if json {
+        print(String(decoding: try JSONEncoder().encode(result), as: UTF8.self))
+      } else {
+        print(result.label)
+      }
     case "hook-log":
       guard let provider = try Args.option("--provider") else {
         throw PulseError("Missing --provider.")
       }
       let event = try Args.option("--event")
+      let log = try Args.option("--log").map { URL(fileURLWithPath: $0) }
       try Args.end()
       defer { if provider == "cursor" { print("{}") } }
       var data = Data()
@@ -168,7 +197,7 @@ enum Args {
         data.append(chunk)
       }
       if let raw = (try? JSONSerialization.jsonObject(with: data)) as? JSONObject {
-        do { try Events.record(provider: provider, raw: raw, named: event) } catch {
+        do { try Events.record(provider: provider, raw: raw, named: event, log: log) } catch {
           FileHandle.standardError.write(
             Data(("SidePulse hook logging failed: " + error.localizedDescription + "\n").utf8))
         }
@@ -188,7 +217,7 @@ enum Args {
           print(Settings.url.path)
           return
         }
-        try SystemCommand.run("/usr/bin/open", [app.path])
+        try SystemCommand.run("/usr/bin/open", ["-a", app.path, "sidepulse-native://settings"])
       } else {
         guard Args.pop() == "done", let value = Double(try Args.require("seconds")) else {
           throw PulseError("Use settings done SECONDS.")
@@ -286,6 +315,15 @@ enum Args {
   }
   static func configure(install: Bool) throws {
     let dry = Args.flag("--dry-run")
+    let directory = try Args.option("--log-dir").map { URL(fileURLWithPath: $0) }
+    var logs = [String: URL]()
+    for provider in providers {
+      if let path = try Args.option("--" + provider + "-log") {
+        logs[provider] = URL(fileURLWithPath: path)
+      } else if let directory {
+        logs[provider] = directory.appendingPathComponent(provider + ".jsonl")
+      }
+    }
     let selected = Args.pop() ?? "all"
     try Args.end()
     let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
@@ -295,7 +333,12 @@ enum Args {
         print("Would " + (install ? "install " : "remove ") + provider + " hooks")
         continue
       }
-      try Hooks.configure(provider, executable: executable, install: install)
+      try Hooks.configure(provider, executable: executable, install: install, log: logs[provider])
+      try Settings.update {
+        var configured = $0["hook_logs"] as? [String: String] ?? [:]
+        configured[provider] = install ? logs[provider]?.standardizedFileURL.path : nil
+        $0["hook_logs"] = configured
+      }
       print("\(provider): \(install ? "installed" : "removed")")
     }
   }

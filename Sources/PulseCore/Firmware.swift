@@ -19,11 +19,11 @@ public enum Firmware {
     }
     return result
   }
-  static func fetch(_ string: String) async throws -> Data {
+  static func fetch(_ string: String, session: URLSession = .shared) async throws -> Data {
     var request = URLRequest(url: URL(string: string)!)
     request.timeoutInterval = 30
     request.setValue("SidePulse-Swift", forHTTPHeaderField: "User-Agent")
-    let (bytes, response) = try await URLSession.shared.bytes(for: request)
+    let (bytes, response) = try await session.bytes(for: request)
     guard (response as? HTTPURLResponse)?.statusCode == 200, response.expectedContentLength <= limit
     else { throw PulseError("Firmware download failed.") }
     var data = Data()
@@ -72,7 +72,8 @@ public enum Firmware {
   public static func upgrade(_ device: Device, version: String?, file: String?, dryRun: Bool)
     async throws -> String
   {
-    try await upgrade(device, version: version, file: file, dryRun: dryRun, fetch: fetch)
+    try await upgrade(
+      device, version: version, file: file, dryRun: dryRun, fetch: { try await fetch($0) })
   }
   static func upgrade(
     _ device: Device, version: String?, file: String?, dryRun: Bool,

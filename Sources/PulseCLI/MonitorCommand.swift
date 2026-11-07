@@ -12,8 +12,14 @@ extension CLI {
       throw PulseError("Enter a positive polling interval.")
     }
     let path = try Args.option("--device")
+    let fileName = try Args.option("--file-name") ?? "LEDS.LED"
     let stale = try Args.option("--stale-after")
     let tool = try Args.option("--tool-running-timeout")
+    let maxLines = Int(try Args.option("--max-lines") ?? "5000") ?? 0
+    let recent = Double(try Args.option("--recent-seconds") ?? "3600") ?? -1
+    guard maxLines > 0, maxLines <= 100000, recent.isFinite, recent >= 0 else {
+      throw PulseError("Use 1–100000 recent lines and a finite nonnegative time window.")
+    }
     var logs = [String: URL]()
     for provider in providers {
       if let path = try Args.option("--" + provider + "-log") {
@@ -23,7 +29,7 @@ extension CLI {
     _ = Args.flag("--no-color")
     let all = Args.flag("--all")
     try Args.end()
-    let monitor = Monitor(logs: logs)
+    let monitor = Monitor(logs: logs, maxLines: maxLines)
     let output = Output()
     let sleep = SleepOverride()
     defer {
@@ -53,7 +59,8 @@ extension CLI {
           throw PulseError("The existing SidePulse service owns LED output.")
         }
         let devices =
-          try path.map { [try Device.inspect(URL(fileURLWithPath: $0))] } ?? Device.discover()
+          try path.map { [try Device.inspect(URL(fileURLWithPath: $0), fileName: fileName)] }
+          ?? Device.discover()
         if dry {
           for device in devices {
             print(
@@ -88,7 +95,9 @@ extension CLI {
           String(decoding: try encoder.encode(Report(mode: mode, sessions: rows)), as: UTF8.self))
       } else {
         print(mode.label)
-        let ageLimit = Settings.seconds(settings, "idle_timeout_seconds", default: 3600)
+        let ageLimit =
+          sub == "status"
+          ? Settings.seconds(settings, "idle_timeout_seconds", default: 3600) : recent
         for row in rows where all || Date().timeIntervalSince(row.date) < ageLimit {
           print("\(row.name) · \(row.mode.label) · \(row.provider)")
         }

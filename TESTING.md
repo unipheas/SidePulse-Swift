@@ -14,7 +14,7 @@ The coverage command runs the Swift tests, real CLI integration tests, a disposa
 
 ## Current evidence
 
-The November 6, 2026 local run passed 59 XCTest methods plus 5 UI workflows, CLI integration, and the disk-image test. Combined LLVM line coverage was **86.34% (6,922 of 8,017 instrumented lines)**. This is not 100% coverage. The report includes every production Swift and C file, including platform adapters and SwiftUI callbacks. Counts can differ with compiler versions because SwiftUI generates multiple instrumented regions for some source lines.
+The last complete combined run passed 69 XCTest methods plus 7 UI workflows, CLI integration, and the disk-image test. Combined LLVM line coverage was **86.89% (7,516 of 8,650 instrumented lines)**. Subsequent native tests now total 93 passing methods; the expanded 10-workflow UI suite and combined coverage are being rerun after a focus interruption invalidated two UI results. This is not 100% coverage. The report includes every production Swift and C file, including platform adapters and SwiftUI callbacks. Counts can differ with compiler versions because SwiftUI generates multiple instrumented regions for some source lines.
 
 Reports are written to:
 
@@ -32,3 +32,5 @@ GitHub Actions runs the native suite and universal packaging on Apple Silicon an
 A connected Pro running firmware 1.1.0 passed a mounted-volume working → done → idle cycle. With Done configured for 15 seconds, the custom All Clear program returned to Night Patrol after 14.7 seconds between file observations. This test exposed and fixed a DNS lookup that had blocked the native monitoring loop.
 
 Physical Dot, mobile pairing, read-only Pro transport, firmware flashing, and closed-lid power changes remain unverified. Protocol simulations and dry runs do not replace those checks. Dot and mobile testing are deferred until the devices are available. No real firmware or privileged sleep settings were changed during the automated suite.
+
+The expanded suite includes injected USB discovery/transfer failures, raw-device sizing errors, Dot transport release/reconciliation, bounded firmware streaming, transcript cache updates, relay stop/restart and retry behavior, synthetic audio RMS/smoothing/cancellation, scoreboard feed errors, notch geometry/rendering, and local Apple Intelligence generation when the model is available. Hardware fault simulations do not imply that a physical Dot was tested.

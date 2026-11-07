@@ -14,9 +14,13 @@ struct MenuPanel: View {
       openWindow(id: "main")
     }
     Button("Open virtual LEDs") { openWindow(id: "leds") }
-    Link(
-      "Check for updates…",
-      destination: URL(string: "https://github.com/unipheas/SidePulse-Swift/releases")!)
+    Toggle(
+      "Show notch lights",
+      isOn: Binding(
+        get: { model.settings["virtual_status_device_enabled"] as? Bool ?? false },
+        set: { enabled in model.change { $0["virtual_status_device_enabled"] = enabled } }
+      ))
+    CheckUpdatesButton()
     Button("Quit SidePulse") { NSApp.terminate(nil) }.keyboardShortcut("q")
   }
 }

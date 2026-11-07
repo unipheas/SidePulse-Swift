@@ -2,8 +2,11 @@ import Foundation
 import USBControl
 
 enum DotChannel {
-  static func upload(_ bytes: [UInt8], root: URL) throws {
-    guard let device = pulse_usb_connect(root.path) else {
+  static func upload(
+    _ bytes: [UInt8], root: URL,
+    connect: (String) -> OpaquePointer? = { pulse_usb_connect($0) }
+  ) throws {
+    guard let device = connect(root.path) else {
       throw PulseError("Cannot access the selected Dot USB control endpoint.")
     }
     defer { pulse_usb_release(device) }

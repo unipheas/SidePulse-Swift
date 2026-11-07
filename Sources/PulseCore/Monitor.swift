@@ -152,7 +152,9 @@ public enum Events {
       threadID: raw["session_id"] as? String, mode: mode)
   }
 
-  public static func record(provider: String, raw: JSONObject, named event: String? = nil) throws {
+  public static func record(
+    provider: String, raw: JSONObject, named event: String? = nil, log: URL? = nil
+  ) throws {
     guard providers.contains(provider) else { throw PulseError("Unknown agent provider.") }
     var payload = raw
     if let event { payload["hook_event_name"] = event }
@@ -162,9 +164,11 @@ public enum Events {
     ]
     let data = try JSONSerialization.data(withJSONObject: row) + Data([10])
     guard data.count <= 2_097_152 else { throw PulseError("Hook payload exceeds 2 MiB.") }
-    let directory = Paths.support.appendingPathComponent("events")
-    try withLock(directory.appendingPathComponent(provider + ".lock")) {
-      let url = directory.appendingPathComponent(provider + ".jsonl")
+    let configured = (try Settings.read()["hook_logs"] as? [String: String])?[provider]
+    let url =
+      log ?? configured.map { URL(fileURLWithPath: $0) }
+      ?? Paths.support.appendingPathComponent("events/" + provider + ".jsonl")
+    try withLock(url.appendingPathExtension("lock")) {
       let fd = open(url.path, O_CREAT | O_WRONLY | O_APPEND | O_NOFOLLOW, 0o600)
       guard fd >= 0 else { throw POSIXError(.EACCES) }
       let file = FileHandle(fileDescriptor: fd, closeOnDealloc: true)
@@ -176,8 +180,20 @@ public enum Events {
 /// Keep only the last event per agent. Read appended bytes on subsequent polls.
 public final class Monitor {
   private struct Tail {
+    struct Record {
+      let size: Int
+      let row: JSONObject?
+      let session: Session?
+      init(_ data: Data, provider: String) {
+        size = data.count
+        row = (try? JSONSerialization.jsonObject(with: data)) as? JSONObject
+        session = row.flatMap { Events.parse(provider: provider, row: $0) }
+      }
+    }
     var inode: UInt64 = 0, offset: UInt64 = 0
     var partial = Data()
+    var records = [Record]()
+    var recordBytes = 0
     var sessions = [String: Session]()
     var permissions = [String: Set<String>]()
     mutating func ingest(_ incoming: Session, row: JSONObject) {
@@ -215,7 +231,13 @@ public final class Monitor {
   private let transcripts = TranscriptReader()
   private var tails = [URL: Tail]()
   private let sources: [(String, URL)]
-  public init(logs: [String: URL] = [:]) {
+  private let maxLines: Int
+  public init(logs: [String: URL] = [:], maxLines: Int = 5000) {
+    self.maxLines = max(1, maxLines)
+    let configured = (try? Settings.read()["hook_logs"] as? [String: String]) ?? [:]
+    let logs = configured.mapValues { URL(fileURLWithPath: $0) }.merging(logs) { _, explicit in
+      explicit
+    }
     sources =
       [Paths.legacyState, Paths.support.appendingPathComponent("events")].flatMap { directory in
         providers.filter { logs[$0] == nil }.map {
@@ -241,6 +263,10 @@ public final class Monitor {
         if size - start > 2_097_152 {
           start = size - 2_097_152
           tail.partial = Data()
+          tail.records = []
+          tail.recordBytes = 0
+          tail.sessions = [:]
+          tail.permissions = [:]
         }
         do {
           try file.seek(toOffset: start)
@@ -249,12 +275,26 @@ public final class Monitor {
           var lines = (tail.partial + chunk).split(
             separator: 10, omittingEmptySubsequences: false)
           tail.partial = Data(lines.popLast() ?? Data())
-          for line in lines {
-            guard let row = (try? JSONSerialization.jsonObject(with: line)) as? JSONObject,
-              let session = Events.parse(provider: provider, row: row)
-            else { continue }
+          if tail.partial.count > 2_097_152 { tail.partial = Data() }
+          let incoming = lines.suffix(maxLines).map { Tail.Record(Data($0), provider: provider) }
+          tail.records += incoming
+          tail.recordBytes += incoming.reduce(0) { $0 + $1.size }
+          var removed = 0
+          while tail.records.count - removed > maxLines || tail.recordBytes > 2_097_152 {
+            tail.recordBytes -= tail.records[removed].size
+            removed += 1
+          }
+          if removed > 0 {
+            tail.records.removeFirst(removed)
+            tail.sessions.removeAll()
+            tail.permissions.removeAll()
+          }
+          let historical = max(0, tail.records.count - incoming.count)
+          for (index, record) in tail.records.enumerated() where removed > 0 || index >= historical
+          {
+            guard let row = record.row, let session = record.session else { continue }
             tail.ingest(session, row: row)
-            audit.append((provider, row, tail.sessions[session.id]))
+            if index >= historical { audit.append((provider, row, tail.sessions[session.id])) }
           }
           tails[url] = tail
         } catch { continue }

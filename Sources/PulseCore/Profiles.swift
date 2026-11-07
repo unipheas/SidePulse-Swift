@@ -9,7 +9,7 @@ public enum Profiles {
     let id = "profile:" + UUID().uuidString
     try Settings.update { settings in
       var saved = settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]
-      let entries = settings["agent_animations"] as? [String: JSONObject] ?? [:]
+      let entries = animationEntries(settings)
       var mapping = try Programs.profile("cyan")
       var custom = settings["custom_agent_animations"] as? [String: JSONObject] ?? [:]
       for (state, entry) in entries {
@@ -47,13 +47,13 @@ public enum Profiles {
       } else {
         mapping = try Programs.profile(id)
       }
-      settings["agent_animations"] = mapping.mapValues { ["style": $0] }
+      try apply(mapping, to: &settings)
       settings["swift_profile"] = id
     }
   }
   public static func export(to url: URL) throws {
     let settings = try Settings.read()
-    let entries = settings["agent_animations"] as? [String: JSONObject] ?? [:]
+    let entries = animationEntries(settings)
     var map = try Programs.profile("cyan")
     var custom = [String: JSONObject]()
     for state in states {
@@ -110,8 +110,31 @@ public enum Profiles {
       saved[id] = ["name": name, "animations": mapping]
       settings["custom_agent_animations"] = registry
       settings["agent_animation_profiles"] = saved
-      settings["agent_animations"] = mapping.mapValues { ["style": $0] }
+      try apply(mapping, to: &settings)
       settings["swift_profile"] = id
     }
   }
+  private static func animationEntries(_ settings: JSONObject) -> [String: JSONObject] {
+    var entries = settings["agent_animations"] as? [String: JSONObject] ?? [:]
+    for state in ["lid_open", "lid_closed"] {
+      if let source = (settings[state + "_animation"] as? JSONObject)?["program"] as? String {
+        entries[state] = ["style": "custom", "custom_program": source]
+      }
+    }
+    return entries
+  }
+  private static func apply(_ mapping: [String: String], to settings: inout JSONObject) throws {
+    settings["agent_animations"] = mapping.mapValues { ["style": $0] }
+    for state in ["lid_open", "lid_closed"] {
+      guard let style = mapping[state] else { continue }
+      let source = try Programs.resolve(style: style, entry: [:], count: 8, settings: settings)
+      var lid =
+        settings[state + "_animation"] as? JSONObject ?? [
+          "duration_seconds": state == "lid_open" ? 1.0 : 1.3
+        ]
+      lid["program"] = source
+      settings[state + "_animation"] = lid
+    }
+  }
+
 }

@@ -20,8 +20,12 @@ public struct Change: Codable, Identifiable {
 public enum History {
   static var file: URL { Paths.support.appendingPathComponent("history.jsonl") }
   public static func recent() -> [Change] {
-    guard let data = try? Data(contentsOf: file) else { return [] }
-    return data.split(separator: 10).compactMap { try? JSONDecoder().decode(Change.self, from: $0) }
+    [importedFile, file].flatMap { url -> [Change] in
+      guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return [] }
+      return data.split(separator: 10).compactMap {
+        try? JSONDecoder().decode(Change.self, from: $0)
+      }
+    }.sorted { $0.date < $1.date }
   }
   public static func record(
     _ mode: Mode, battery: Int?, snapshot: Battery? = nil,
