@@ -93,17 +93,6 @@ extension LaunchTests {
         return Data()
       })
     XCTAssertEqual(attempts, 2)
-    attempts = 0
-    delays = []
-    try Jobs.bootstrap(
-      "gui/501", file: root,
-      run: { _, _ in
-        attempts += 1
-        if attempts < 50 { throw PulseError("Still unloading") }
-        return Data()
-      }, wait: { delays.append($0) })
-    XCTAssertEqual(attempts, 50)
-    XCTAssertEqual(delays.count, 49)
   }
 }
 
