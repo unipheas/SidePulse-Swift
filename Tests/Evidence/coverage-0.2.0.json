@@ -128,5 +128,16 @@
     "mobile pairing",
     "firmware flashing",
     "privileged closed-lid power changes"
-  ]
+  ],
+  "release_acceptance": {
+    "version": "0.2.0",
+    "from_build": "3",
+    "installed_build": "4",
+    "archive_sha256": "53fbcbc8331df98f8fa7183371b28f062371e220a202929d3e429970ec25869f",
+    "release_url": "https://github.com/unipheas/SidePulse-Swift/releases/tag/v0.2.0",
+    "installed_executables_match_archive": true,
+    "native_services_running": true,
+    "settings_and_animation_hashes_preserved": true,
+    "legacy_sidepulse_runtime_retired": true
+  }
 }

@@ -54,7 +54,7 @@ open "/Applications/SidePulse.app"
 
 The install script registers one copy in `/Applications`, keeps the distribution ZIP, and removes the loose build copy to avoid duplicate search results.
 
-The package script builds both executables, includes their resources and icon, signs the bundle, and creates a ZIP in `dist`. The core uses Swift and Apple frameworks. A small C adapter provides access to the IOKit USB plug-in vtable. The build has no Python dependency. Sparkle provides the native updater; its license is included under `ThirdParty`. Publishing a signed update requires `Scripts/prepare-update.sh` and the release signing key stored in Keychain. The current development feed has no release entry yet.
+The package script builds both executables, includes their resources and icon, signs the bundle, and creates a ZIP in `dist`. The core uses Swift and Apple frameworks. A small C adapter provides access to the IOKit USB plug-in vtable. The build has no Python dependency. Sparkle provides the native updater; its license is included under `ThirdParty`. Publishing a signed update requires `Scripts/prepare-update.sh` and the release signing key stored in Keychain. The signed feed publishes SidePulse 0.2.0; installed apps can use **Check for Updates…**.
 
 ## Attribution
 

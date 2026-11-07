@@ -58,3 +58,11 @@ ViewInspector is a pinned, test-only dependency for exercising SwiftUI action cl
 The isolated suite deliberately avoids replacing the user's installed app or launch agents. The final three lifecycle lines are measured during explicit installation acceptance: stopping the installed GUI, configuring its service, and completing native setup. Use an instrumented app built from the same source revision, set `LLVM_PROFILE_FILE` to a private acceptance directory, and preserve settings and launch configurations before this check. Never run this on an unattended CI worker as an implicit installation step.
 
 Keep a copy of the complete suite's `all.profdata` before subsequent tests. The acceptance directory's `sources.json` records SHA-256 hashes of every production Swift and C source, including the classifier. `Scripts/merge-install-coverage.py BASE.profdata ACCEPTANCE_DIRECTORY` refuses changed source fingerprints, merges the real profiles, checks that every production source appears, and requires exactly 100% line coverage. It writes the HTML/JSON reports and `acceptance-evidence.json` without modifying the installation.
+
+## Final installation acceptance
+
+On November 7, 2026, the published signed 0.2.0 archive was installed through the native updater from build 3 to build 4. The installed GUI, CLI and classifier binaries exactly matched the release archive. Both native launch agents restarted, the saved build marker advanced to 4, and the Done delay remained 15 seconds. All five animation/profile hashes matched the pre-install baseline. App search returned only `/Applications/SidePulse.app`.
+
+The old SidePulse-managed Python environment, service wrappers and eject-guard launch item were removed from their installed locations only after that verification. A private ZIP backup and recoverable Trash copy were retained. The Mac's general Python installation, user settings/history and development reference checkout were preserved. All three command aliases and all five provider hook configurations use the native CLI.
+
+The updater UI regression now waits for Sparkle to finish closing its previous session before opening another update check. Its targeted native UI run passes; production sources and the measured coverage fingerprint are unchanged.
