@@ -125,24 +125,24 @@ Terminal menu item. The picker helper now chooses only a hittable matching item
 from the open menu. The focused session-preferences workflow passes without
 opening the unrelated system-menu entry.
 
-The local complete native baseline passed 223 tests with five explicit skips; the
-three discovery regressions and opt-in live Dot check also passed separately.
-The classifier's two template tests and synthetic integration cases passed, as
-did CLI, FAT12 image, and eject-guard integration. A complete UI execution covered
-all 21 workflows, but was not a clean single-run pass: removable-volume permission
-prompts blocked one layout check, and an export dialog needed a retry. Tests must
-be run on an unlocked desktop without competing UI activity; The UI target now defines `SIDEPULSE_UI_TESTING` only for its test-host app and
-injects empty discovery. It never probes attached volumes. SwiftPM production
-builds do not define that flag; default discovery is covered by native regression
-and installed-app/physical acceptance, not by the UI host.
+The final complete native baseline passed 224 tests with five explicit skips, and
+the opt-in live Dot check passed separately. The classifier's two template tests
+and synthetic integration cases passed, as did CLI, FAT12 image, and eject-guard
+integration. After isolating attached-volume discovery, all 21 UI workflows passed
+in a single run (557.409 seconds). Earlier runs exposed removable-volume prompts
+and the picker collision described above. The UI target defines
+`SIDEPULSE_UI_TESTING` only for its test-host app and injects empty discovery.
+SwiftPM production builds do not define that flag; default discovery is covered
+by native regression and installed-app/physical acceptance, not by the UI host.
 
-The pre-isolation Nova merged production line measurement was **10,292/10,364 (99.31%) across
-71 production files**, including instrumented installed-app acceptance. The
-modified Dashboard is 100% line-covered. This does **not** meet the requested
-100% total: 48 uncovered lines belong to microphone capture on this Mac without
-an input device, and 24 are existing export/lifecycle/platform paths. The exact
-100% verifier correctly rejects this measurement. Historical MacBook evidence
-above is not substituted, and no coverage threshold has been lowered.
+The final exact-source merged production line measurement is **10,292/10,364
+(99.31%) across 71 production files**, including the full final native/UI runs,
+live Dot test, and instrumented installed-app acceptance. Modified App.swift and
+Dashboard.swift are 100% line-covered. This does **not** meet the requested 100%
+total: 48 uncovered lines belong to microphone capture on this Mac without an
+input device, and 24 are existing export/lifecycle/platform paths. The exact 100%
+verifier correctly rejects this measurement. Historical MacBook evidence above
+is not substituted, and no coverage threshold has been lowered.
 
 Normal unmount/remount preserved the Dot's identity, accessibility, and `nobrowse`
 mount flag. Physical cable/port/hub changes and sleep/wake were not exercised at
