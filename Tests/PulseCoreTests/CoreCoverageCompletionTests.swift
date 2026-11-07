@@ -16,7 +16,7 @@ final class CoreCoverageCompletionTests: IsolatedTests {
     } catch { XCTAssertEqual(error.localizedDescription, "Enter a message to classify.") }
   }
 
-  func testDefaultClassifierWrappersReportUnavailableModel() async throws {
+  func testDefaultClassifyReportsUnavailableModel() async throws {
     guard ReplyClassifier.availableModel() == nil else {
       throw XCTSkip("This check targets a host without the native model")
     }
@@ -26,12 +26,25 @@ final class CoreCoverageCompletionTests: IsolatedTests {
     } catch {
       XCTAssertTrue(error.localizedDescription.contains("Apple Intelligence"))
     }
+  }
+
+  func testDefaultResultReportsUnavailableModel() async throws {
+    guard ReplyClassifier.availableModel() == nil else {
+      throw XCTSkip("This check targets a host without the native model")
+    }
     do {
       _ = try await ReplyClassifier.result("Synthetic approval request?")
       XCTFail("An unavailable model must not invent a result")
     } catch {
       XCTAssertTrue(error.localizedDescription.contains("Apple Intelligence"))
     }
+  }
+
+  func testClassifyPropagatesInjectedGeneratorFailure() async throws {
+    do {
+      _ = try await ReplyClassifier.classify("Synthetic") { _ in throw PulseError("Synthetic failure") }
+      XCTFail("Generator failure must propagate")
+    } catch { XCTAssertEqual(error.localizedDescription, "Synthetic failure") }
   }
 
   func testRememberMergesWithAlreadySavedDevicesWithoutOverwritingThem() throws {

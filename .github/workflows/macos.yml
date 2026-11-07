@@ -53,7 +53,18 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Diagnose isolated async classifier boundaries
+        if: matrix.sanitizer == 'address'
+        run: |
+          swift --version
+          xcodebuild -version
+          failures=0
+          for test in testDefaultClassifyReportsUnavailableModel testDefaultResultReportsUnavailableModel testClassifyPropagatesInjectedGeneratorFailure; do
+            swift test --sanitize=address --filter "$test" || failures=$((failures + 1))
+          done
+          test "$failures" = 0
       - name: Check memory safety and concurrent access
+        if: always()
         run: swift test --sanitize=${{ matrix.sanitizer }}
   interface:
     runs-on: macos-15
