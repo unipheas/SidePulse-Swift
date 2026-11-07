@@ -72,6 +72,12 @@ public enum Firmware {
   public static func upgrade(_ device: Device, version: String?, file: String?, dryRun: Bool)
     async throws -> String
   {
+    try await upgrade(device, version: version, file: file, dryRun: dryRun, fetch: fetch)
+  }
+  static func upgrade(
+    _ device: Device, version: String?, file: String?, dryRun: Bool,
+    fetch: (String) async throws -> Data
+  ) async throws -> String {
     guard file == nil || version == nil else { throw PulseError("Choose a version or a file.") }
     let temporary = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
     try Paths.directory(temporary)

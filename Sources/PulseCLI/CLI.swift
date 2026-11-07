@@ -59,7 +59,7 @@ enum Args {
       agent-monitor install|uninstall [codex|claude|cursor|grok|junie|all]
       hook-log --provider NAME [--event NAME] < event.json
       battery status | leds [--device PATH]
-      settings [done SECONDS] | animations | service run|start|stop|status
+      migrate | settings [done SECONDS] | animations | service run|start|stop|status
       sdejectguard run|start|stop|status | classify MESSAGE
       profile import|export FILE | history FILE.csv|FILE.html
       link [TOKEN] | links | unlink ID | push [--to ID] [--title TEXT] [--message TEXT] [PROGRAM]
@@ -75,7 +75,12 @@ enum Args {
     let command = Args.pop() ?? "help"
     switch command {
     case "update":
+      let dry = Args.flag("--dry-run")
       try Args.end()
+      if dry {
+        print("https://github.com/unipheas/SidePulse-Swift/releases")
+        return
+      }
       try SystemCommand.run(
         "/usr/bin/open", ["https://github.com/unipheas/SidePulse-Swift/releases"])
     case "help", "-h", "--help": print(help)
@@ -110,27 +115,22 @@ enum Args {
       let path = try Args.require("whole disk")
       let dry = Args.flag("--dry-run")
       try RawDisk.write(path: path, program: Args.program(), dryRun: dry)
-    case "write":
-      let devices = try Args.devices()
-      let all = Args.flag("--all")
-      let dry = Args.flag("--dry-run")
-      let source = try Args.program()
-      guard !devices.isEmpty else { throw PulseError("Connect a SidePulse.") }
-      for device in try all ? devices : [Args.one(devices)] {
-        if !dry { try device.write(source) }
-        print(
-          (dry ? "Would write " : "Wrote ") + device.root.appendingPathComponent("LEDS.LED").path)
-      }
+    case "write", "push": try await deliver(preferPhone: command == "push")
     case "setup": try configure(install: true)
     case "agent-monitor":
       let sub = Args.pop() ?? "status"
       switch sub {
       case "install", "uninstall": try configure(install: sub == "install")
+      case "version": print("SidePulse 0.1.0")
       case "doctor":
-        try listDevices()
-        print(
-          "Native event directory: \(Paths.support.path)/events\nCompatible hook directory: \(Paths.legacyState.path)"
-        )
+        let json = Args.flag("--json")
+        try Args.end()
+        let reports = Hooks.diagnostics()
+        if json {
+          try jsonPrint(reports)
+        } else {
+          for row in reports { print("\(row["provider"]!) · \(row["status"]!) · \(row["path"]!)") }
+        }
       case "live", "watch", "status", "leds": try await monitor(sub)
       default: throw PulseError("Unknown agent-monitor command.")
       }
@@ -166,6 +166,9 @@ enum Args {
         try Events.record(provider: provider, raw: raw, named: event)
       }
       if provider == "cursor" { print("{}") }
+    case "migrate":
+      try Args.end()
+      try Settings.migrate()
     case "settings":
       if Args.words.isEmpty {
         let app =
@@ -215,24 +218,27 @@ enum Args {
       default: throw PulseError("Use battery status or leds.")
       }
     case "links": for phone in try Bridge.phones() { print("\(phone.id)  \(phone.name)") }
-    case "unlink": try Bridge.remove(Args.require("phone ID"))
+    case "unlink":
+      if let id = Args.pop() {
+        try Args.end()
+        try Bridge.remove(id)
+      } else {
+        for phone in try Bridge.phones() { print("\(phone.id)  \(phone.name)") }
+      }
     case "link":
       if let token = Args.pop() {
         try Bridge.store(token: token, name: try Args.option("--name") ?? "Phone")
       } else {
         try await Bridge.pair()
       }
-    case "push":
-      let to = try Args.option("--to")
-      let title = try Args.option("--title")
-      let message = try Args.option("--message")
-      let source = Args.words.isEmpty && (title != nil || message != nil) ? nil : try Args.program()
-      try await Bridge.push(to: to, program: source, title: title, message: message)
     case "relay":
       let action = try Args.require("send or receive")
       let channel = try Args.require("channel")
       switch action {
-      case "receive": try await Bridge.receive(channel: channel)
+      case "receive":
+        let once = Args.flag("--once")
+        try Args.end()
+        try await Bridge.receive(channel: channel, once: once)
       case "send":
         let provider = try Args.require("provider")
         guard providers.contains(provider),
@@ -245,17 +251,40 @@ enum Args {
     default: throw PulseError("Unknown command \(command). Run --help.")
     }
   }
+  static func jsonPrint(_ value: Any) throws {
+    print(
+      String(
+        decoding: try JSONSerialization.data(withJSONObject: value, options: .sortedKeys),
+        as: UTF8.self))
+  }
   static func listDevices() throws {
+    let json = Args.flag("--json")
     let devices = try Args.devices()
     try Args.end()
+    if json {
+      try jsonPrint(
+        devices.map {
+          [
+            "model": "SidePulse " + $0.model, "version": $0.firmware, "serial": $0.serial,
+            "device": $0.root.path,
+          ]
+        })
+      return
+    }
     for device in devices { print("SidePulse \(device.model) · \(device.firmware) · \(device.id)") }
     if devices.isEmpty { print("No SidePulse mounted.") }
   }
   static func configure(install: Bool) throws {
+    let dry = Args.flag("--dry-run")
     let selected = Args.pop() ?? "all"
     try Args.end()
     let executable = Bundle.main.executableURL ?? URL(fileURLWithPath: CommandLine.arguments[0])
     for provider in selected == "all" ? providers : [selected] {
+      guard providers.contains(provider) else { throw PulseError("Unknown provider.") }
+      if dry {
+        print("Would " + (install ? "install " : "remove ") + provider + " hooks")
+        continue
+      }
       try Hooks.configure(provider, executable: executable, install: install)
       print("\(provider): \(install ? "installed" : "removed")")
     }

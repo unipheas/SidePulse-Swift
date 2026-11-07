@@ -141,6 +141,28 @@ public enum Programs {
     }
     return try preset(style, count: count)
   }
+  static func scaleColor(_ hex: String, by ratio: Double) -> String {
+    let rgb = UInt32(hex.dropFirst(), radix: 16) ?? 0
+    let channels = [16, 8, 0].map {
+      Int((Double((rgb >> $0) & 255) * ratio).rounded(.toNearestOrEven))
+    }
+    return String(format: "#%02X%02X%02X", channels[0], channels[1], channels[2])
+  }
+  public static func brightness(_ source: String, level: Int) -> String {
+    let level = max(0, min(255, level))
+    var authored = false
+    let lines = source.components(separatedBy: .newlines).map { line -> String in
+      let parts = line.lowercased().split(whereSeparator: \.isWhitespace)
+      guard parts.count == 2, parts[0] == "brightness", let value = Int(parts[1]), value >= 0 else {
+        return line
+      }
+      authored = true
+      let scaled = Double(min(255, value) * level) / 255
+      return "brightness " + String(Int(scaled.rounded(.toNearestOrEven)))
+    }
+    return ((authored || level == 255 ? [] : ["brightness " + String(level)]) + lines).joined(
+      separator: "\n")
+  }
   public static func dim(_ source: String, brightness: Int) -> String {
     let scale = max(0, min(255, brightness))
     guard scale < 255 else { return source }
@@ -192,45 +214,5 @@ public final class LEDPreview {
       "engine.sdled_step(ledCount,now); Array.from(new Uint8Array(engine.memory.buffer,engine.sdled_output_ptr(),ledCount*3))"
     )
     return (result?.toArray() as? [NSNumber] ?? []).map(\.uint8Value)
-  }
-}
-
-public struct Battery {
-  public let percent: Int, charging: Bool, plugged: Bool, watts: Int
-  public static func read() -> Battery? {
-    guard let info = IOPSCopyPowerSourcesInfo()?.takeRetainedValue(),
-      let list = IOPSCopyPowerSourcesList(info)?.takeRetainedValue() as? [CFTypeRef]
-    else { return nil }
-    for source in list {
-      guard
-        let data = IOPSGetPowerSourceDescription(info, source)?.takeUnretainedValue()
-          as? JSONObject,
-        data["Type"] as? String == "InternalBattery",
-        let capacity = data["Current Capacity"] as? Int,
-        let maxCapacity = data["Max Capacity"] as? Int, maxCapacity > 0
-      else { continue }
-      return Battery(
-        percent: min(100, max(0, capacity * 100 / maxCapacity)),
-        charging: data["Is Charging"] as? Bool == true,
-        plugged: data["Power Source State"] as? String == "AC Power",
-        watts: (IOPSCopyExternalPowerAdapterDetails()?.takeRetainedValue() as? JSONObject)?["Watts"]
-          as? Int ?? 0)
-    }
-    return nil
-  }
-  public func program(count: Int) -> String {
-    let fill = Double(percent * count) / 100
-    let full = Int(fill)
-    let color =
-      charging ? "#80FFC8" : percent < 20 ? "#FF2600" : percent < 50 ? "#FFB000" : "#00FF66"
-    var program = (0..<count).map { i in
-      let scale = Int(255 * max(0, min(1, fill - Double(i))))
-      return "\(i):\(Programs.dim(color,brightness:scale)) 360ms ease"
-    }.joined(separator: ";")
-    if charging && percent < 100 {
-      let duration = max(300, 1600 - min(100, watts) * 11)
-      program += "\n\(min(count-1,full)):#80FFC8 \(duration)ms pulse\nrepeat"
-    }
-    return program
   }
 }

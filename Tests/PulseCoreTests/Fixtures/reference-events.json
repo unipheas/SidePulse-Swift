@@ -1,0 +1,1294 @@
+[
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "SessionStart",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "session_start",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "UserPromptSubmit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "user_prompt_submit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "PreToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "pre_tool_use",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "PostToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "post_tool_use",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "PermissionRequest",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "permission_request",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "PreCompact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "pre_compact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "PostCompact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "post_compact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "SubagentStart",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "subagent_start",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "SubagentStop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "subagent_stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Interrupt",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "eventName": "interrupt",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "SessionStart",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "session_start",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "UserPromptSubmit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "user_prompt_submit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "PreToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "pre_tool_use",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "PostToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "post_tool_use",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "PostToolUseFailure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "post_tool_use_failure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "PermissionRequest",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "permission_request",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Notification",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "notification",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "PreCompact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "pre_compact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "PostCompact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "post_compact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "SubagentStop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "subagent_stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "SessionEnd",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "eventName": "session_end",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "SessionStart",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "session_start",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "UserPromptSubmit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "user_prompt_submit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "PreToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "pre_tool_use",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "PostToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "post_tool_use",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "PostToolUseFailure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "post_tool_use_failure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "PermissionDenied",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "permission_denied",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "Notification",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "notification",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "PreCompact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "pre_compact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "PostCompact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "post_compact",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "SubagentStart",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "subagent_start",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "SubagentStop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "subagent_stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "Stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "StopFailure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "stop_failure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hook_event_name": "SessionEnd",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "eventName": "session_end",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "sessionStart",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "sessionEnd",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "beforeSubmitPrompt",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "preToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "beforeShellExecution",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "afterShellExecution",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "afterFileEdit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "postToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "postToolUseFailure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "cursor",
+    "event": {
+      "hook_event_name": "stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "hook_event_name": "SessionStart",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "eventName": "session_start",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "hook_event_name": "UserPromptSubmit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "eventName": "user_prompt_submit",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "hook_event_name": "PreToolUse",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "eventName": "pre_tool_use",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "hook_event_name": "PermissionRequest",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "eventName": "permission_request",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "hook_event_name": "Stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "eventName": "stop",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "hook_event_name": "StopFailure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "eventName": "stop_failure",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "hook_event_name": "SessionEnd",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "junie",
+    "event": {
+      "eventName": "session_end",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Anything else?",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Can you confirm?",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Choose a folder.",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Finished. Want me to publish?",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Please choose a file:\nREADME.md",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "How should I proceed?\n* Recap: built",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Done. `which file?`",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "```\nWhich file?\n```",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "All good?",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "What now?",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Done.",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: ask -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: ask]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: ask -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: ask -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: waiting-for-input -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: waiting-for-input]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: waiting-for-input -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: waiting-for-input -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: long task progress -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "long_task_progress"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: long task progress]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "long_task_progress"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: long task progress -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "long_task_progress"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: long task progress -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: blocked -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: blocked]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: blocked -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: blocked -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: tool-running -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: tool-running]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: tool-running -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "tool_running"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: tool-running -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: idle -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: idle]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: idle -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "idle_ready"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: idle -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: done -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: done]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: done -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: done -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- sidepulse: bogus -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "[agent_monitor mode: bogus]",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "<!-- SidePulse status: bogus -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "codex",
+    "event": {
+      "hook_event_name": "Stop",
+      "last_assistant_message": "Example: <!-- sidepulse: bogus -->",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hookEventName": "PostToolUse",
+      "toolResponse": {
+        "exit_code": 0
+      },
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hookEventName": "PostToolUse",
+      "toolResponse": {
+        "success": false
+      },
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hookEventName": "PostToolUse",
+      "toolResponse": {
+        "interrupted": true
+      },
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hookEventName": "PostToolUse",
+      "toolResponse": {
+        "exit_code": 137
+      },
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hookEventName": "PostToolUse",
+      "toolResponse": "Traceback (most recent call last)",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hookEventName": "PostToolUse",
+      "toolResponse": "exit code: 1",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "blocked_error"
+  },
+  {
+    "provider": "grok",
+    "event": {
+      "hookEventName": "PostToolUse",
+      "toolResponse": "ok",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Notification",
+      "notification_type": "idle_prompt",
+      "message": "input parsed",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "working"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Notification",
+      "notification_type": "idle_prompt",
+      "message": "task completed; waiting for input",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Notification",
+      "notification_type": "idle_prompt",
+      "message": "please confirm",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Notification",
+      "notification_type": "idle_prompt",
+      "message": "done",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "completed"
+  },
+  {
+    "provider": "claude",
+    "event": {
+      "hook_event_name": "Notification",
+      "notification_type": "idle_prompt",
+      "message": "waiting for your input",
+      "timestamp": "2026-01-01T00:00:00Z"
+    },
+    "mode": "waiting_for_input"
+  }
+]

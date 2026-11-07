@@ -1,0 +1,642 @@
+[
+  {
+    "count": 2,
+    "percent": 0,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 0,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 0,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#000000 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 0,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 1,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#050100 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 1,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#050100 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 1,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#030504 360ms ease;1:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#030504 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 1,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#030504 360ms ease;1:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 13,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#420A00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 13,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#420A00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 13,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#214234 360ms ease;1:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#214234 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 13,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#214234 360ms ease;1:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 20,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#660F00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 20,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#660F00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 20,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#336650 360ms ease;1:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#336650 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 20,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#336650 360ms ease;1:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 21,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#6B4A00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 21,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#6B4A00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 21,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#366B54 360ms ease;1:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#366B54 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 21,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#366B54 360ms ease;1:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 49,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#FAAC00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 49,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#FAAC00 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 49,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#7DFAC4 360ms ease;1:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#7DFAC4 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 49,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#7DFAC4 360ms ease;1:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 50,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 50,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#000000 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 50,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#000000 360ms ease\n1:#80FFC8 561ms pulse\n1:#000000 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 50,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#000000 360ms ease\n1:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 51,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#000502 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 51,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#000502 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 51,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#030504 360ms ease\n1:#80FFC8 561ms pulse\n1:#030504 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 51,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#030504 360ms ease\n1:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 99,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FA64 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 99,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FA64 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 99,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#7DFAC4 360ms ease\n1:#80FFC8 561ms pulse\n1:#7DFAC4 1423ms none\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 99,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#7DFAC4 360ms ease\n1:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 2,
+    "percent": 100,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 100,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 100,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease"
+  },
+  {
+    "count": 2,
+    "percent": 100,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 0,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 0,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 0,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#000000 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 0,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#000000 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 1,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#140300 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 1,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#140300 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 1,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#0A1410 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n0:#80FFC8 561ms pulse\n0:#0A1410 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 1,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#0A1410 360ms ease;1:#000000 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n0:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 13,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#FF2600 360ms ease;1:#0A0200 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 13,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#FF2600 360ms ease;1:#0A0200 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 13,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#050A08 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n1:#80FFC8 561ms pulse\n1:#050A08 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 13,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#050A08 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n1:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 20,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#FF2600 360ms ease;1:#991700 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 20,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#FF2600 360ms ease;1:#991700 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 20,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#4D9978 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n1:#80FFC8 561ms pulse\n1:#4D9978 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 20,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#4D9978 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n1:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 21,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#AD7800 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 21,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#AD7800 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 21,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#57AD88 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n1:#80FFC8 561ms pulse\n1:#57AD88 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 21,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#57AD88 360ms ease;2:#000000 360ms ease;3:#000000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n1:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 49,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#FFB000 360ms ease;2:#FFB000 360ms ease;3:#EBA200 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 49,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#FFB000 360ms ease;2:#FFB000 360ms ease;3:#EBA200 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 49,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#76EBB8 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n3:#80FFC8 561ms pulse\n3:#76EBB8 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 49,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#76EBB8 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n3:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 50,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#FFB000 360ms ease;2:#FFB000 360ms ease;3:#FFB000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 50,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#FFB000 360ms ease;1:#FFB000 360ms ease;2:#FFB000 360ms ease;3:#FFB000 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 50,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#80FFC8 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n4:#80FFC8 561ms pulse\n4:#000000 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 50,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#80FFC8 360ms ease;4:#000000 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n4:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 51,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#001408 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 51,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#001408 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 51,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#80FFC8 360ms ease;4:#0A1410 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n4:#80FFC8 561ms pulse\n4:#0A1410 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 51,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#80FFC8 360ms ease;4:#0A1410 360ms ease;5:#000000 360ms ease;6:#000000 360ms ease;7:#000000 360ms ease\n4:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 99,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#00FF66 360ms ease;5:#00FF66 360ms ease;6:#00FF66 360ms ease;7:#00EB5E 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 99,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#00FF66 360ms ease;5:#00FF66 360ms ease;6:#00FF66 360ms ease;7:#00EB5E 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 99,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#80FFC8 360ms ease;4:#80FFC8 360ms ease;5:#80FFC8 360ms ease;6:#80FFC8 360ms ease;7:#76EBB8 360ms ease\n7:#80FFC8 561ms pulse\n7:#76EBB8 1423ms none\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 99,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#80FFC8 360ms ease;1:#80FFC8 360ms ease;2:#80FFC8 360ms ease;3:#80FFC8 360ms ease;4:#80FFC8 360ms ease;5:#80FFC8 360ms ease;6:#80FFC8 360ms ease;7:#76EBB8 360ms ease\n7:#80FFC8 1400ms pulse\nrepeat"
+  },
+  {
+    "count": 8,
+    "percent": 100,
+    "watts": 0,
+    "plugged": false,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#00FF66 360ms ease;5:#00FF66 360ms ease;6:#00FF66 360ms ease;7:#00FF66 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 100,
+    "watts": 30,
+    "plugged": true,
+    "charging": false,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#00FF66 360ms ease;5:#00FF66 360ms ease;6:#00FF66 360ms ease;7:#00FF66 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 100,
+    "watts": 30,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#00FF66 360ms ease;5:#00FF66 360ms ease;6:#00FF66 360ms ease;7:#00FF66 360ms ease"
+  },
+  {
+    "count": 8,
+    "percent": 100,
+    "watts": 96,
+    "plugged": true,
+    "charging": true,
+    "program": "0:#00FF66 360ms ease;1:#00FF66 360ms ease;2:#00FF66 360ms ease;3:#00FF66 360ms ease;4:#00FF66 360ms ease;5:#00FF66 360ms ease;6:#00FF66 360ms ease;7:#00FF66 360ms ease"
+  }
+]

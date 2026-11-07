@@ -1,0 +1,48 @@
+import Foundation
+import PulseCore
+
+extension CLI {
+  static func deliver(preferPhone: Bool) async throws {
+    let path = try Args.option("--device")
+    let all = Args.flag("--all")
+    let dry = Args.flag("--dry-run")
+    let requested = try Args.option("--to")
+    let title = try Args.option("--title")
+    let message = try Args.option("--message")
+    let notification = title != nil || message != nil
+    guard path == nil || (!all && requested == nil) else {
+      throw PulseError("--device conflicts with --all or --to.")
+    }
+    let source = Args.words.isEmpty && notification ? nil : try Args.program()
+    let devices: [Device]
+    if let path {
+      var url = URL(fileURLWithPath: path)
+      if url.lastPathComponent.uppercased() == "LEDS.LED" { url.deleteLastPathComponent() }
+      devices = [try Device.inspect(url)]
+    } else {
+      devices = Device.discover()
+    }
+    let destinations = try Destination.select(
+      devices: devices, phones: path == nil ? Bridge.phones() : [],
+      requested: path == nil ? requested : "local", all: all, hasProgram: source != nil,
+      notification: notification, preferPhone: preferPhone)
+    var failures = [String]()
+    for target in destinations {
+      if dry {
+        print("Would send to " + target.name)
+        continue
+      }
+      do {
+        switch target {
+        case .device(let device):
+          guard let source else { throw PulseError("Supply an LED program.") }
+          try device.write(source)
+        case .phone(let phone):
+          try await Bridge.push(to: phone.id, program: source, title: title, message: message)
+        }
+        print("Sent to " + target.name)
+      } catch { failures.append(target.name + ": " + error.localizedDescription) }
+    }
+    if !failures.isEmpty { throw PulseError(failures.joined(separator: "\n")) }
+  }
+}

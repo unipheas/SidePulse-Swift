@@ -28,6 +28,7 @@ public let providers = ["codex", "claude", "cursor", "grok", "junie"]
 public struct Session: Codable, Identifiable, Equatable {
   public let provider: String, session: String, name: String, event: String
   public let date: Date
+  public var cwd: String? = nil, origin: String? = nil, threadID: String? = nil
   public var mode: Mode
   public var id: String { provider + ":" + session }
 }
@@ -46,6 +47,12 @@ public enum Events {
     return try? Date.ISO8601FormatStyle().parse(string)
   }
 
+  private static func modeKey(_ value: String) -> String {
+    value.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter {
+      !$0.isEmpty
+    }.joined(separator: "_")
+  }
+
   static func explicit(_ raw: JSONObject, message: String) -> Mode? {
     var names = [
       "ask": Mode.waiting, "question": .waiting, "waiting": .waiting, "input": .waiting,
@@ -54,28 +61,30 @@ public enum Events {
     ]
     for mode in Mode.allCases { names[mode.rawValue] = mode }
     if let value = (raw["sidepulse_status"] ?? raw["sidepulse_mode"]) as? String,
-      let mode = names[value.lowercased()]
+      let mode = names[modeKey(value)]
     {
       return mode
     }
     let outsideCode = message.replacingOccurrences(
       of: #"(?s)`{3}.*?`{3}"#, with: "", options: .regularExpression)
     for line in outsideCode.split(whereSeparator: \.isNewline) {
-      let pattern = #"(?i)^\s*<!--\s*(?:sidepulse|agent[-_ ]monitor)\s*:\s*([a-z_ -]+?)\s*-->\s*$"#
-      if line.range(of: pattern, options: .regularExpression) != nil {
+      for pattern in [
+        #"(?i)^\s*<!--\s*(?:sidepulse|agent[-_ ]monitor)(?:\s+(?:status|mode))?\s*:\s*([a-z0-9_ -]+?)\s*-->\s*$"#,
+        #"(?i)^\s*\[(?:sidepulse|agent[-_ ]monitor)\s+(?:status|mode)\s*:\s*([a-z0-9_ -]+?)\]\s*$"#,
+      ]
+      where line.range(of: pattern, options: .regularExpression) != nil {
         let key = String(line).replacingOccurrences(
-          of: pattern, with: "$1", options: .regularExpression
-        ).lowercased().replacingOccurrences(of: " ", with: "_")
-        if let mode = names[key] { return mode }
+          of: pattern, with: "$1", options: .regularExpression)
+        if let mode = names[modeKey(key)] { return mode }
       }
     }
     return nil
   }
 
   public static func parse(provider: String, row: JSONObject) -> Session? {
-    let raw = row["event"] as? JSONObject ?? row
-    guard
-      let event = (raw["hook_event_name"] ?? raw["hookEventName"] ?? raw["event_name"]) as? String,
+    let original = row["event"] as? JSONObject ?? row
+    guard let raw = HookPayload.normalized(original, provider: provider),
+      let event = raw["hook_event_name"] as? String,
       let time = date(row["logged_at"] ?? raw["logged_at"] ?? raw["timestamp"])
     else { return nil }
     let identity =
@@ -95,27 +104,27 @@ public enum Events {
       case "permissionrequest": mode = .waiting
       case "pretooluse", "beforeshellexecution": mode = .tool
       case "posttooluse", "aftershellexecution", "afterfileedit":
-        let result = raw["tool_response"] as? JSONObject
-        mode =
-          result?["is_error"] as? Bool == true || (result?["exit_code"] as? Int ?? 0) != 0
-          ? .blocked : .working
+        mode = HookPayload.failed(raw["tool_response"]) ? .blocked : .working
       case "userpromptsubmit", "beforesubmitprompt", "precompact", "postcompact", "subagentstart":
         mode = .working
       case "stop", "subagentstop":
         mode =
-          message.trimmingCharacters(in: .whitespacesAndNewlines).hasSuffix("?") ? .waiting : .done
+          HookPayload.asksQuestion(message) ? .waiting : .done
       case "sessionend": mode = .done
       case "sessionstart": mode = .idle
       case "notification":
         let text = ((raw["notification_type"] as? String ?? "") + " " + message).lowercased()
-        if ["permission", "input", "approval"].contains(where: text.contains) {
-          mode = .waiting
-        } else if ["turn complete", "task complete", "work complete", "completed successfully"]
+        if ["turn complete", "task complete", "work complete", "completed successfully"]
           .contains(where: text.contains)
           || (raw["notification_type"] as? String == "idle_prompt"
             && ["done", "complete", "completed"].contains(message.lowercased()))
         {
           mode = .done
+        } else if [
+          "waiting for your input", "waiting for input", "needs your input", "needs input",
+          "permission", "approval", "confirm",
+        ].contains(where: text.contains) {
+          mode = .waiting
         } else {
           mode = .working
         }
@@ -123,7 +132,9 @@ public enum Events {
       }
     }
     return Session(
-      provider: provider, session: identity, name: name, event: event, date: time, mode: mode)
+      provider: provider, session: identity, name: name, event: event, date: time,
+      cwd: raw["cwd"] as? String, origin: raw["agent_origin"] as? String,
+      threadID: raw["session_id"] as? String, mode: mode)
   }
 
   public static func record(provider: String, raw: JSONObject, named event: String? = nil) throws {
@@ -158,7 +169,9 @@ public final class Monitor {
       let key = session.id
       let previous = sessions[key]
       if let previous, previous.date > session.date { return }
-      let raw = row["event"] as? JSONObject ?? row
+      let raw =
+        HookPayload.normalized(row["event"] as? JSONObject ?? row, provider: session.provider)
+        ?? [:]
       let command = (raw["tool_input"] as? JSONObject)?["command"] as? String
       let signature = command.map { (raw["tool_name"] as? String ?? "") + "\u{0}" + $0 }
       switch session.event {

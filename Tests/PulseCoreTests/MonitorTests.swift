@@ -2,7 +2,7 @@ import XCTest
 
 @testable import PulseCore
 
-final class MonitorTests: XCTestCase {
+final class MonitorTests: IsolatedTests {
   let now = Date(timeIntervalSince1970: 1_750_000_000)
   func session(_ event: String, _ provider: String = "codex", _ extras: JSONObject = [:]) throws
     -> Session

@@ -7,7 +7,12 @@ public struct PulseError: LocalizedError {
 }
 
 public enum Paths {
-  public static let home = FileManager.default.homeDirectoryForCurrentUser
+  public static var home: URL {
+    if let root = ProcessInfo.processInfo.environment["SIDEPULSE_USER_HOME"], !root.isEmpty {
+      return URL(fileURLWithPath: root, isDirectory: true)
+    }
+    return FileManager.default.homeDirectoryForCurrentUser
+  }
   public static var support: URL {
     if let path = ProcessInfo.processInfo.environment["SIDEPULSE_SWIFT_HOME"] {
       return URL(fileURLWithPath: path, isDirectory: true)
@@ -69,6 +74,24 @@ public enum Settings {
       return try object(file)
     }
     return [:]
+  }
+  /// Materialize legacy file-backed programs before the previous installation is removed.
+  public static func migrate() throws {
+    try withLock(Paths.support.appendingPathComponent("settings.lock")) {
+      var settings = try read()
+      guard !settings.isEmpty else { return }
+      var registry = settings["custom_agent_animations"] as? [String: JSONObject] ?? [:]
+      var changed = !FileManager.default.fileExists(atPath: url.path)
+      for (id, item) in registry where item["program"] == nil && item["file"] != nil {
+        registry[id]?["program"] = try Programs.resolve(
+          style: id, entry: [:], count: 8, settings: settings)
+        changed = true
+      }
+      if changed {
+        settings["custom_agent_animations"] = registry
+        try saveObject(settings, to: url)
+      }
+    }
   }
   public static func update(_ edit: (inout JSONObject) throws -> Void) throws {
     try withLock(Paths.support.appendingPathComponent("settings.lock")) {

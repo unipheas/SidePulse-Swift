@@ -7,11 +7,21 @@ public struct Phone {
   let token: String, server: String
   var android: Bool { token.hasPrefix("fcm_") }
   init(token: String, name: String, server: String) throws {
+    var token = token.trimmingCharacters(in: .whitespacesAndNewlines)
+    if !token.hasPrefix("fcm_") {
+      let development = token.lowercased().hasPrefix("dev_")
+      let body = development ? String(token.dropFirst(4)) : token
+      let parts = body.split(separator: "_", maxSplits: 1, omittingEmptySubsequences: false)
+      let device = parts.first?.filter { !$0.isWhitespace }.lowercased() ?? ""
+      token = (development ? "dev_" : "") + device + (parts.count == 2 ? "_" + parts[1] : "")
+    }
     let pattern =
       token.hasPrefix("fcm_")
-      ? #"^fcm_[A-Za-z0-9_:.=-]{1,4096}_[0-9a-f]{32}$"#
+      ? #"^fcm_[!-~]{1,4096}_[0-9a-f]{32}$"#
       : #"^(dev_)?[0-9a-fA-F]{64}(_[A-Za-z0-9_-]{1,128})?$"#
-    guard token.range(of: pattern, options: .regularExpression) != nil else {
+    guard token.range(of: pattern, options: .regularExpression) != nil,
+      token.rangeOfCharacter(from: CharacterSet(charactersIn: "/\\?#%")) == nil
+    else {
       throw PulseError("Invalid phone token.")
     }
     self.token = token
@@ -219,7 +229,7 @@ public enum Bridge {
     ]
     try await post(body, url: address(server, channel: channel))
   }
-  public static func receive(channel: String) async throws {
+  public static func receive(channel: String, once: Bool = false) async throws {
     var seen = Set<String>()
     try await events(channel) { value in
       guard value["v"] as? Int == 1, value["type"] as? String == "agent_event",
@@ -233,7 +243,7 @@ public enum Bridge {
       try Events.record(provider: provider, raw: raw)
       if seen.count >= 2048 { seen.removeAll() }
       seen.insert(id)
-      return false
+      return once
     }
   }
 }

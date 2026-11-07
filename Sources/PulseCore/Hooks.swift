@@ -26,6 +26,20 @@ public enum Hooks {
     "grok": ".grok/hooks/sidepulse-swift.json", "cursor": ".cursor/hooks.json",
     "junie": ".junie/config.json",
   ]
+  public static func diagnostics(home: URL = Paths.home) -> [[String: String]] {
+    providers.compactMap { provider in
+      guard let path = configs[provider] else { return nil }
+      let url = home.appendingPathComponent(path)
+      let text = try? String(contentsOf: url, encoding: .utf8)
+      let installed =
+        text?.contains(provider == "codex" ? "# BEGIN SidePulse Swift hooks" : "# sidepulse-swift")
+        == true
+      return [
+        "provider": provider, "path": url.path,
+        "status": installed ? "installed" : (text == nil ? "missing" : "unconfigured"),
+      ]
+    }
+  }
   public static func configure(
     _ provider: String, executable: URL, install: Bool, home: URL = Paths.home
   ) throws {
@@ -33,12 +47,11 @@ public enum Hooks {
       throw PulseError("Choose one of: \(providers.joined(separator: ", ")).")
     }
     let file = home.appendingPathComponent(relative)
-    let exists = FileManager.default.fileExists(atPath: file.path)
-    if !install && !exists { return }
     try withLock(Paths.support.appendingPathComponent("hooks.lock")) {
+      let exists = FileManager.default.fileExists(atPath: file.path)
+      if !install && !exists { return }
       let original = exists ? try Data(contentsOf: file) : Data()
-      let path =
-        "'" + executable.standardizedFileURL.path.replacingOccurrences(of: "'", with: "'\\''") + "'"
+      let path = shellQuote(executable.standardizedFileURL.path)
       let prefix = path + " hook-log --provider " + provider
       let output: Data
       if provider == "codex" {
@@ -74,7 +87,8 @@ public enum Hooks {
           }
           let quoted = String(
             decoding: try JSONEncoder().encode(prefix + " || true"), as: UTF8.self)
-          text += "\n" + begin + "\n"
+          while text.last?.isNewline == true { text.removeLast() }
+          text += "\n\n" + begin + "\n"
           for name in names {
             text +=
               "[[hooks.\(name)]]\nmatcher = \"*\"\n[[hooks.\(name).hooks]]\ntype = \"command\"\ncommand = \(quoted.replacingOccurrences(of: "\\/",with: "/"))\n"

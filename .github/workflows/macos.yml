@@ -7,8 +7,15 @@ jobs:
     runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
-      - name: Test native core
-        run: swift test
+      - name: Test macOS app, hardware protocols, and CLI
+        run: Scripts/test-coverage.sh
+        env:
+          MIN_COVERAGE: 72
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: SidePulse-coverage
+          path: .build/coverage-report
       - name: Build and verify universal app
         run: Scripts/package.sh --universal
       - name: Exercise packaged CLI and resources

@@ -28,12 +28,30 @@ public final class SleepOverride {
   private var lastLid: Bool?
   private let marker = Paths.support.appendingPathComponent("owns-disablesleep")
   private var requested: Bool?
-  public init() {}
+  struct System {
+    var now: () -> Date = Date.init
+    var helperInstalled = {
+      FileManager.default.fileExists(atPath: "/etc/sudoers.d/sidepulse-swift-disablesleep")
+    }
+    var disabled = { Power.flag("SleepDisabled") }
+    var lidClosed = Power.lidClosed
+    var externalDisplay = Power.externalDisplay
+    var disable: (Bool) throws -> Void = { value in
+      try SystemCommand.run(
+        "/usr/bin/sudo", ["-n", "/usr/bin/pmset", "-a", "disablesleep", value ? "1" : "0"])
+    }
+    var sleepDisplay: () throws -> Void = {
+      try SystemCommand.run("/usr/bin/pmset", ["displaysleepnow"])
+    }
+  }
+  private let system: System
+  public convenience init() { self.init(system: System()) }
+  init(system: System) { self.system = system }
   public func update(mode: Mode, settings: JSONObject, battery: Battery?, owner: Bool) throws {
     let policy = settings["swift_closed_lid"] as? String ?? "never"
     if lastMode != mode {
       if [.done, .blocked, .waiting].contains(mode) {
-        grace = Date().addingTimeInterval(300)
+        grace = system.now().addingTimeInterval(300)
       } else {
         grace = .distantPast
       }
@@ -45,38 +63,38 @@ public final class SleepOverride {
     let wanted =
       owner && safeBattery
       && (policy == "always"
-        || (policy == "agents" && ([.working, .tool, .progress].contains(mode) || Date() < grace)))
+        || (policy == "agents"
+          && ([.working, .tool, .progress].contains(mode) || system.now() < grace)))
     if requested != wanted {
       if wanted {
-        guard FileManager.default.fileExists(atPath: "/etc/sudoers.d/sidepulse-swift-disablesleep")
+        guard system.helperInstalled()
         else {
           requested = false
           throw PulseError(
             "Install the optional sleep helper before enabling closed-lid operation.")
         }
-        guard let disabled = Power.flag("SleepDisabled") else {
+        guard let disabled = system.disabled() else {
           throw PulseError("Cannot determine the macOS sleep state.")
         }
         if !disabled {
           try Paths.directory(Paths.support)
           try Data().write(to: marker, options: .atomic)
-          try SystemCommand.run(
-            "/usr/bin/sudo", ["-n", "/usr/bin/pmset", "-a", "disablesleep", "1"])
+          try system.disable(true)
         }
       } else {
         try restore()
       }
       requested = wanted
     }
-    let lid = Power.lidClosed()
-    if wanted, lastLid == false, lid == true, Power.externalDisplay() == false {
-      try SystemCommand.run("/usr/bin/pmset", ["displaysleepnow"])
+    let lid = system.lidClosed()
+    if wanted, lastLid == false, lid == true, system.externalDisplay() == false {
+      try system.sleepDisplay()
     }
     lastLid = lid
   }
   public func restore() throws {
     guard FileManager.default.fileExists(atPath: marker.path) else { return }
-    try SystemCommand.run("/usr/bin/sudo", ["-n", "/usr/bin/pmset", "-a", "disablesleep", "0"])
+    try system.disable(false)
     try FileManager.default.removeItem(at: marker)
   }
 }

@@ -20,6 +20,8 @@ let package = Package(
       ]),
     .executableTarget(name: "SidePulse", dependencies: ["PulseCore"]),
     .executableTarget(name: "PulseCLI", dependencies: ["PulseCore"]),
-    .testTarget(name: "PulseCoreTests", dependencies: ["PulseCore"]),
+    .testTarget(
+      name: "PulseCoreTests", dependencies: ["PulseCore", "SidePulse"],
+      resources: [.copy("Fixtures")]),
   ]
 )
