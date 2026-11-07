@@ -37,7 +37,8 @@ extension HostedActionTests {
       "swift_paused_jobs": ["io.sidepulse.agentstatus"],
     ]
     for view in [
-      AnyView(Overview()), AnyView(HistoryView()), AnyView(DeviceManagement()),
+      AnyView(DashboardView(selection: nil)), AnyView(Overview()), AnyView(HistoryView()),
+      AnyView(DeviceManagement()),
       AnyView(Animations()), AnyView(Preferences()),
       AnyView(SettingField(label: "Field", text: .constant("15"))),
       AnyView(
@@ -55,5 +56,31 @@ extension HostedActionTests {
       XCTAssertGreaterThan(bitmap.pixelsWide, 0)
       window.close()
     }
+  }
+}
+
+extension HostedActionTests {
+  @MainActor func testSetupShowsProgressUntilOptionalHelperCompletes() async throws {
+    var continuation: CheckedContinuation<String, Error>?
+    var actions = MacActions()
+    actions.executableExists = { _ in true }
+    actions.configureJob = { _, _, _ in }
+    actions.jobRunning = { _ in true }
+    actions.helper = { _, _ in try await withCheckedThrowingContinuation { continuation = $0 } }
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false, actions: actions)
+    let setup = Setup()
+    setup.installHooks = false
+    setup.sleepHelper = true
+    let task = Task { await setup.finish(using: model) }
+    for _ in 0..<10 { await Task.yield() }
+    XCTAssertTrue(setup.busy)
+    let window = host(SetupView(setup: setup), model: model)
+    await settle()
+    XCTAssertNotNil(window.contentView)
+    continuation?.resume(returning: "installed")
+    await task.value
+    XCTAssertFalse(setup.busy)
+    XCTAssertFalse(model.needsSetup)
+    window.close()
   }
 }

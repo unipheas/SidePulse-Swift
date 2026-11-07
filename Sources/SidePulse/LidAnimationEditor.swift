@@ -42,8 +42,10 @@ struct LidAnimationEditor: View {
       let animation = model.settings[state + "_animation"] as? JSONObject ?? [:]
       source =
         animation["program"] as? String
-        ?? (try? Programs.preset(state.replacingOccurrences(of: "_", with: "-"), count: 8)) ?? "off"
-      duration = animation["duration_seconds"] as? Double ?? 1.3
+        ?? Programs.preview {
+          try Programs.preset(state.replacingOccurrences(of: "_", with: "-"), count: 8)
+        }
+      duration = animation["duration_seconds"] as? Double ?? (state == "lid_open" ? 1 : 1.3)
     }
   }
 }

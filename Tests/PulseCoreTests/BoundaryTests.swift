@@ -1,3 +1,4 @@
+import DiskArbitration
 import XCTest
 
 @testable import PulseCore
@@ -205,5 +206,29 @@ extension BoundaryTests {
         return .success
       }, isBuiltIn: { _ in false })
     XCTAssertEqual(external, true)
+  }
+}
+
+extension BoundaryTests {
+  func testMissingDiskIdentityIsAllowedWithoutCreatingAnEjectRequest() throws {
+    let session = try XCTUnwrap(DASessionCreate(nil))
+    let disk = try XCTUnwrap(DADiskCreateFromBSDName(nil, session, "/dev/disk99999999"))
+    let context = GuardContext(session: session)
+    XCTAssertNil(context.approve(disk))
+  }
+}
+
+extension BoundaryTests {
+  func testBuiltInProCanBeProtectedBeforeVolumeDiscoveryCompletes() throws {
+    let session = try XCTUnwrap(DASessionCreate(nil))
+    guard let device = Device.discover().first(where: { $0.model == "Pro" }),
+      let disk = DADiskCreateFromVolumePath(nil, session, device.root as CFURL),
+      let whole = DADiskCopyWholeDisk(disk),
+      let description = DADiskCopyDescription(whole) as NSDictionary?,
+      GuardContext.builtInSD(description)
+    else { throw XCTSkip("Requires a Pro in the built-in card reader") }
+    // Evaluates approval only; no eject, mount or device write is requested.
+    let context = GuardContext(session: session)
+    XCTAssertNotNil(context.approve(disk)?.takeRetainedValue())
   }
 }

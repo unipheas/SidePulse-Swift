@@ -102,7 +102,7 @@ enum Args {
   }
   static func run(
     executable: URL = Bundle.main.executableURL!,
-    launch: (String, [String]) throws -> Data = SystemCommand.run
+    launch: (String, [String]) throws -> Data = SystemCommand.execute
   ) async throws {
     let command = Args.pop() ?? "help"
     switch command {
@@ -165,9 +165,9 @@ enum Args {
         try Args.end()
         let reports = Hooks.diagnostics()
         if json {
-          try jsonPrint(reports)
+          print(String(decoding: try JSONEncoder().encode(reports), as: UTF8.self))
         } else {
-          for row in reports { print("\(row["provider"]!) · \(row["status"]!) · \(row["path"]!)") }
+          for row in reports { print("\(row.provider) · \(row.status) · \(row.path)") }
         }
       case "live", "watch", "status", "leds": try await monitor(sub)
       default: throw PulseError("Unknown agent-monitor command.")

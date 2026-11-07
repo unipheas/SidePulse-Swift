@@ -240,3 +240,26 @@ extension ExampleTests {
     XCTAssertTrue(stopped)
   }
 }
+
+extension ExampleTests {
+  func testCompetitionWithoutTeamsIsReportedAsUnavailable() async throws {
+    do {
+      try await Scoreboard.run(
+        device: nil, score: nil, dryRun: true,
+        fetch: { url in
+          (Data("{\"events\":[{\"competitions\":[{}]}]}".utf8), self.response(url))
+        })
+      XCTFail("Missing teams cannot produce a score")
+    } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
+  }
+  func testAudioCLIUsesDefaultInputAndReleasesItOnCancellation() async throws {
+    guard AVCaptureDevice.authorizationStatus(for: .audio) == .authorized else {
+      throw XCTSkip("Uses microphone only when already authorized")
+    }
+    Args.words = ["audio-meter", "--dry-run", "--device", try volume().root.path]
+    let task = Task { try await CLI.run() }
+    try await Task.sleep(for: .milliseconds(200))
+    task.cancel()
+    do { try await task.value } catch is CancellationError {}
+  }
+}

@@ -101,6 +101,10 @@ public enum Programs {
     }
     return text
   }
+  /// Keep previews usable when an imported program or bundled resource cannot be loaded.
+  public static func preview(fallback: String = "off", _ load: () throws -> String) -> String {
+    do { return try load() } catch { return fallback }
+  }
   public static var animationNames: [String] {
     animationNames(in: Bundle.module.resourceURL!.appendingPathComponent("animations"))
   }

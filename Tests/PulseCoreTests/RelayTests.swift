@@ -78,3 +78,23 @@ final class RelayTests: IsolatedTests {
     await relay.stop()
   }
 }
+
+extension RelayTests {
+  func testRelayUsesAgentIdentityWhenThreadIsAbsentAndDropsRemovedRecipients() async throws {
+    try RelayConfiguration(
+      server: "https://fixture.invalid", receiverChannel: "",
+      outboundChannel: "outbound_fixture", machineName: "Fixture"
+    ).save()
+    var rows = [JSONObject]()
+    let relay = Relay(send: { _, _, row, _ in rows.append(row) }, receive: { _, _ in XCTFail() })
+    let session = Session(
+      provider: "codex", session: "agent", name: "Fixture", event: "Stop",
+      date: Date(), mode: .done)
+    try await relay.sync([session])
+    XCTAssertEqual((rows.first?["event"] as? JSONObject)?["session_id"] as? String, "agent")
+    try await relay.sync([])
+    try await relay.sync([session])
+    XCTAssertEqual(rows.count, 2)
+    await relay.stop()
+  }
+}

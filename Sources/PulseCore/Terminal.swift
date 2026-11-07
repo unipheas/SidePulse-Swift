@@ -5,7 +5,7 @@ public enum Terminal {
     "terminal", "iterm", "ghostty", "warp", "kitty", "wezterm", "alacritty", "custom",
   ]
   public static func open(_ command: String, settings: JSONObject, session: Session? = nil) throws {
-    try open(command, settings: settings, session: session, run: SystemCommand.run)
+    try open(command, settings: settings, session: session, run: SystemCommand.execute)
   }
   static func open(
     _ originalCommand: String, settings: JSONObject, session: Session? = nil,

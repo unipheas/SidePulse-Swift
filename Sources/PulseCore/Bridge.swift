@@ -13,7 +13,7 @@ public struct Phone {
       let development = token.lowercased().hasPrefix("dev_")
       let body = development ? String(token.dropFirst(4)) : token
       let parts = body.split(separator: "_", maxSplits: 1, omittingEmptySubsequences: false)
-      let device = parts.first?.filter { !$0.isWhitespace }.lowercased() ?? ""
+      let device = parts[0].filter { !$0.isWhitespace }.lowercased()
       token = (development ? "dev_" : "") + device + (parts.count == 2 ? "_" + parts[1] : "")
     }
     let pattern =

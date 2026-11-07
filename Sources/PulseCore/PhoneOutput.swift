@@ -6,6 +6,7 @@ public actor PhoneOutput {
     let program: String
     let retryAfter: Date
   }
+  private var powerPreview = PowerChangePreview()
   private var deliveries = [String: Delivery]()
   private let phones: () throws -> [Phone]
   private let send: (Phone, String) async throws -> Void
@@ -20,11 +21,15 @@ public actor PhoneOutput {
     self.send = send
     self.now = now
   }
-  public func sync(mode: Mode, settings: JSONObject) async throws {
+  public func sync(mode: Mode, settings: JSONObject, battery: Battery? = Battery.read())
+    async throws
+  {
     guard settings["swift_phone_mirror"] as? Bool == true else {
       deliveries.removeAll()
+      powerPreview = PowerChangePreview()
       return
     }
+    let previewingBattery = powerPreview.update(battery: battery, settings: settings, now: now())
     let recipients = try phones().filter { phone in
       let display =
         Settings.device(phone.deviceID, in: settings)["led_display"] as? String
@@ -36,7 +41,12 @@ public actor PhoneOutput {
     let keys = Set(recipients.map(key))
     deliveries = deliveries.filter { keys.contains($0.key) }
     guard !recipients.isEmpty else { return }
-    let program = try Programs.program(mode, count: 8, settings: settings)
+    let program: String
+    if previewingBattery, let battery {
+      program = battery.program(count: 8, settings: settings)
+    } else {
+      program = try Programs.program(mode, count: 8, settings: settings)
+    }
     var failures = [String]()
     for phone in recipients {
       let id = key(phone)

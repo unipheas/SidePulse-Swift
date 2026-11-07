@@ -59,3 +59,19 @@ final class ResourceBoundaryTests: IsolatedTests {
         right: NSRect(x: 200, y: 0, width: 100, height: 20)), 100)
   }
 }
+
+extension ResourceBoundaryTests {
+  func testPreviewFailuresPreserveTheChosenFallback() throws {
+    XCTAssertEqual(Programs.preview { try Programs.preset("missing-fixture", count: 8) }, "off")
+    XCTAssertEqual(
+      Programs.preview(fallback: "#102030") {
+        try Programs.preset("missing-fixture", count: 8)
+      }, "#102030")
+    XCTAssertEqual(Programs.preview { try Programs.normalize("#102030") }, "#102030")
+    let battery = BatteryDiagnostics(properties: [:], fullWatts: 100)
+    for key in ["missing", "temperature_c", "cycle_count", "adapter_name"] {
+      XCTAssertEqual(battery.displayValue(key), "Unavailable", key)
+    }
+    XCTAssertEqual(battery.displayValue("full_charge_watts", unit: " W"), "100.0 W")
+  }
+}

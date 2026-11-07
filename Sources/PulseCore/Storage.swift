@@ -175,7 +175,11 @@ public enum Settings {
   }
 }
 
+public typealias CommandRunner = (String, [String]) throws -> Data
+
 public enum SystemCommand {
+  /// A shared adapter for components that accept an injectable process runner.
+  public static let execute: CommandRunner = run
   @discardableResult
   public static func run(_ binary: String, _ arguments: [String]) throws -> Data {
     try run(binary, arguments, limit: 8 * 1024 * 1024)
@@ -276,5 +280,15 @@ extension Settings {
       $0["custom_agent_animations"] = animations
     }
     return id
+  }
+}
+
+/// Bounded file reads shared by event tails and transcript recovery.
+enum FileSlice {
+  static func read(_ url: URL, offset: UInt64, count: Int) throws -> Data {
+    let file = try FileHandle(forReadingFrom: url)
+    defer { try? file.close() }
+    try file.seek(toOffset: offset)
+    return try file.read(upToCount: count) ?? Data()
   }
 }

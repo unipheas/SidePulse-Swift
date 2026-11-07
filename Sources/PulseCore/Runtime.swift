@@ -6,12 +6,12 @@ public final class Output {
   private let programs: ProgramOutput
   private let now: () -> Date
   private let lidClosed: () -> Bool?
-  private var previousPower: Bool?, previousLid: Bool?
-  private var previewUntil = Date.distantPast
+  private var previousLid: Bool?
+  private var powerPreview = PowerChangePreview()
   private var lidUntil = Date.distantPast
   private var lidState = "lid_open"
-  private var lastMode: Mode?
-  private var awakeUntil = Date.distantPast
+  private var awakeRequest = AgentAwakeRequest()
+  private var holdClosed = false
   private var assertion: IOPMAssertionID = 0
   public init(
     now: @escaping () -> Date = Date.init, lidClosed: @escaping () -> Bool? = Power.lidClosed
@@ -25,19 +25,13 @@ public final class Output {
     programs.retain([])
   }
   public func updateAwake(mode: Mode, settings: JSONObject, battery: Battery?) {
-    if [.done, .waiting, .blocked].contains(mode), lastMode != mode {
-      awakeUntil = now().addingTimeInterval(300)
-    }
-    if [.working, .tool, .progress].contains(mode) { awakeUntil = .distantPast }
-    lastMode = mode
+    let active = awakeRequest.update(mode: mode, now: now())
     let minimum =
       SleepSettings.minimum(settings)
     let safeBattery = battery.map { $0.plugged || Double($0.percent) >= minimum } ?? true
     let policy = SleepSettings.policy(settings)
     let enabled = settings["swift_keep_awake"] as? Bool ?? (policy != "never")
-    let active =
-      policy == "always" || [.working, .tool, .progress].contains(mode) || now() < awakeUntil
-    keepAwake(enabled && safeBattery && active)
+    keepAwake(enabled && safeBattery && (policy == "always" || active))
   }
   public var isKeepingAwake: Bool { assertion != 0 }
   public func keepAwake(_ active: Bool) {
@@ -51,29 +45,38 @@ public final class Output {
       assertion = 0
     }
   }
-  public func sync(devices: [Device], mode: Mode, settings: JSONObject, battery: Battery?) throws {
+  public func sync(
+    devices: [Device], mode: Mode, settings: JSONObject, battery: Battery?,
+    agentsActive: Bool? = nil
+  ) throws {
     guard settings["swift_mirror"] as? Bool != false else {
       reset()
       return
     }
     programs.retain(devices)
-    let batterySettings = settings["battery_monitoring"] as? JSONObject ?? [:]
-    if let plugged = battery?.plugged {
-      if let previousPower, previousPower != plugged,
-        batterySettings["show_on_power_change"] as? Bool != false
-      {
-        previewUntil = now().addingTimeInterval(
-          batterySettings["power_change_preview_seconds"] as? Double ?? 7)
-      }
-      previousPower = plugged
-    }
+    let previewingBattery = powerPreview.update(battery: battery, settings: settings, now: now())
+    let active = agentsActive ?? ![.done, .idle].contains(mode)
     if let closed = lidClosed() {
       if let previousLid, previousLid != closed {
-        lidState = closed ? "lid_closed" : "lid_open"
-        let animation = settings[lidState + "_animation"] as? JSONObject
-        lidUntil = now().addingTimeInterval(animation?["duration_seconds"] as? Double ?? 1.3)
+        if !closed || LidAnimationPolicy.shouldClose(settings: settings, agentsActive: active) {
+          lidState = closed ? "lid_closed" : "lid_open"
+          let animation = settings[lidState + "_animation"] as? JSONObject
+          lidUntil = now().addingTimeInterval(
+            (animation?["duration_seconds"] as? Double ?? (closed ? 1.3 : 1)) + 0.15)
+          holdClosed = LidAnimationPolicy.shouldHold(
+            closed: closed, settings: settings, agentsActive: active, battery: battery)
+        } else {
+          lidUntil = .distantPast
+          holdClosed = false
+        }
       }
       previousLid = closed
+    }
+    if holdClosed
+      && !LidAnimationPolicy.shouldHold(
+        closed: previousLid, settings: settings, agentsActive: active, battery: battery)
+    {
+      holdClosed = false
     }
     var failures = [String]()
     for device in devices {
@@ -90,7 +93,7 @@ public final class Output {
         let source: String
         if display == "custom", let manual = config?["manual_program"] as? String {
           source = try Programs.normalize(manual)
-        } else if now() < lidUntil {
+        } else if now() < lidUntil || holdClosed {
           let entry = (settings["agent_animations"] as? [String: JSONObject])?[lidState] ?? [:]
           if let saved = (settings[lidState + "_animation"] as? JSONObject)?["program"] as? String,
             !saved.isEmpty
@@ -101,11 +104,8 @@ public final class Output {
               style: entry["style"] as? String ?? lidState.replacingOccurrences(of: "_", with: "-"),
               entry: entry, count: device.count, settings: settings)
           }
-        } else if display == "battery" || now() < previewUntil, let battery {
-          source = battery.program(
-            count: device.count,
-            fullWatts: batterySettings["full_charge_watts"] as? Double
-              ?? PowerRegistry.fullChargeWatts)
+        } else if display == "battery" || previewingBattery, let battery {
+          source = battery.program(count: device.count, settings: settings)
         } else {
           source = try Programs.program(mode, count: device.count, settings: settings)
         }

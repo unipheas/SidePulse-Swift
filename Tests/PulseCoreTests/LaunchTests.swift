@@ -159,3 +159,65 @@ extension LaunchTests {
     XCTAssertFalse(Terminal.focus(session, app: "Terminal", run: { _, _ in Data("0".utf8) }))
   }
 }
+
+extension LaunchTests {
+  func testNoStartWritesConfigurationWithoutTouchingTheRunningJob() throws {
+    let file = Jobs.plist(Jobs.prefix + "app")
+    try saveObject(["previous": true], to: file)
+    try Jobs.configure(
+      "app", executable: root.appendingPathComponent("app"), start: true,
+      run: { _, _ in
+        XCTFail("No-start must not invoke launchctl")
+        return Data()
+      }, launch: false)
+    XCTAssertFalse(try Data(contentsOf: file).isEmpty)
+  }
+  func testFailedUpgradeRestoresPreviousPlistAndRestartsPreviousJob() throws {
+    let file = Jobs.plist(Jobs.prefix + "service")
+    let previous = Data("previous configuration".utf8)
+    try Paths.directory(file.deletingLastPathComponent())
+    try previous.write(to: file)
+    var starts = 0
+    var stopped = false
+    XCTAssertThrowsError(
+      try Jobs.configure(
+        "service", executable: root, start: true,
+        run: { _, args in
+          if args[0] == "bootout" { stopped = true }
+          if args[0] == "bootstrap" {
+            starts += 1
+            if starts == 1 { throw PulseError("New service failed") }
+            XCTAssertEqual(try Data(contentsOf: file), previous)
+          }
+          return Data()
+        }))
+    XCTAssertTrue(stopped)
+    XCTAssertEqual(starts, 2)
+    XCTAssertEqual(try Data(contentsOf: file), previous)
+  }
+  func testFailedFirstInstallRemovesItsPlistAndRecoveryFailureIsReported() throws {
+    let file = Jobs.plist(Jobs.prefix + "service")
+    XCTAssertThrowsError(
+      try Jobs.configure(
+        "service", executable: root, start: true,
+        run: { _, args in
+          throw PulseError(args[0] == "print" ? "not running" : "bootstrap failed")
+        }))
+    XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
+    try Data("previous".utf8).write(to: file)
+    XCTAssertThrowsError(
+      try Jobs.configure(
+        "service", executable: root, start: true,
+        run: { _, args in
+          if args[0] == "bootstrap" { throw PulseError("bootstrap failed") }
+          return Data()
+        })
+    ) { XCTAssertTrue($0.localizedDescription.contains("Recovery also failed")) }
+    XCTAssertEqual(try Data(contentsOf: file), Data("previous".utf8))
+    XCTAssertThrowsError(
+      try Jobs.configure("service", executable: root.appendingPathComponent("missing"), start: true)
+    ) {
+      XCTAssertTrue($0.localizedDescription.contains("executable is missing"))
+    }
+  }
+}

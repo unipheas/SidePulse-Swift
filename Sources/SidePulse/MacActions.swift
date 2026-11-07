@@ -7,6 +7,9 @@ import ServiceManagement
   var executable: URL? = Bundle.main.executableURL?.deletingLastPathComponent()
     .appendingPathComponent("sidepulsectl")
   var executableExists: (String) -> Bool = FileManager.default.isExecutableFile
+  var refreshServices: (URL, String) throws -> Void = {
+    try AppInstallation.refreshServices(executable: $0, version: $1)
+  }
   var configureJob: (String, URL, Bool) throws -> Void = {
     try Jobs.configure($0, executable: $1, start: $2)
   }

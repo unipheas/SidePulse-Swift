@@ -180,6 +180,10 @@ extension RemainingBoundaryTests {
         ["-a", root.appendingPathComponent("SidePulse.app").path, "sidepulse-native://settings"],
         ["sidepulse-native://updates"],
       ])
+    let gui = executable.deletingLastPathComponent().appendingPathComponent("SidePulse")
+    try Paths.directory(gui.deletingLastPathComponent())
+    try Data("#!/bin/sh\nexit 0\n".utf8).write(to: gui)
+    try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: gui.path)
     Args.words = ["start", "--no-start"]
     try CLI.appCommand(executable: executable)
     XCTAssertTrue(
@@ -218,5 +222,65 @@ extension RemainingBoundaryTests {
     } catch { XCTAssertTrue(error is PulseError) }
     Args.words = ["--once", "--dry-run"]
     try await CLI.monitor("leds")
+  }
+}
+
+extension RemainingBoundaryTests {
+  func testSetupCreatesAnIsolatedReceiverAndRejectsMissingExecutablesBeforeLaunchd() throws {
+    Args.words = ["--no-status-bar"]
+    XCTAssertThrowsError(
+      try CLI.setup(
+        executable: root.appendingPathComponent("missing"), hooks: { _ in Args.words = [] })
+    ) {
+      XCTAssertTrue($0.localizedDescription.contains("executable is missing"))
+    }
+    XCTAssertFalse(try RelayConfiguration.read().receiverChannel.isEmpty)
+  }
+}
+
+extension RemainingBoundaryTests {
+  func testBoundedFileReadsHandleTruncationAndEndOfFile() throws {
+    let file = root.appendingPathComponent("events.jsonl")
+    try Data("first\nsecond\n".utf8).write(to: file)
+    XCTAssertEqual(try FileSlice.read(file, offset: 6, count: 6), Data("second".utf8))
+    XCTAssertEqual(try FileSlice.read(file, offset: 100, count: 6), Data())
+    try Data().write(to: file)
+    XCTAssertEqual(try FileSlice.read(file, offset: 0, count: 6), Data())
+    XCTAssertThrowsError(
+      try FileSlice.read(root.appendingPathComponent("missing"), offset: 0, count: 6))
+  }
+  func testActiveSessionPolicyTreatsTimeoutsAndMissingBatteryConsistently() throws {
+    let now = Date()
+    let tool = Session(
+      provider: "codex", session: "tool", name: "Tool", event: "PreToolUse", date: now, mode: .tool)
+    let settings: JSONObject = [
+      "agent_list": ["tool_running_timeout_seconds": 10, "idle_timeout_seconds": 20]
+    ]
+    XCTAssertTrue(Monitor.hasActive([tool], settings: settings, now: now))
+    XCTAssertFalse(Monitor.hasActive([tool], settings: settings, now: now.addingTimeInterval(11)))
+    let working = Session(
+      provider: "codex", session: "work", name: "Work", event: "UserPromptSubmit", date: now,
+      mode: .working)
+    XCTAssertFalse(
+      Monitor.hasActive([working], settings: settings, now: now.addingTimeInterval(21)))
+    let output = Output()
+    output.updateAwake(mode: .working, settings: ["sleep_prevention_policy": "never"], battery: nil)
+    XCTAssertFalse(output.isKeepingAwake)
+  }
+}
+
+extension RemainingBoundaryTests {
+  func testACompletedToolWithoutAnotherHookEventuallyStopsWorking() {
+    let now = Date()
+    let item = Session(
+      provider: "codex", session: "tool", name: "Tool", event: "PostToolUse", date: now,
+      mode: .working)
+    XCTAssertEqual(
+      Monitor.aggregate([item], settings: [:], now: now.addingTimeInterval(119)), .working)
+    XCTAssertEqual(
+      Monitor.aggregate([item], settings: [:], now: now.addingTimeInterval(121)), .done)
+    XCTAssertFalse(Monitor.hasActive([item], settings: [:], now: now.addingTimeInterval(121)))
+    XCTAssertEqual(
+      Monitor.aggregate([item], settings: [:], now: now.addingTimeInterval(1201)), .idle)
   }
 }

@@ -87,7 +87,9 @@ extension CLI {
             output.updateAwake(mode: mode, settings: settings, battery: battery)
             var failure: Error?
             do {
-              try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
+              try output.sync(
+                devices: devices, mode: mode, settings: settings, battery: battery,
+                agentsActive: Monitor.hasActive(rows, settings: settings))
             } catch { failure = error }
             do {
               try History.record(
@@ -98,7 +100,9 @@ extension CLI {
               report(error.localizedDescription)
               if failure == nil { failure = error }
             }
-            do { try await phoneOutput.sync(mode: mode, settings: settings) } catch {
+            do {
+              try await phoneOutput.sync(mode: mode, settings: settings, battery: battery)
+            } catch {
               report(error.localizedDescription)
               if failure == nil { failure = error }
             }

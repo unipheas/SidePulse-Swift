@@ -1,5 +1,11 @@
 import Foundation
 
+public struct HookDiagnostic: Codable, Hashable {
+  public let provider: String
+  public let path: String
+  public let status: String
+}
+
 public enum Hooks {
   static let base = ["SessionStart", "UserPromptSubmit", "PreToolUse", "PostToolUse", "Stop"]
   static let more = ["PreCompact", "PostCompact", "SubagentStop"]
@@ -26,7 +32,7 @@ public enum Hooks {
     "grok": ".grok/hooks/sidepulse-swift.json", "cursor": ".cursor/hooks.json",
     "junie": ".junie/config.json",
   ]
-  public static func diagnostics(home: URL = Paths.home) -> [[String: String]] {
+  public static func diagnostics(home: URL = Paths.home) -> [HookDiagnostic] {
     providers.compactMap { provider in
       guard let path = configs[provider] else { return nil }
       let url = home.appendingPathComponent(path)
@@ -34,10 +40,9 @@ public enum Hooks {
       let installed =
         text?.contains(provider == "codex" ? "# BEGIN SidePulse Swift hooks" : "# sidepulse-swift")
         == true
-      return [
-        "provider": provider, "path": url.path,
-        "status": installed ? "installed" : (text == nil ? "missing" : "unconfigured"),
-      ]
+      return HookDiagnostic(
+        provider: provider, path: url.path,
+        status: installed ? "installed" : (text == nil ? "missing" : "unconfigured"))
     }
   }
   public static func configure(

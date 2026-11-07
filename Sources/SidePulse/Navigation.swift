@@ -25,7 +25,7 @@ enum SectionName: String, CaseIterable, Identifiable {
 }
 struct DashboardView: View {
   @EnvironmentObject var model: Dashboard
-  @State private var selection: SectionName? = .overview
+  @State var selection: SectionName? = .overview
   var body: some View {
     NavigationSplitView {
       List(SectionName.allCases, selection: $selection) { item in

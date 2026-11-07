@@ -10,6 +10,7 @@ struct Animations: View {
   private let states: [Mode] = [
     .working, .tool, .progress, .waiting, .blocked, .done, .idle, .unknown,
   ]
+  private var profile: String { model.settings["swift_profile"] as? String ?? "current" }
   var body: some View {
     ScrollView {
       VStack(alignment: .leading, spacing: 12) {
@@ -17,7 +18,7 @@ struct Animations: View {
           Picker(
             "Profile",
             selection: Binding(
-              get: { model.settings["swift_profile"] as? String ?? "current" },
+              get: { profile },
               set: { model.setProfile($0) }
             )
           ) {
@@ -68,7 +69,7 @@ struct Animations: View {
             Image(systemName: "trash")
           }
           .accessibilityLabel("Delete profile").help("Delete this saved profile")
-          .disabled(!(model.settings["swift_profile"] as? String ?? "").hasPrefix("profile:"))
+          .disabled(!profile.hasPrefix("profile:"))
         }.controlSize(.small)
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
           ForEach(states, id: \.self) { AnimationCard(mode: $0, count: count) }
@@ -96,7 +97,7 @@ struct Animations: View {
   }
   private func deleteProfile() {
     do {
-      try Profiles.delete(model.settings["swift_profile"] as? String ?? "")
+      try Profiles.delete(profile)
       model.refresh()
     } catch { model.problem = error.localizedDescription }
   }
@@ -111,7 +112,7 @@ private struct AnimationCard: View {
   @State private var animationName = ""
   @State private var libraryID: String?
   private var program: String {
-    (try? Programs.program(mode, count: count, settings: model.settings)) ?? "off"
+    Programs.preview { try Programs.program(mode, count: count, settings: model.settings) }
   }
   var body: some View {
     VStack(alignment: .leading, spacing: 7) {
@@ -161,7 +162,9 @@ private struct AnimationCard: View {
                 Divider()
                 ForEach(Programs.animationNames, id: \.self) { name in
                   Button(name) {
-                    draft = (try? Programs.preset(name, count: count)) ?? draft
+                    draft = Programs.preview(fallback: draft) {
+                      try Programs.preset(name, count: count)
+                    }
                     libraryID = nil
                     animationName = ""
                   }

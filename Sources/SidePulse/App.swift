@@ -7,18 +7,7 @@ import SwiftUI
   var body: some Scene {
     Window("SidePulse", id: "main") {
       DashboardView().environmentObject(model)
-        .task {
-          if Bundle.main.bundleIdentifier == "com.unipheas.SidePulseSwift",
-            let executable = Bundle.main.executableURL,
-            let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-          {
-            do {
-              try AppInstallation.refreshServices(
-                executable: executable.deletingLastPathComponent().appendingPathComponent(
-                  "sidepulsectl"), version: version)
-            } catch { model.problem = error.localizedDescription }
-          }
-        }
+        .task { model.prepareInstallation() }
         .onOpenURL { url in
           if url.host == "updates" { AppUpdates.shared.check() }
         }
@@ -37,7 +26,9 @@ import SwiftUI
       }
     Window("Virtual SidePulse", id: "leds") {
       LightBar(
-        source: (try? Programs.program(model.mode, count: 8, settings: model.settings)) ?? "off",
+        source: Programs.preview {
+          try Programs.program(model.mode, count: 8, settings: model.settings)
+        },
         count: 8
       )
       .frame(minWidth: 280, minHeight: 80).padding(8)
@@ -45,12 +36,7 @@ import SwiftUI
     MenuBarExtra(
       "SidePulse · \(model.mode.label)",
       systemImage: model.mode == .idle ? "waveform" : "waveform.circle.fill",
-      isInserted: Binding(
-        get: { model.settings["show_menu_bar_icon"] as? Bool ?? true },
-        set: { value in
-          guard (model.settings["show_menu_bar_icon"] as? Bool ?? true) != value else { return }
-          Task { @MainActor in model.change { $0["show_menu_bar_icon"] = value } }
-        })
+      isInserted: model.menuBarInsertion
     ) {
       MenuPanel().environmentObject(model)
     }

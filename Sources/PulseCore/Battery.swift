@@ -43,6 +43,12 @@ public struct Battery: Sendable {
     }
     return nil
   }
+  public func program(count: Int, settings: JSONObject) -> String {
+    program(
+      count: count,
+      fullWatts: (settings["battery_monitoring"] as? JSONObject)?["full_charge_watts"] as? Double
+        ?? PowerRegistry.fullChargeWatts)
+  }
   public func program(count requested: Int, fullWatts: Double = PowerRegistry.fullChargeWatts)
     -> String
   {

@@ -321,3 +321,66 @@ extension MacActionTests {
     XCTAssertFalse(try String(contentsOf: device.root.appendingPathComponent("LEDS.LED")).isEmpty)
   }
 }
+
+extension MacActionTests {
+  @MainActor func testInstallationPreparationUsesBundleMetadataAndReportsUpgradeFailure() throws {
+    let app = root.appendingPathComponent("Fixture.app")
+    let contents = app.appendingPathComponent("Contents")
+    let executable = contents.appendingPathComponent("MacOS/SidePulse")
+    try Paths.directory(executable.deletingLastPathComponent())
+    try Data("fixture".utf8).write(to: executable)
+    try PropertyListSerialization.data(
+      fromPropertyList: [
+        "CFBundleIdentifier": "com.unipheas.SidePulseSwift",
+        "CFBundleExecutable": "SidePulse", "CFBundleVersion": "fixture-4",
+        "CFBundlePackageType": "APPL",
+      ], format: .xml, options: 0
+    ).write(to: contents.appendingPathComponent("Info.plist"))
+    let bundle = try XCTUnwrap(Bundle(url: app))
+    var actions = MacActions()
+    var calls = 0
+    actions.refreshServices = { url, version in
+      calls += 1
+      XCTAssertEqual(url.standardizedFileURL, contents.appendingPathComponent("MacOS/sidepulsectl"))
+      XCTAssertEqual(version, "fixture-4")
+      if calls == 2 { throw PulseError("Upgrade failed") }
+    }
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false, actions: actions)
+    model.prepareInstallation()
+    XCTAssertEqual(calls, 0)
+    model.prepareInstallation(bundle: bundle)
+    XCTAssertEqual(calls, 1)
+    model.prepareInstallation(bundle: bundle)
+    XCTAssertEqual(model.problem, "Upgrade failed")
+    try Settings.update { $0["installed_build"] = "fixture-4" }
+    XCTAssertNoThrow(try MacActions().refreshServices(executable, "fixture-4"))
+  }
+
+  @MainActor func testMenuBarSceneChangesPersistAfterSceneReconciliation() async throws {
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    XCTAssertTrue(model.menuBarInsertion.wrappedValue)
+    model.menuBarInsertion.wrappedValue = true
+    XCTAssertNil(try Settings.read()["show_menu_bar_icon"])
+    model.menuBarInsertion.wrappedValue = false
+    for _ in 0..<10 { await Task.yield() }
+    XCTAssertFalse(model.menuBarVisible)
+    XCTAssertEqual(try Settings.read()["show_menu_bar_icon"] as? Bool, false)
+    model.menuBarInsertion.wrappedValue = true
+    for _ in 0..<10 { await Task.yield() }
+    XCTAssertTrue(model.menuBarInsertion.wrappedValue)
+    XCTAssertEqual(try Settings.read()["show_menu_bar_icon"] as? Bool, true)
+  }
+}
+
+extension MacActionTests {
+  @MainActor func testLoginAdapterHandlesTheNonApplicationTestHost() throws {
+    XCTAssertNotEqual(Bundle.main.bundleIdentifier, "com.unipheas.SidePulseSwift")
+    let actions = MacActions()
+    defer { _ = try? actions.login(false) }
+    do { _ = try actions.login(true) } catch { XCTAssertFalse(error.localizedDescription.isEmpty) }
+    do { XCTAssertFalse(try actions.login(false)) } catch {
+      XCTAssertFalse(error.localizedDescription.isEmpty)
+    }
+    XCTAssertFalse(try MacActions.setLogin(false, unregister: {}))
+  }
+}

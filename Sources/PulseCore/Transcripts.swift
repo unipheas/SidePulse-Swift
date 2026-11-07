@@ -20,10 +20,10 @@ final class TranscriptReader {
         var recent = [(URL, Date, Int)]()
         for case let url as URL in walker where url.pathExtension == "jsonl" {
           guard let info = try? url.resourceValues(forKeys: keys),
-            let date = info.contentModificationDate,
+            let date = info.contentModificationDate, let size = info.fileSize,
             now.timeIntervalSince(date) < 172800
           else { continue }
-          recent.append((url, date, info.fileSize ?? 0))
+          recent.append((url, date, size))
         }
         for (url, date, size) in recent.sorted(by: { $0.1 > $1.1 }).prefix(
           provider == "claude" ? 24 : 12)
@@ -41,10 +41,10 @@ final class TranscriptReader {
     return files.values.compactMap(\.session)
   }
   static func last(_ url: URL, provider: String, size: Int) -> Session? {
-    guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
-    defer { try? handle.close() }
-    try? handle.seek(toOffset: UInt64(max(0, size - 1_048_576)))
-    guard let data = try? handle.read(upToCount: 1_048_576) else { return nil }
+    guard
+      let data = try? FileSlice.read(
+        url, offset: UInt64(max(0, size - 1_048_576)), count: 1_048_576)
+    else { return nil }
     let name = url.deletingPathExtension().lastPathComponent
     guard
       let range = name.range(

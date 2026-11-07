@@ -14,6 +14,7 @@ ios = "ab" * 32
 android = "fcm_reg:42_" + "f" * 32
 posted = []
 stream = []
+get_requests = []
 bridge_status = 200
 class Bridge(BaseHTTPRequestHandler):
     def log_message(self, *args):
@@ -23,6 +24,7 @@ class Bridge(BaseHTTPRequestHandler):
         self.send_response(204 if bridge_status == 200 else bridge_status)
         self.end_headers()
     def do_GET(self):
+        get_requests.append(self.path)
         self.send_response(bridge_status)
         self.send_header("Content-Type", "text/event-stream")
         self.end_headers()
@@ -226,9 +228,13 @@ with tempfile.TemporaryDirectory() as folder, ThreadingHTTPServer(("127.0.0.1", 
     bridge_status = 503
     run("relay", "send", "sample_channel", "codex", stdin='{"hook_event_name":"Stop"}', ok=False)
     run("relay", "receive", "sample_channel", "--once", ok=False)
+    before_retry = len(get_requests)
     receiver = subprocess.Popen([cli, "relay", "receive", "sample_channel"], env=env,
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    time.sleep(1.2)
+    deadline = time.monotonic() + 6
+    while len(get_requests) < before_retry + 3 and time.monotonic() < deadline:
+        time.sleep(0.1)
+    assert len(get_requests) >= before_retry + 3, "Relay did not retry failed requests"
     assert receiver.poll() is None
     receiver.terminate()
     receiver.communicate(timeout=5)

@@ -473,3 +473,78 @@ extension AppTests {
     XCTAssertFalse(app.staticTexts["Welcome to SidePulse"].exists)
   }
 }
+
+extension AppTests {
+  func testMenuBarOpensWindowsAndQuitsCleanly() throws {
+    var value = try settings()
+    value["show_menu_bar_icon"] = true
+    try JSONSerialization.data(withJSONObject: value).write(
+      to: root.appendingPathComponent("settings.json"), options: .atomic)
+    let item = app.menuBars.statusItems.firstMatch
+    XCTAssertTrue(item.waitForExistence(timeout: 8), app.debugDescription)
+    item.click()
+    app.menuItems["Open virtual LEDs"].click()
+    XCTAssertTrue(app.windows["Virtual SidePulse"].waitForExistence(timeout: 5))
+    item.click()
+    app.menuItems["Open SidePulse"].click()
+    XCTAssertTrue(app.windows["Overview"].waitForExistence(timeout: 5))
+    item.click()
+    item.menuItems["Quit SidePulse"].click()
+    XCTAssertTrue(app.wait(for: .notRunning, timeout: 5))
+  }
+}
+
+extension AppTests {
+  private func openNativeURL(_ url: String) throws {
+    let host = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent(
+      "SidePulse.app")
+    XCTAssertTrue(FileManager.default.fileExists(atPath: host.path))
+    let command = Process()
+    command.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+    command.arguments = ["-a", host.path, url]
+    try command.run()
+    command.waitUntilExit()
+    XCTAssertEqual(command.terminationStatus, 0)
+  }
+  func testNativeSettingsURLAndUpdateErrorRemainUsable() throws {
+    try openNativeURL("sidepulse-native://settings")
+    XCTAssertTrue(app.windows["Settings"].waitForExistence(timeout: 8))
+    // The test host uses an unreachable loopback feed: no release can be installed.
+    app.menuBars.menuBarItems["SidePulse"].click()
+    let check = app.menuItems["Check for Updates…"]
+    XCTAssertTrue(check.waitForExistence(timeout: 5))
+    XCTAssertTrue(check.isEnabled)
+    check.click()
+    let dismiss = app.dialogs.buttons["Cancel Update"].firstMatch
+    XCTAssertTrue(dismiss.waitForExistence(timeout: 12), app.debugDescription)
+    dismiss.click()
+    try openNativeURL("sidepulse-native://updates")
+    XCTAssertTrue(dismiss.waitForExistence(timeout: 12))
+    dismiss.click()
+    XCTAssertTrue(app.windows["Settings"].exists)
+  }
+}
+
+extension AppTests {
+  func testIncompleteAnimationLibraryEntryKeepsDraftAndCanBeRepaired() throws {
+    var value = try settings()
+    value["custom_agent_animations"] = ["custom:incomplete": [:]]
+    try JSONSerialization.data(withJSONObject: value).write(
+      to: root.appendingPathComponent("settings.json"), options: .atomic)
+    app.terminate()
+    app.launch()
+    select("Animations")
+    app.buttons["edit-working"].click()
+    let editor = app.textViews["animation-program"]
+    replace(editor, with: "#102030")
+    app.descendants(matching: .any)["load-animation-preset"].firstMatch.click()
+    app.menuItems["custom:incomplete"].firstMatch.click()
+    XCTAssertEqual(editor.value as? String, "#102030")
+    XCTAssertEqual(app.textFields["Reusable animation name"].value as? String, "custom:incomplete")
+    app.buttons["Update library animation"].click()
+    XCTAssertEqual(
+      (try settings()["custom_agent_animations"] as? [String: [String: Any]])?[
+        "custom:incomplete"]?["program"] as? String, "#102030")
+    app.buttons["Save animation"].click()
+  }
+}

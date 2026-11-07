@@ -221,3 +221,70 @@ extension ViewActionTests {
       Settings.device(phone.deviceID, in: try Settings.read())["led_display"] as? String, "agent")
   }
 }
+
+extension ViewActionTests {
+  @MainActor func testInstallationButtonsInvokeSelectedOutputOwner() throws {
+    var calls = [String]()
+    var actions = MacActions()
+    actions.jobRunning = { _ in false }
+    actions.takeControl = { calls.append("native") }
+    actions.giveBack = { calls.append("previous") }
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false, actions: actions)
+    model.settings["swift_paused_jobs"] = ["fixture"]
+    let view = Preferences().environmentObject(model)
+    try view.inspect().find(button: "Use this installation for device output").tap()
+    model.settings["swift_paused_jobs"] = ["fixture"]
+    try view.inspect().find(button: "Restore previous installation").tap()
+    XCTAssertEqual(calls, ["native", "previous"])
+  }
+}
+
+extension ViewActionTests {
+  @MainActor func testIncompleteDiagnosticsAndMissingLidPresetRemainUsable() throws {
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    model.settings = [:]
+    let diagnostic = DiagnosticsView(readBattery: { BatteryDiagnostics(properties: [:]) })
+      .environmentObject(model)
+    XCTAssertNoThrow(try diagnostic.inspect().find(text: "Unavailable"))
+    let lid = LidAnimationEditor(state: "invalid-fixture").environmentObject(model)
+    try lid.inspect().find(ViewType.DisclosureGroup.self).callOnAppear()
+    let menu = MenuPanel().environmentObject(model)
+    XCTAssertFalse(try menu.inspect().find(ViewType.Toggle.self).isOn())
+    try menu.inspect().find(ViewType.Toggle.self).tap()
+    XCTAssertEqual(try Settings.read()["virtual_status_device_enabled"] as? Bool, true)
+    try menu.inspect().find(ViewType.Toggle.self).tap()
+    XCTAssertEqual(try Settings.read()["virtual_status_device_enabled"] as? Bool, false)
+  }
+
+  @MainActor func testSettingsEditsRecoverWhenAnExternalWriterRemovesTheirDictionary() throws {
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    model.settings["session_terminal"] = ["app": "custom"]
+    let field = try Preferences().environmentObject(model).inspect().find(
+      ViewType.TextField.self, where: { try $0.labelView().text().string() == "Application path" })
+    try Settings.update { $0["session_terminal"] = nil }
+    try field.setInput("/Applications/Fixture.app")
+    XCTAssertEqual(
+      (try Settings.read()["session_terminal"] as? JSONObject)?["custom_path"] as? String,
+      "/Applications/Fixture.app")
+    model.settings["devices"] = [["id": "disconnected"]]
+    let forget = try DeviceManagement().environmentObject(model).inspect().find(button: "Forget")
+    try Settings.update { $0["devices"] = nil }
+    try forget.tap()
+    XCTAssertEqual((try Settings.read()["devices"] as? [JSONObject])?.count, 0)
+
+  }
+}
+
+extension ViewActionTests {
+  @MainActor func testPreviewMenuHandlesUnreadablePairingData() throws {
+    try Paths.directory(Bridge.file.deletingLastPathComponent())
+    try Data("invalid".utf8).write(to: Bridge.file)
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    model.settings = [:]
+    let view = DevicePreviewMenu(source: "off").environmentObject(model)
+    XCTAssertNoThrow(try view.inspect().find(ViewType.Menu.self))
+    XCTAssertNoThrow(
+      try DeviceManagement().environmentObject(model).inspect().find(
+        text: "Connect a SidePulse Pro or Dot."))
+  }
+}

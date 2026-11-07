@@ -129,7 +129,7 @@ final class WorkflowTests: IsolatedTests {
     try output.sync(devices: [device], mode: .working, settings: [:], battery: power)
     XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), power.program(count: 8))
     closed = true
-    try output.sync(devices: [device], mode: .working, settings: [:], battery: power)
+    try output.sync(devices: [device], mode: .idle, settings: [:], battery: power)
     XCTAssertEqual(
       try String(contentsOf: file, encoding: .utf8), try Programs.preset("lid-closed", count: 8))
     try Data("off".utf8).write(to: file)
@@ -262,9 +262,9 @@ extension WorkflowTests {
     var now = Date()
     let output = Output(now: { now }, lidClosed: { closed })
     try Settings.setLidAnimation("lid_closed", program: "#123456 1s", duration: 3)
-    try output.sync(devices: [device], mode: .working, settings: Settings.read(), battery: nil)
+    try output.sync(devices: [device], mode: .idle, settings: Settings.read(), battery: nil)
     closed = true
-    try output.sync(devices: [device], mode: .working, settings: Settings.read(), battery: nil)
+    try output.sync(devices: [device], mode: .idle, settings: Settings.read(), battery: nil)
     let file = device.root.appendingPathComponent("LEDS.LED")
     XCTAssertEqual(try String(contentsOf: file, encoding: .utf8), "#123456 1s")
     XCTAssertThrowsError(

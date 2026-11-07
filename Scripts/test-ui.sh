@@ -19,10 +19,19 @@ mkdir -p .build/ui-tests
 # Keep the generated project outside Documents too: file coordination on a synced
 # workspace can block Xcode before compilation. Source references stay in the repo.
 python3 - "$PWD" "$stage" <<'PY'
-import json, sys
+import json, plistlib, sys
 from pathlib import Path
 root, stage = map(Path, sys.argv[1:])
 spec = (root / "project.yml").read_text().replace("    path: .\n", "    path: " + json.dumps(str(root)) + "\n")
+# Exercise URL routing and real Sparkle startup with isolated test metadata.
+info = plistlib.loads((root / "Artwork/Info.plist").read_bytes())
+info["CFBundleIdentifier"] = "com.unipheas.SidePulseSwift.UITestHost"
+info["SUFeedURL"] = "https://127.0.0.1:9/fixture-appcast.xml"
+info["SUEnableAutomaticChecks"] = False
+info["SUAllowsAutomaticUpdates"] = False
+info_path = stage / "HostInfo.plist"
+info_path.write_bytes(plistlib.dumps(info))
+spec = spec.replace("SIDEPULSE_UI_INFO_PLIST", json.dumps(str(info_path)))
 (stage / "project.yml").write_text(spec)
 PY
 xcodegen generate --spec "$stage/project.yml" --project "$stage" --project-root "$PWD"

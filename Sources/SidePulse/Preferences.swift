@@ -25,7 +25,7 @@ struct Preferences: View {
             } catch { model.problem = error.localizedDescription }
           }.accessibilityIdentifier("save-done-duration")
         }
-        if model.legacy && !Jobs.running(Jobs.prefix + "service") {
+        if model.legacy && !model.actions.jobRunning("service") {
           Button("Use this installation for device output", action: model.takeControl)
         }
         if let paused = model.settings["swift_paused_jobs"] as? [String], !paused.isEmpty {
@@ -161,7 +161,7 @@ struct Preferences: View {
         Toggle(
           "Show menu bar icon",
           isOn: Binding(
-            get: { model.settings["show_menu_bar_icon"] as? Bool ?? true },
+            get: { model.menuBarVisible },
             set: { value in model.change { $0["show_menu_bar_icon"] = value } }))
         Toggle(
           "Open at login",

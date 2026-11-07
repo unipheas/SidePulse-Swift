@@ -25,6 +25,7 @@ enum AudioMeter {
     var stop: () -> Void
     static func microphone() -> Input {
       let engine = AVAudioEngine()
+      let removeTap = { engine.inputNode.removeTap(onBus: 0) }
       return Input(
         authorize: { await AVCaptureDevice.requestAccess(for: .audio) },
         start: { level in
@@ -36,10 +37,10 @@ enum AudioMeter {
               input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
                 level.update(buffer)
               }
-            }, start: engine.start, remove: { input.removeTap(onBus: 0) })
+            }, start: engine.start, remove: removeTap)
         },
         stop: {
-          engine.inputNode.removeTap(onBus: 0)
+          removeTap()
           engine.stop()
         })
     }

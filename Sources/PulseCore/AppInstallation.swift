@@ -11,23 +11,24 @@ public enum AppInstallation {
     throw PulseError("Install SidePulse.app before managing the app or sleep helper.")
   }
   public static func open(
-    executable: URL, run: (String, [String]) throws -> Data = SystemCommand.run
+    executable: URL, run: (String, [String]) throws -> Data = SystemCommand.execute
   ) throws {
     _ = try run("/usr/bin/open", [try bundle(for: executable).path])
   }
   public static func stop(
+    bundleIdentifier: String = "com.unipheas.SidePulseSwift",
     terminate: (String) -> Bool = { identifier in
       NSRunningApplication.runningApplications(withBundleIdentifier: identifier)
         .map { $0.terminate() }.allSatisfy { $0 }
     }
   ) throws {
-    guard terminate("com.unipheas.SidePulseSwift") else {
+    guard terminate(bundleIdentifier) else {
       throw PulseError("SidePulse could not quit. Close its windows and try again.")
     }
   }
   public static func sleepHelper(
     action: String, executable: URL, dryRun: Bool, administratorPrompt: Bool = false,
-    run: (String, [String]) throws -> Data = SystemCommand.run
+    run: (String, [String]) throws -> Data = SystemCommand.execute
   ) throws -> String {
     guard ["install", "uninstall", "status"].contains(action) else {
       throw PulseError("Unknown helper action.")
@@ -63,7 +64,7 @@ public enum AppInstallation {
   /// agents once for the new build so they do not keep executing the previous binary.
   public static func refreshServices(
     executable: URL, version: String,
-    run: (String, [String]) throws -> Data = SystemCommand.run
+    run: (String, [String]) throws -> Data = SystemCommand.execute
   ) throws {
     try withLock(Paths.support.appendingPathComponent("upgrade.lock")) {
       guard try Settings.read()["installed_build"] as? String != version else { return }

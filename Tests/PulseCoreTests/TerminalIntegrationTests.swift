@@ -27,7 +27,7 @@ final class TerminalIntegrationTests: IsolatedTests {
       app.setActivationPolicy(.prohibited)
       let file = URL(fileURLWithPath: #filePath).deletingLastPathComponent().appendingPathComponent("arguments.json")
       try JSONSerialization.data(withJSONObject: Array(CommandLine.arguments.dropFirst())).write(to: file)
-      DispatchQueue.main.async { app.terminate(nil) }
+      if !CommandLine.arguments.contains("--stay") { DispatchQueue.main.async { app.terminate(nil) } }
       app.run()
       """.utf8
     ).write(to: source)
@@ -65,6 +65,29 @@ final class TerminalIntegrationTests: IsolatedTests {
     try MacActions().openSession(.link(app), session, settings)
     let opened = try await waitForArguments()
     XCTAssertEqual(opened, [])
+    try SystemCommand.run("/usr/bin/open", ["-n", "-a", app.path, "--args", "--stay"])
+    for _ in 0..<100 {
+      if !NSRunningApplication.runningApplications(withBundleIdentifier: identifier).isEmpty {
+        break
+      }
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    XCTAssertFalse(
+      NSRunningApplication.runningApplications(withBundleIdentifier: identifier).isEmpty)
+    defer {
+      for process in NSRunningApplication.runningApplications(withBundleIdentifier: identifier) {
+        process.terminate()
+      }
+    }
+    try AppInstallation.stop(bundleIdentifier: identifier)
+    for _ in 0..<100 {
+      if NSRunningApplication.runningApplications(withBundleIdentifier: identifier).isEmpty {
+        break
+      }
+      try await Task.sleep(for: .milliseconds(20))
+    }
+    XCTAssertTrue(
+      NSRunningApplication.runningApplications(withBundleIdentifier: identifier).isEmpty)
     let unhandled = URL(
       string: "sidepulse-unregistered-" + UUID().uuidString.lowercased() + "://test")!
     XCTAssertThrowsError(try MacActions().openSession(.link(unhandled), session, settings))

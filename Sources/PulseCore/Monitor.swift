@@ -85,8 +85,11 @@ public enum Events {
 
   public static func parse(provider: String, row: JSONObject) -> Session? {
     let original = row["event"] as? JSONObject ?? row
-    guard let raw = HookPayload.normalized(original, provider: provider),
-      let event = raw["hook_event_name"] as? String,
+    guard let raw = HookPayload.normalized(original, provider: provider) else { return nil }
+    return parse(provider: provider, row: row, normalized: raw)
+  }
+  static func parse(provider: String, row: JSONObject, normalized raw: JSONObject) -> Session? {
+    guard let event = raw["hook_event_name"] as? String,
       let time = date(row["logged_at"] ?? raw["logged_at"] ?? raw["timestamp"])
     else { return nil }
     if provider == "codex" {
@@ -184,10 +187,18 @@ public final class Monitor {
       let size: Int
       let row: JSONObject?
       let session: Session?
+      let payload: JSONObject?
       init(_ data: Data, provider: String) {
         size = data.count
         row = (try? JSONSerialization.jsonObject(with: data)) as? JSONObject
-        session = row.flatMap { Events.parse(provider: provider, row: $0) }
+        payload = row.flatMap {
+          HookPayload.normalized($0["event"] as? JSONObject ?? $0, provider: provider)
+        }
+        if let row, let payload {
+          session = Events.parse(provider: provider, row: row, normalized: payload)
+        } else {
+          session = nil
+        }
       }
     }
     var inode: UInt64 = 0, offset: UInt64 = 0
@@ -196,14 +207,11 @@ public final class Monitor {
     var recordBytes = 0
     var sessions = [String: Session]()
     var permissions = [String: Set<String>]()
-    mutating func ingest(_ incoming: Session, row: JSONObject) {
+    mutating func ingest(_ incoming: Session, payload raw: JSONObject) {
       var session = incoming
       let key = session.id
       let previous = sessions[key]
       if let previous, previous.date > session.date { return }
-      let raw =
-        HookPayload.normalized(row["event"] as? JSONObject ?? row, provider: session.provider)
-        ?? [:]
       let command = (raw["tool_input"] as? JSONObject)?["command"] as? String
       let signature = command.map { (raw["tool_name"] as? String ?? "") + "\u{0}" + $0 }
       switch session.event {
@@ -257,8 +265,7 @@ public final class Monitor {
       }
       var tail = tails[url] ?? Tail()
       if inode != tail.inode || size < tail.offset { tail = Tail(inode: inode) }
-      if size > tail.offset, let file = try? FileHandle(forReadingFrom: url) {
-        defer { try? file.close() }
+      if size > tail.offset {
         var start = tail.offset
         if size - start > 2_097_152 {
           start = size - 2_097_152
@@ -269,12 +276,11 @@ public final class Monitor {
           tail.permissions = [:]
         }
         do {
-          try file.seek(toOffset: start)
-          let chunk = try file.read(upToCount: Int(size - start)) ?? Data()
+          let chunk = try FileSlice.read(url, offset: start, count: Int(size - start))
           tail.offset = start + UInt64(chunk.count)
           var lines = (tail.partial + chunk).split(
             separator: 10, omittingEmptySubsequences: false)
-          tail.partial = Data(lines.popLast() ?? Data())
+          tail.partial = Data(lines.removeLast())
           if tail.partial.count > 2_097_152 { tail.partial = Data() }
           let incoming = lines.suffix(maxLines).map { Tail.Record(Data($0), provider: provider) }
           tail.records += incoming
@@ -292,8 +298,9 @@ public final class Monitor {
           let historical = max(0, tail.records.count - incoming.count)
           for (index, record) in tail.records.enumerated() where removed > 0 || index >= historical
           {
-            guard let row = record.row, let session = record.session else { continue }
-            tail.ingest(session, row: row)
+            guard let row = record.row, let session = record.session, let payload = record.payload
+            else { continue }
+            tail.ingest(session, payload: payload)
             if index >= historical { audit.append((provider, row, tail.sessions[session.id])) }
           }
           tails[url] = tail
@@ -310,6 +317,18 @@ public final class Monitor {
   public static func aggregate(_ sessions: [Session], settings: JSONObject, now: Date = Date())
     -> Mode
   {
+    effectiveModes(sessions, settings: settings, now: now).min { $0.rank < $1.rank } ?? .idle
+  }
+  public static func hasActive(_ sessions: [Session], settings: JSONObject, now: Date = Date())
+    -> Bool
+  {
+    effectiveModes(sessions, settings: settings, now: now).contains {
+      ![.done, .idle].contains($0)
+    }
+  }
+  private static func effectiveModes(_ sessions: [Session], settings: JSONObject, now: Date)
+    -> [Mode]
+  {
     let done = Settings.seconds(settings, "completed_visible_seconds", default: 1200)
     let stale = Settings.seconds(settings, "idle_timeout_seconds", default: 3600)
     return sessions.compactMap { item -> Mode? in
@@ -320,6 +339,6 @@ public final class Monitor {
       let toolTimeout = Settings.seconds(settings, "tool_running_timeout_seconds", default: 0)
       if mode == .tool && toolTimeout > 0 && age > toolTimeout { return nil }
       return age < stale ? mode : nil
-    }.min { $0.rank < $1.rank } ?? .idle
+    }
   }
 }

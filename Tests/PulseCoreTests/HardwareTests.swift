@@ -30,21 +30,8 @@ final class HardwareTests: IsolatedTests {
 
   func testFirmwareDownloadVerificationAndTransferAgainstSimulatedVolume() async throws {
     let device = try volume()
-    let zip = root.appendingPathComponent("sidepulse-pro-1.1.0-ota.zip")
     let payload = Data([0x10, 0x22, 0x41])
-    let documents = [
-      "FIRMWARE.BIN": payload,
-      "README.txt": Data("SidePulse Pro firmware update - version 1.1.0\n".utf8),
-      "RELEASE_NOTES.txt": Data("Fixture release".utf8),
-    ]
-    let entries = documents.keys.sorted()
-    for (key, data) in documents { try data.write(to: root.appendingPathComponent(key)) }
-    let sum = entries.map { Firmware.digest(documents[$0]!) + "  " + $0 }.joined(separator: "\n")
-    try Data(sum.utf8).write(to: root.appendingPathComponent("SHA256SUMS.txt"))
-    try SystemCommand.run(
-      "/usr/bin/zip",
-      ["-jq", zip.path]
-        + (entries + ["SHA256SUMS.txt"]).map { root.appendingPathComponent($0).path })
+    let zip = try firmwareArchive(payload: payload)
     let archive = try Data(contentsOf: zip)
     func download(_ address: String) throws -> Data {
       if address.contains("api.github.com") {

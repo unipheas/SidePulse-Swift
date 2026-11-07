@@ -47,6 +47,9 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         while not (mount / "STATUS.TXT").exists() and time.monotonic() < deadline:
             time.sleep(0.2)
         assert (mount / "STATUS.TXT").exists(), "The protected volume was not remounted"
+        # Let the next remount tick observe success and clear its pending entry.
+        time.sleep(1.2)
+        assert (mount / "STATUS.TXT").exists()
         (mount / "STATUS.TXT").unlink()
         guard.terminate()
         guard.communicate(timeout=5)

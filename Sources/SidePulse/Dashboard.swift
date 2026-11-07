@@ -54,6 +54,25 @@ import SwiftUI
     }
   }
   var mirror: Bool { settings["swift_mirror"] as? Bool ?? true }
+  var menuBarVisible: Bool { settings["show_menu_bar_icon"] as? Bool ?? true }
+  var menuBarInsertion: Binding<Bool> {
+    Binding(get: { self.menuBarVisible }, set: menuBarVisibilityChanged)
+  }
+  func menuBarVisibilityChanged(_ visible: Bool) {
+    guard menuBarVisible != visible else { return }
+    // MenuBarExtra can report changes while SwiftUI is reconciling its scenes.
+    Task { @MainActor in change { $0["show_menu_bar_icon"] = visible } }
+  }
+  func prepareInstallation(bundle: Bundle = .main) {
+    guard bundle.bundleIdentifier == "com.unipheas.SidePulseSwift",
+      let executable = bundle.executableURL,
+      let version = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String
+    else { return }
+    do {
+      try actions.refreshServices(
+        executable.deletingLastPathComponent().appendingPathComponent("sidepulsectl"), version)
+    } catch { problem = error.localizedDescription }
+  }
   func refresh() {
     do {
       settings = try Settings.read()
@@ -73,7 +92,7 @@ import SwiftUI
       }
       let battery = Battery.read()
       do {
-        try notch.update(NotchDisplay.program(settings: settings, mode: mode, battery: battery))
+        try notch.sync(settings: settings, mode: mode, battery: battery)
       } catch {
         try? notch.update(nil)
         problem = "Notch lights: " + error.localizedDescription
@@ -95,7 +114,9 @@ import SwiftUI
         }
         output.updateAwake(mode: mode, settings: settings, battery: battery)
         do {
-          try output.sync(devices: devices, mode: mode, settings: settings, battery: battery)
+          try output.sync(
+            devices: devices, mode: mode, settings: settings, battery: battery,
+            agentsActive: Monitor.hasActive(sessions, settings: settings))
         } catch { problem = error.localizedDescription }
         if !sending {
           let current = mode
@@ -104,7 +125,7 @@ import SwiftUI
           Task {
             defer { sending = false }
             do {
-              try await phoneOutput.sync(mode: current, settings: config)
+              try await phoneOutput.sync(mode: current, settings: config, battery: battery)
             } catch { problem = error.localizedDescription }
           }
         }

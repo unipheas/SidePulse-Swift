@@ -125,6 +125,13 @@ public struct BatteryDiagnostics {
       "full_charge_watts": baseline, "charge_speed_ratio": min(1, max(0, power / baseline)),
     ]
   }
+  /// Registry sentinels and absent values should not appear as numbers in diagnostics.
+  public func displayValue(_ key: String, unit: String = "") -> String {
+    guard let value = values[key], !(value is NSNull) else { return "Unavailable" }
+    if let number = value as? NSNumber, number.doubleValue < 0 { return "Unavailable" }
+    let text = String(describing: value)
+    return text.isEmpty ? "Unavailable" : text + unit
+  }
   static func family(_ code: Int) -> String {
     switch code {
     case 0xE000_4000...0xE000_4FFF: return "USB-C Power Delivery"

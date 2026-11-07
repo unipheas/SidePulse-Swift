@@ -32,7 +32,7 @@ public enum Power {
 
 /// The command boundary is injectable without changing the two permitted operations.
 struct PowerCommands {
-  var run: (String, [String]) throws -> Data = SystemCommand.run
+  var run: (String, [String]) throws -> Data = SystemCommand.execute
   func disable(_ value: Bool) throws {
     _ = try run("/usr/bin/sudo", ["-n", "/usr/bin/pmset", "-a", "disablesleep", value ? "1" : "0"])
   }
@@ -44,8 +44,7 @@ struct PowerCommands {
 /// Use only the two pmset commands authorized by the optional admin-installed helper.
 /// Remember ownership before changing the setting so a restarted app can restore it.
 public final class SleepOverride {
-  private var grace = Date.distantPast
-  private var lastMode = Mode.unknown
+  private var awakeRequest = AgentAwakeRequest()
   private var lastLid: Bool?
   private let marker = Paths.support.appendingPathComponent("owns-disablesleep")
   private var requested: Bool?
@@ -91,22 +90,16 @@ public final class SleepOverride {
       lease = fd
     }
     let policy = SleepSettings.closedLid(settings)
-    if lastMode != mode {
-      if [.done, .blocked, .waiting].contains(mode) {
-        grace = system.now().addingTimeInterval(300)
-      } else {
-        grace = .distantPast
-      }
-      lastMode = mode
-    }
+    let active = awakeRequest.update(mode: mode, now: system.now())
+    let externalDisplay = system.externalDisplay()
+    let clamshellEligible = externalDisplay == true && battery?.plugged == true
     let minimum =
       SleepSettings.minimum(settings)
     let safeBattery = battery.map { $0.plugged || Double($0.percent) >= minimum } ?? true
     let wanted =
-      owner && safeBattery
+      owner && safeBattery && !clamshellEligible
       && (policy == "always"
-        || (policy == "agents"
-          && ([.working, .tool, .progress].contains(mode) || system.now() < grace)))
+        || (policy == "agents" && active))
     if requested != wanted {
       if wanted {
         guard system.helperInstalled()
@@ -129,7 +122,7 @@ public final class SleepOverride {
       requested = wanted
     }
     let lid = system.lidClosed()
-    if wanted, lastLid == false, lid == true, system.externalDisplay() == false {
+    if wanted, lastLid == false, lid == true, externalDisplay == false {
       try system.sleepDisplay()
     }
     lastLid = lid

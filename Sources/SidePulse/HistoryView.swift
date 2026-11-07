@@ -119,8 +119,8 @@ struct DiagnosticsView: View {
       Section("Agent hooks") {
         ForEach(Hooks.diagnostics(), id: \.self) { report in
           VStack(alignment: .leading) {
-            LabeledContent(report["provider"]?.capitalized ?? "", value: report["status"] ?? "")
-            Text(report["path"] ?? "").font(.caption).textSelection(.enabled).foregroundStyle(
+            LabeledContent(report.provider.capitalized, value: report.status)
+            Text(report.path).font(.caption).textSelection(.enabled).foregroundStyle(
               .secondary)
           }
         }
@@ -133,7 +133,6 @@ struct DiagnosticsView: View {
       }
       Section("Battery and charger") {
         if let diagnostic = readBattery() {
-          let values = diagnostic.values
           ForEach(
             [
               ("Health", "health_percent", "%"), ("Cycle count", "cycle_count", ""),
@@ -143,7 +142,7 @@ struct DiagnosticsView: View {
             ], id: \.0
           ) { label, key, unit in
             LabeledContent(
-              label, value: values[key].map { String(describing: $0) + unit } ?? "Unavailable")
+              label, value: diagnostic.displayValue(key, unit: unit))
           }
         } else {
           Text("No internal battery found.")

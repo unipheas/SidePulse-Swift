@@ -19,8 +19,9 @@ struct Overview: View {
         }
         let count = model.devices.first?.count ?? 8
         LightBar(
-          source: (try? Programs.program(model.mode, count: count, settings: model.settings))
-            ?? "off", count: count)
+          source: Programs.preview {
+            try Programs.program(model.mode, count: count, settings: model.settings)
+          }, count: count)
         Text("Devices").font(.headline)
         if model.devices.isEmpty {
           ContentUnavailableView(

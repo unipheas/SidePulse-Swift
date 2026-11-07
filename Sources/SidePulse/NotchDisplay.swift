@@ -7,6 +7,7 @@ import PulseCore
   private(set) var window: NSPanel?
   private var timer: Timer?
   private var source: String?
+  private var powerPreview = PowerChangePreview()
   private let lights = NotchLights(frame: .zero)
 
   static func frame(screen: NSRect, depth: CGFloat, gap: CGFloat) -> NSRect {
@@ -14,22 +15,26 @@ import PulseCore
     let height = max(0, depth) + 5
     return NSRect(x: screen.midX - width / 2, y: screen.maxY - height, width: width, height: height)
   }
-  static func program(settings: JSONObject, mode: Mode, battery: Battery?) throws -> String? {
+  static func program(
+    settings: JSONObject, mode: Mode, battery: Battery?, previewingBattery: Bool = false
+  ) throws -> String? {
     guard settings["virtual_status_device_enabled"] as? Bool == true else { return nil }
     let config =
       (settings["devices"] as? [JSONObject])?.first { $0["id"] as? String == deviceID } ?? [:]
     let display = config["led_display"] as? String ?? settings["led_display"] as? String ?? "agent"
     guard display != "custom" else { return nil }
     let program: String
-    if display == "battery", let battery {
-      program = battery.program(
-        count: 8,
-        fullWatts: (settings["battery_monitoring"] as? JSONObject)?["full_charge_watts"] as? Double
-          ?? PowerRegistry.fullChargeWatts)
+    if display == "battery" || previewingBattery, let battery {
+      program = battery.program(count: 8, settings: settings)
     } else {
       program = try Programs.program(mode, count: 8, settings: settings)
     }
     return Programs.brightness(program, level: config["brightness"] as? Int ?? 255)
+  }
+  func sync(settings: JSONObject, mode: Mode, battery: Battery?, now: Date = Date()) throws {
+    let preview = powerPreview.update(battery: battery, settings: settings, now: now)
+    try update(
+      Self.program(settings: settings, mode: mode, battery: battery, previewingBattery: preview))
   }
   static func gap(left: NSRect?, right: NSRect?) -> CGFloat {
     (right?.minX ?? 0) - (left?.maxX ?? 0)

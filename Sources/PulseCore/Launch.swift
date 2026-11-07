@@ -10,7 +10,9 @@ public enum Jobs {
   static func command(_ tool: String, _ arguments: [String]) throws -> Data {
     try SystemCommand.run(tool, arguments)
   }
-  public static func running(_ label: String) -> Bool { isRunning(label, run: command) }
+  public static func running(_ label: String) -> Bool {
+    isRunning(label, run: SystemCommand.execute)
+  }
   private static func isRunning(_ label: String, run: (String, [String]) throws -> Data) -> Bool {
     (try? run("/bin/launchctl", ["print", domain + "/" + label])) != nil
   }
@@ -29,8 +31,11 @@ public enum Jobs {
   ) throws {
     let system = scope == .system || (scope == .auto && geteuid() == 0)
     guard !system || geteuid() == 0 else { throw PulseError("System scope requires sudo.") }
+    guard !start || FileManager.default.isExecutableFile(atPath: executable.path) else {
+      throw PulseError("The SidePulse executable is missing or cannot be run.")
+    }
     try configure(
-      job, executable: executable, start: start, run: command,
+      job, executable: executable, start: start, run: SystemCommand.execute,
       system: system, remove: remove, launch: launch)
   }
   static func configure(
@@ -45,32 +50,52 @@ public enum Jobs {
     }
     let domain = system ? "system" : Self.domain
     let file = system ? systemDirectory.appendingPathComponent(label + ".plist") : plist(label)
-    if (try? run("/bin/launchctl", ["print", domain + "/" + label])) != nil {
+    let previous =
+      FileManager.default.fileExists(atPath: file.path) ? try Data(contentsOf: file) : nil
+    let wasRunning = launch && (try? run("/bin/launchctl", ["print", domain + "/" + label])) != nil
+    if wasRunning {
       _ = try run("/bin/launchctl", ["bootout", domain + "/" + label])
     }
-    if start {
-      try Paths.directory(file.deletingLastPathComponent())
-      let logRoot =
-        system
-        ? systemDirectory.appendingPathComponent("../Logs/SidePulse").standardizedFileURL
-        : Paths.support
-      try Paths.directory(logRoot)
-      let config: JSONObject = [
-        "Label": label,
-        "ProgramArguments": job == "app" ? [executable.path] : [executable.path, job, "run"],
-        "RunAtLoad": true,
-        "KeepAlive": true, "ThrottleInterval": 10,
-        "StandardOutPath": logRoot.appendingPathComponent(job + ".out.log").path,
-        "StandardErrorPath": logRoot.appendingPathComponent(job + ".err.log").path,
-      ]
-      try PropertyListSerialization.data(fromPropertyList: config, format: .xml, options: 0).write(
-        to: file, options: .atomic)
-      if launch { _ = try run("/bin/launchctl", ["bootstrap", domain, file.path]) }
-    } else if remove, FileManager.default.fileExists(atPath: file.path) {
-      try FileManager.default.removeItem(at: file)
+    do {
+      if start {
+        try Paths.directory(file.deletingLastPathComponent())
+        let logRoot =
+          system
+          ? systemDirectory.appendingPathComponent("../Logs/SidePulse").standardizedFileURL
+          : Paths.support
+        try Paths.directory(logRoot)
+        let config: JSONObject = [
+          "Label": label,
+          "ProgramArguments": job == "app" ? [executable.path] : [executable.path, job, "run"],
+          "RunAtLoad": true,
+          "KeepAlive": true, "ThrottleInterval": 10,
+          "StandardOutPath": logRoot.appendingPathComponent(job + ".out.log").path,
+          "StandardErrorPath": logRoot.appendingPathComponent(job + ".err.log").path,
+        ]
+        try PropertyListSerialization.data(fromPropertyList: config, format: .xml, options: 0)
+          .write(
+            to: file, options: .atomic)
+        if launch { _ = try run("/bin/launchctl", ["bootstrap", domain, file.path]) }
+      } else if remove, FileManager.default.fileExists(atPath: file.path) {
+        try FileManager.default.removeItem(at: file)
+      }
+    } catch {
+      let original = error
+      do {
+        if let previous {
+          try previous.write(to: file, options: .atomic)
+          if wasRunning { _ = try run("/bin/launchctl", ["bootstrap", domain, file.path]) }
+        } else if FileManager.default.fileExists(atPath: file.path) {
+          try FileManager.default.removeItem(at: file)
+        }
+      } catch {
+        throw PulseError(
+          original.localizedDescription + " Recovery also failed: " + error.localizedDescription)
+      }
+      throw original
     }
   }
-  public static func takeControl() throws { try takeControl(run: command) }
+  public static func takeControl() throws { try takeControl(run: SystemCommand.execute) }
   static func takeControl(run: (String, [String]) throws -> Data) throws {
     var stopped = [String]()
     do {
@@ -99,7 +124,7 @@ public enum Jobs {
       _ = try run("/bin/launchctl", ["bootstrap", domain, plist(label).path])
     }
   }
-  public static func giveBack() throws { try giveBack(run: command) }
+  public static func giveBack() throws { try giveBack(run: SystemCommand.execute) }
   static func giveBack(run: (String, [String]) throws -> Data) throws {
     let labels = try Settings.read()["swift_paused_jobs"] as? [String] ?? []
     for label in labels.reversed() { try resume(label, run: run) }

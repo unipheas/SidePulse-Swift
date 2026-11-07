@@ -5,11 +5,11 @@ enum HookPayload {
   private static let aliases: [String: String] = {
     let all = Hooks.events.filter { $0.key != "cursor" }.values.flatMap { $0 }
     var result = Dictionary(all.map { ($0.lowercased(), $0) }, uniquingKeysWith: { a, _ in a })
-    result.merge([
+    for (key, value) in [
       "subagentend": "SubagentStop", "beforesubmitprompt": "UserPromptSubmit",
       "beforeshellexecution": "PreToolUse", "aftershellexecution": "PostToolUse",
       "afterfileedit": "PostToolUse",
-    ]) { _, b in b }
+    ] { result[key] = value }
     return result
   }()
   static func normalized(_ source: JSONObject, provider: String) -> JSONObject? {

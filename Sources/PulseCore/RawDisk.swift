@@ -52,7 +52,7 @@ public enum RawDisk {
   }
   /// Isolate syscalls so short transfers and a device changing mid-write are testable.
   struct IO {
-    var command: (String, [String]) throws -> Data = SystemCommand.run
+    var command: (String, [String]) throws -> Data = SystemCommand.execute
     var openFile: (String, Int32) -> Int32 = { open($0, $1) }
     var size: (Int32) -> Int64 = { Int64(pulse_raw_size($0)) }
     var read: (Int32, UnsafeMutableRawPointer, Int, off_t) -> Int = { pread($0, $1, $2, $3) }
