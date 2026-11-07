@@ -87,9 +87,19 @@ final class AppTests: XCTestCase {
   private func choose(_ picker: XCUIElement, _ value: String) {
     reveal(picker)
     picker.click()
-    let item = app.menuItems[value].firstMatch
-    if !item.waitForExistence(timeout: 2) { picker.click() }
-    XCTAssertTrue(item.waitForExistence(timeout: 3))
+    // Hidden system menus can contain the same title (for example Recent Items > Terminal).
+    // Click only a currently hittable item while the picker is open, not the first AX match.
+    let items = app.menuItems.matching(identifier: value)
+    let visible = NSPredicate { _, _ in
+      items.allElementsBoundByIndex.contains { $0.isHittable }
+    }
+    if XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: visible, object: app)],
+      timeout: 2) != .completed { picker.click() }
+    XCTAssertEqual(XCTWaiter.wait(
+      for: [XCTNSPredicateExpectation(predicate: visible, object: app)], timeout: 3), .completed)
+    guard let item = items.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
+      return XCTFail("No visible menu item named \(value)")
+    }
     item.click()
   }
   func testSessionPreferencesAndTranscriptTogglesPersist() throws {

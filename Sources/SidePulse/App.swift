@@ -3,7 +3,12 @@ import PulseCore
 import SwiftUI
 
 @main struct SidePulseApp: App {
-  @StateObject private var model = Dashboard()
+  #if SIDEPULSE_UI_TESTING
+    // UI automation must not probe the user's attached hardware or request its permissions.
+    @StateObject private var model = Dashboard(discover: { [] })
+  #else
+    @StateObject private var model = Dashboard()
+  #endif
   var body: some Scene {
     Window("SidePulse", id: "main") {
       DashboardView().environmentObject(model)

@@ -39,7 +39,7 @@ A connected Pro running firmware 1.1.0 passed a mounted-volume working → done 
 
 The native eject guard now passes a real Disk Arbitration test against a disposable HFS+ image: baseline eject succeeds, a simulated Pro is protected and remounted, and an ordinary image can eject. This exposed and fixed a lookup performed after macOS had already unmounted the volume. The installed guard has been replaced by the native implementation.
 
-The physical Pro READ2ME check passed: the real device acknowledged the transaction, CRC and byte count, then its original light program was restored. Physical Dot, mobile pairing, firmware flashing, and closed-lid power changes remain unverified. Protocol simulations and dry runs do not replace those checks. Dot and mobile testing are deferred until the devices are available. No real firmware or privileged sleep settings were changed during the automated suite.
+The physical Pro READ2ME check passed: the real device acknowledged the transaction, CRC and byte count, then its original light program was restored. At that checkpoint, physical Dot, mobile pairing, firmware flashing, and closed-lid power changes remained unverified; the later Nova Dot checks are recorded below. Protocol simulations and dry runs do not replace those checks. Dot and mobile testing are deferred until the devices are available. No real firmware or privileged sleep settings were changed during the automated suite.
 
 The expanded suite includes injected USB discovery/transfer failures, raw-device sizing errors, Dot transport release/reconciliation, bounded firmware streaming, transcript cache updates, relay stop/restart and retry behavior, synthetic audio RMS/smoothing/cancellation, scoreboard feed errors, notch geometry/rendering, and local Apple Intelligence generation when the model is available. Hardware fault simulations do not imply that a physical Dot was tested.
 
@@ -78,3 +78,77 @@ The toolbar appearance test selects Auto, Light, and Dark, checks persistence ac
 The installed 0.2.1 build (5) matches the packaged GUI, CLI, and classifier byte for byte. All three executables have no profiling counter sections. Its code signature verifies, native monitoring and eject protection are running, only `/Applications/SidePulse.app` is registered, and the custom animation/profile hashes and 15-second Done setting are unchanged. The installed top-right appearance menu was checked directly; the user's Dark selection was preserved. The public Sparkle feed still serves 0.2.0; 0.2.1 was installed locally for this performance and appearance update.
 
 All five [CI jobs for the current production sources](https://github.com/unipheas/SidePulse-Swift/actions/runs/42378712699) passed on Apple Silicon and Intel, including the UI suite and both sanitizers. The subsequent test-only retry/backoff check passed locally and is included in the 100% line-coverage measurement.
+
+## Opt-in physical Dot acceptance
+
+After stopping all other SidePulse writers, set `SIDEPULSE_DOT_ACCEPTANCE=1` and
+`SIDEPULSE_DOT_MOUNT=/Volumes/PulseDot`, then run `swift test --filter DotAcceptanceTests`.
+The test requires a detected two-LED Dot with firmware at least 1.1.0. It snapshots
+and restores the original light program, checks a mounted-volume write, and injects
+an EROFS open failure to exercise the actual IOKit/SPC2 fallback and its acknowledgement.
+Only the read-only trigger is simulated. This does not prove visible LED colors,
+physical cable recovery, operation without a mounted volume, or firmware flashing.
+Ordinary runs skip this test.
+
+## Nova Dot acceptance and discovery responsiveness
+
+On November 7, 2026, a two-LED Dot running firmware 1.1.14 passed mounted-volume
+writes/readback and actual SPC2 acknowledgements. The fallback test injected the
+read-only open failure; it did not change volume permissions. Three built-in
+profiles, eight agent modes, brightness boundaries, and sixteen preserved custom
+programs were exercised. A user separately confirmed red, green, blue, opposite
+left/right colors, and off on the physical LEDs. Rapid protocol loops are not
+visual confirmation of every animation.
+
+A real Codex session, after approving its replacement native status hooks through
+Codex's normal trust UI, produced SessionStart, UserPromptSubmit, PreToolUse,
+PostToolUse, and Stop events. Mounted-program observations measured Done to Idle
+at 14.962 seconds, and Stop timestamp to Idle at 15.243 seconds with the default
+one-second service polling interval. Two overlapping real Codex sessions also retained Working after the shorter
+session stopped, then returned Done to Idle after the longer session stopped
+(14.899 seconds between output observations; 15.714 seconds from Stop to Idle).
+Additional isolated overlap/needs-input checks used synthetic hook events on the
+real device; their Done holds were 14.982 and 15.046 seconds. A 60-second sustained run at 0.1-second polling used 2.94% mean / 3.4%
+peak CPU and 15,840–15,888 KiB RSS, with no transport errors. These are short-run
+process measurements, not an indefinite leak guarantee.
+
+Initial GUI launch blocked in synchronous removable-volume discovery. Default
+discovery now runs off the main actor, with only one outstanding scan and
+main-actor publication. Regression tests cover responsiveness, single-flight
+behavior, persistence errors, and deallocation while a scan is pending. A blocked
+OS read cannot itself be cancelled; it must return before the detached scan exits.
+This fixes discovery blocking window creation, not all possible synchronous I/O
+when the GUI itself owns hardware output. The normal installed service owns output.
+
+The Nova UI run exposed a selector collision with Apple's hidden Recent Items >
+Terminal menu item. The picker helper now chooses only a hittable matching item
+from the open menu. The focused session-preferences workflow passes without
+opening the unrelated system-menu entry.
+
+The local complete native baseline passed 223 tests with five explicit skips; the
+three discovery regressions and opt-in live Dot check also passed separately.
+The classifier's two template tests and synthetic integration cases passed, as
+did CLI, FAT12 image, and eject-guard integration. A complete UI execution covered
+all 21 workflows, but was not a clean single-run pass: removable-volume permission
+prompts blocked one layout check, and an export dialog needed a retry. Tests must
+be run on an unlocked desktop without competing UI activity; The UI target now defines `SIDEPULSE_UI_TESTING` only for its test-host app and
+injects empty discovery. It never probes attached volumes. SwiftPM production
+builds do not define that flag; default discovery is covered by native regression
+and installed-app/physical acceptance, not by the UI host.
+
+The pre-isolation Nova merged production line measurement was **10,292/10,364 (99.31%) across
+71 production files**, including instrumented installed-app acceptance. The
+modified Dashboard is 100% line-covered. This does **not** meet the requested
+100% total: 48 uncovered lines belong to microphone capture on this Mac without
+an input device, and 24 are existing export/lifecycle/platform paths. The exact
+100% verifier correctly rejects this measurement. Historical MacBook evidence
+above is not substituted, and no coverage threshold has been lowered.
+
+Normal unmount/remount preserved the Dot's identity, accessibility, and `nobrowse`
+mount flag. Physical cable/port/hub changes and sleep/wake were not exercised at
+the user's direction. Mobile pairing, firmware flashing, and Pro-only features
+were outside this Dot acceptance. The final universal release executables match
+the package byte-for-byte and contain no profiling sections. All sixteen custom
+programs and both saved profiles are preserved. The old Python-only runtime and
+its three startup entries were moved to recoverable Trash after backup and native
+physical verification; general Python, settings, and history were retained.
