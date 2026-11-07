@@ -35,4 +35,15 @@ final class AppTerminationRaceTests: XCTestCase {
     }
     XCTAssertEqual(waits, 20)
   }
+  func testDefaultWaitBacksOffBeforeRecheckingRejectedRequest() {
+    var checks = 0
+    let started = ProcessInfo.processInfo.systemUptime
+    XCTAssertTrue(AppInstallation.finishTermination(isTerminated: {
+      checks += 1
+      return checks >= 3
+    }, terminate: { false }))
+    XCTAssertEqual(checks, 3)
+    XCTAssertGreaterThanOrEqual(ProcessInfo.processInfo.systemUptime - started, 0.04)
+  }
+
 }
