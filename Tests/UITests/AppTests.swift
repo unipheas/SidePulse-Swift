@@ -522,9 +522,19 @@ extension AppTests {
     let dismiss = app.dialogs.buttons["Cancel Update"].firstMatch
     XCTAssertTrue(dismiss.waitForExistence(timeout: 12), app.debugDescription)
     dismiss.click()
+    let closed = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "exists == false"), object: dismiss)
+    XCTAssertEqual(XCTWaiter.wait(for: [closed], timeout: 5), .completed)
+    // Sparkle finishes its previous session asynchronously after the alert closes.
+    app.menuBars.menuBarItems["SidePulse"].click()
+    let ready = XCTNSPredicateExpectation(
+      predicate: NSPredicate(format: "enabled == true"), object: check)
+    XCTAssertEqual(XCTWaiter.wait(for: [ready], timeout: 8), .completed)
+    app.typeKey(.escape, modifierFlags: [])
     try openNativeURL("sidepulse-native://updates")
-    XCTAssertTrue(dismiss.waitForExistence(timeout: 12))
-    dismiss.click()
+    let secondDismiss = app.dialogs.buttons["Cancel Update"].firstMatch
+    XCTAssertTrue(secondDismiss.waitForExistence(timeout: 12), app.debugDescription)
+    secondDismiss.click()
     XCTAssertTrue(app.windows["Settings"].exists)
   }
 }
