@@ -223,6 +223,22 @@ extension LaunchTests {
 }
 
 extension LaunchTests {
+  func testServiceConfigurationBacksOffDuringTransientLaunchdTeardown() throws {
+    var attempts = 0
+    let start = ContinuousClock.now
+    try Jobs.configure(
+      "service", executable: root, start: true,
+      run: { _, arguments in
+        if arguments[0] == "print" { throw PulseError("Not loaded") }
+        XCTAssertEqual(arguments[0], "bootstrap")
+        attempts += 1
+        if attempts == 1 { throw PulseError("Still unloading") }
+        return Data()
+      })
+    XCTAssertEqual(attempts, 2)
+    XCTAssertGreaterThanOrEqual(start.duration(to: .now), .milliseconds(90))
+    XCTAssertTrue(FileManager.default.fileExists(atPath: Jobs.plist(Jobs.prefix + "service").path))
+  }
   func testBootstrapRetriesAsynchronousLaunchdTeardown() throws {
     var attempts = 0
     var delays = [TimeInterval]()

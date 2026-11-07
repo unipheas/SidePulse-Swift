@@ -1,0 +1,23 @@
+{
+  "source_revision": "09491e7377bdb62654a8a3aa9e672e0b2e5b961d",
+  "benchmark": "10,000 eight-LED night-rider frames at 16 ms simulation steps, release configuration",
+  "baseline_seconds": 0.098119208,
+  "optimized_seconds": 0.027756458,
+  "speedup": 3.5350046464862337,
+  "checksum_before": 3783819,
+  "checksum_after": 3783819,
+  "equivalence_tests": "Two- and eight-LED frames, initial colors, negative timestamp clamp, static/off/looped programs match original renderer",
+  "scope": "Simulator frame processing only; this does not measure end-to-end display frame rate",
+  "installed_profile": {
+    "before": {
+      "main_thread_process_wait": true,
+      "main_thread_service_lookup": true,
+      "notch_display_link_observed": false
+    },
+    "after": {
+      "main_thread_process_wait": false,
+      "main_thread_service_lookup": false,
+      "notch_display_link_observed": true
+    }
+  }
+}
