@@ -237,6 +237,6 @@ struct DevicePreviewMenu: View {
       }
     }.disabled(
       (model.devices.isEmpty && phones.isEmpty)
-        || (model.legacy && !Jobs.running(Jobs.prefix + "service")))
+        || (model.legacy && !model.serviceRunning))
   }
 }

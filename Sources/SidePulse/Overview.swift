@@ -44,7 +44,7 @@ struct Overview: View {
         }
         if model.legacy {
           Label(
-            Jobs.running(Jobs.prefix + "service")
+            model.serviceRunning
               ? "Monitoring continues in the background when this window is closed."
               : "Your previous SidePulse installation is controlling the lights.",
             systemImage: "eye"

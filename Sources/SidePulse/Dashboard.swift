@@ -11,6 +11,7 @@ import SwiftUI
   @Published var problem: String?
   @Published var needsSetup = false
   @Published var legacy = true
+  @Published var serviceRunning = false
   @Published var login = SMAppService.mainApp.status == .enabled
   @Published var history = [(Date, Mode)]()
   let monitor = Monitor(), output = Output()
@@ -85,13 +86,19 @@ import SwiftUI
         if let outputInUse {
           let active = outputInUse()
           if legacy != active { legacy = active }
+          let service = actions.jobRunning("service")
+          if serviceRunning != service { serviceRunning = service }
         } else if ownershipTask == nil {
           // launchctl can wait for process teardown; never block animation frames.
           ownershipTask = Task { [weak self] in
-            let active = await Task.detached(priority: .utility) {
-              Output.legacyRunning() || Jobs.running(Jobs.prefix + "service")
+            let ownership = await Task.detached(priority: .utility) {
+              (previous: Output.legacyRunning(), service: Jobs.running(Jobs.prefix + "service"))
             }.value
+            let active = ownership.previous || ownership.service
             if self?.legacy != active { self?.legacy = active }
+            if self?.serviceRunning != ownership.service {
+              self?.serviceRunning = ownership.service
+            }
             self?.ownershipTask = nil
           }
         }
@@ -230,6 +237,7 @@ extension Dashboard {
   func toggleService(_ job: String) -> Bool {
     do {
       let running = try actions.job(job, start: !actions.jobRunning(job))
+      if job == "service", serviceRunning != running { serviceRunning = running }
       refresh()
       return running
     } catch { problem = error.localizedDescription }

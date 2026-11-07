@@ -7,6 +7,36 @@ import XCTest
 @testable import SidePulse
 
 final class AppearanceTests: IsolatedTests {
+  @MainActor func testRenderingPagesUsesCachedServiceStatus() throws {
+    var queries = 0
+    var running = true
+    var actions = MacActions()
+    actions.jobRunning = { _ in
+      queries += 1
+      return running
+    }
+    let device = try volume()
+    let model = Dashboard(
+      discover: { [device] }, outputInUse: { true }, poll: false, actions: actions)
+    XCTAssertTrue(model.serviceRunning)
+    let initialQueries = queries
+    let overview = Overview().environmentObject(model)
+    XCTAssertNoThrow(
+      try overview.inspect().find(
+        text: "Monitoring continues in the background when this window is closed."))
+    let preferences = Preferences().environmentObject(model)
+    XCTAssertNoThrow(try preferences.inspect().find(ViewType.Form.self))
+    let menu = DevicePreviewMenu(source: "off").environmentObject(model)
+    XCTAssertFalse(try menu.inspect().find(ViewType.Menu.self).isDisabled())
+    XCTAssertEqual(queries, initialQueries, "Rendering must not spawn launchctl on the main thread")
+    running = false
+    for _ in 0..<5 { model.refresh() }
+    XCTAssertFalse(model.serviceRunning)
+    XCTAssertTrue(try menu.inspect().find(ViewType.Menu.self).isDisabled())
+    XCTAssertNoThrow(
+      try overview.inspect().find(
+        text: "Your previous SidePulse installation is controlling the lights."))
+  }
   @MainActor func testAppearanceMenuPersistsAndAppliesAllModes() throws {
     let original = NSApplication.shared.appearance
     defer { NSApplication.shared.appearance = original }

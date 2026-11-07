@@ -25,7 +25,7 @@ struct Preferences: View {
             } catch { model.problem = error.localizedDescription }
           }.accessibilityIdentifier("save-done-duration")
         }
-        if model.legacy && !model.actions.jobRunning("service") {
+        if model.legacy && !model.serviceRunning {
           Button("Use this installation for device output", action: model.takeControl)
         }
         if let paused = model.settings["swift_paused_jobs"] as? [String], !paused.isEmpty {
