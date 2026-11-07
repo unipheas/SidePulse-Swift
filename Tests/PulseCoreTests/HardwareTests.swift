@@ -160,3 +160,57 @@ extension HardwareTests {
       changes, [true, false], "An existing system override belongs to its original owner.")
   }
 }
+
+extension HardwareTests {
+  func testReadChannelNegotiationAndAcknowledgement() throws {
+    let payload = Array("off".utf8)
+    var symbols = [Int]()
+    var statusReads = 0
+    func status() throws -> ReadChannel.Status {
+      statusReads += 1
+      var bytes = [UInt8](repeating: 0, count: 64)
+      bytes.replaceSubrange(0..<8, with: "READ2ME1".utf8)
+      bytes[8] = 1
+      func word(_ value: UInt32, at: Int) {
+        bytes.replaceSubrange(at..<at + 4, with: ReadChannel.bytes(value))
+      }
+      word(512, at: 40)
+      if symbols.count >= 7 {
+        word(7, at: 32)
+        word(1, at: 50)
+      }
+      if symbols.count > 7 {
+        let nibbles = Array(
+          symbols.dropFirst(7 + ReadChannel.start.count).dropLast(ReadChannel.end.count))
+        let decoded = stride(from: 0, to: nibbles.count, by: 2).map {
+          UInt8(nibbles[$0] * 16 + nibbles[$0 + 1])
+        }
+        bytes.replaceSubrange(12..<16, with: decoded[1..<5])
+        bytes[9] = 3
+        word(UInt32(payload.count), at: 16)
+        word(UInt32(payload.count), at: 20)
+        bytes.replaceSubrange(44..<46, with: ReadChannel.bytes(ReadChannel.crc(payload)))
+      }
+      bytes.replaceSubrange(
+        62..<64, with: ReadChannel.bytes(ReadChannel.crc(Array(bytes.prefix(62)))))
+      var sector = [UInt8](repeating: 0, count: 512)
+      let text = Array(
+        ("<!--READ2ME1:" + bytes.map { String(format: "%02x", $0) }.joined() + "-->\n").utf8)
+      sector.replaceSubrange(256..<256 + text.count, with: text)
+      return try ReadChannel.Status(sector)
+    }
+    try ReadChannel.upload(payload, read: { symbols.append($0) }, status: status, wait: {})
+    XCTAssertEqual(Array(symbols.prefix(7)), ReadChannel.start + [16])
+    XCTAssertEqual(statusReads, 3)
+    XCTAssertThrowsError(
+      try ReadChannel.upload([], read: { _ in XCTFail() }, status: status, wait: {}))
+    symbols = []
+    var time = 0.0
+    XCTAssertThrowsError(
+      try ReadChannel.upload(
+        payload, read: { _ in }, status: status, uptime: { time }, wait: { time += 1 }))
+    let stub = root.appendingPathComponent("setup.html")
+    try Data(repeating: 0, count: 19 * 512).write(to: stub)
+    XCTAssertThrowsError(try ReadChannel.upload(payload, root: root))
+  }
+}

@@ -160,3 +160,20 @@ final class WorkflowTests: IsolatedTests {
     XCTAssertNil(session.target(for: .vscode))
   }
 }
+
+extension WorkflowTests {
+  func testSavedProfileSnapshotsInlineAnimationAndDeletesCleanly() throws {
+    try Settings.update {
+      $0["agent_animations"] = ["working": ["style": "custom", "custom_program": "#FF0000"]]
+    }
+    let id = try Profiles.save(name: "Work")
+    try Profiles.select("cyan")
+    try Profiles.select(id)
+    XCTAssertEqual(try Programs.program(.working, count: 8, settings: Settings.read()), "#FF0000")
+    try Profiles.delete(id)
+    XCTAssertEqual(try Settings.read()["swift_profile"] as? String, "current")
+    XCTAssertThrowsError(try Profiles.delete(id))
+    XCTAssertThrowsError(try Profiles.delete("cyan"))
+    XCTAssertThrowsError(try Profiles.save(name: "   "))
+  }
+}

@@ -8,6 +8,7 @@ struct Animations: View {
   @State var selected = Mode.working
   @State var source = ""
   @State var count = 8
+  @State private var profileName = ""
   func load() {
     source = (try? Programs.program(selected, count: count, settings: model.settings)) ?? "off"
   }
@@ -24,10 +25,28 @@ struct Animations: View {
       ) {
         Text("Current").tag("current")
         let saved = model.settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]
-        ForEach(saved.keys.sorted(), id: \.self) { key in
+        ForEach(
+          saved.keys.sorted().filter { !["cyan", "ember", "purple"].contains($0) }, id: \.self
+        ) { key in
           Text(saved[key]?["name"] as? String ?? key).tag(key)
         }
         ForEach(["cyan", "ember", "purple"], id: \.self) { Text($0.capitalized).tag($0) }
+      }
+      HStack {
+        TextField("New profile name", text: $profileName)
+        Button("Save profile") {
+          do {
+            try Profiles.save(name: profileName)
+            profileName = ""
+            model.refresh()
+          } catch { model.problem = error.localizedDescription }
+        }.disabled(profileName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        Button("Delete profile") {
+          do {
+            try Profiles.delete(model.settings["swift_profile"] as? String ?? "")
+            model.refresh()
+          } catch { model.problem = error.localizedDescription }
+        }.disabled(!(model.settings["swift_profile"] as? String ?? "").hasPrefix("profile:"))
       }
       Picker("State", selection: $selected) {
         ForEach(Mode.allCases, id: \.self) { Text($0.label).tag($0) }
@@ -62,6 +81,24 @@ struct Animations: View {
             do { try Profiles.export(to: url) } catch { model.problem = error.localizedDescription }
           }
         }
+        Menu("Show on device") {
+          ForEach(model.devices) { device in
+            Button(device.name) {
+              do {
+                _ = try LEDPreview(program: source, count: device.count)
+                model.change { settings in
+                  var rows = settings["devices"] as? [JSONObject] ?? []
+                  var row = rows.first { $0["id"] as? String == device.id } ?? ["id": device.id]
+                  row["led_display"] = "custom"
+                  rows.removeAll { $0["id"] as? String == device.id }
+                  rows.append(row)
+                  settings["devices"] = rows
+                }
+                try device.write(source)
+              } catch { model.problem = error.localizedDescription }
+            }
+          }
+        }.disabled(model.devices.isEmpty || model.legacy)
         Spacer()
         Button("Save animation") {
           do {

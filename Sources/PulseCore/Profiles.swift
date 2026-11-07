@@ -2,6 +2,42 @@ import Foundation
 
 public enum Profiles {
   static let states = Mode.allCases.map(\.rawValue) + ["lid_closed", "lid_open"]
+  @discardableResult
+  public static func save(name: String) throws -> String {
+    let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !name.isEmpty else { throw PulseError("Enter a profile name.") }
+    let id = "profile:" + UUID().uuidString
+    try Settings.update { settings in
+      var saved = settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]
+      let entries = settings["agent_animations"] as? [String: JSONObject] ?? [:]
+      var mapping = try Programs.profile("cyan")
+      var custom = settings["custom_agent_animations"] as? [String: JSONObject] ?? [:]
+      for (state, entry) in entries {
+        guard let style = entry["style"] as? String else { continue }
+        if let inline = entry["custom_program"] as? String {
+          let key = "custom:" + UUID().uuidString
+          custom[key] = ["name": name + " " + state, "program": try Programs.normalize(inline)]
+          mapping[state] = key
+        } else {
+          mapping[state] = style
+        }
+      }
+      saved[id] = ["name": name, "animations": mapping]
+      settings["custom_agent_animations"] = custom
+      settings["agent_animation_profiles"] = saved
+      settings["swift_profile"] = id
+    }
+    return id
+  }
+  public static func delete(_ id: String) throws {
+    guard id.hasPrefix("profile:") else { throw PulseError("Choose a saved profile.") }
+    try Settings.update { settings in
+      var saved = settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]
+      guard saved.removeValue(forKey: id) != nil else { throw PulseError("Unknown profile.") }
+      settings["agent_animation_profiles"] = saved
+      if settings["swift_profile"] as? String == id { settings["swift_profile"] = "current" }
+    }
+  }
   public static func select(_ id: String) throws {
     try Settings.update { settings in
       let saved = settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]

@@ -5,7 +5,7 @@ work=$(mktemp -d "${TMPDIR:-/tmp}/sidepulse-tests.XXXXXXXX")
 trap 'rm -rf "$work"' EXIT
 export SIDEPULSE_USER_HOME="$work/home" SIDEPULSE_SWIFT_HOME="$work/settings"
 export XDG_CONFIG_HOME="$work/config" XDG_STATE_HOME="$work/state"
-swift test --enable-code-coverage
+swift test --enable-code-coverage -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping
 bin=$(swift build --show-bin-path)
 export LLVM_PROFILE_FILE="$work/cli-%m-%p.profraw"
 python3 Tests/Integration/cli.py "$bin/sidepulsectl"

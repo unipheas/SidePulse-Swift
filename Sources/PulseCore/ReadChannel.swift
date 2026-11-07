@@ -77,25 +77,32 @@ enum ReadChannel {
       try read(18)
       return try Status(Array(UnsafeRawBufferPointer(start: buffer, count: 512)))
     }
+    try upload(payload, read: read, status: status)
+  }
+  static func upload(
+    _ payload: [UInt8], read: (Int) throws -> Void, status: () throws -> Status,
+    uptime: () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+    wait: () -> Void = { usleep(10000) }
+  ) throws {
     let initial = try status()
     guard initial.data[9] != 2, !payload.isEmpty, payload.count <= 512,
       payload.count <= Int(initial.word(40))
     else { throw PulseError("Pro is busy or its read channel has insufficient capacity.") }
     for symbol in start + [16] { try read(symbol) }
-    var deadline = ProcessInfo.processInfo.systemUptime + 1
+    var deadline = uptime() + 1
     while true {
       let check = try status()
       let delta = check.word(32) &- initial.word(32)
       if delta == 7 && check.word(50) != initial.word(50) { break }
-      guard delta <= 7, ProcessInfo.processInfo.systemUptime < deadline else {
+      guard delta <= 7, uptime() < deadline else {
         throw PulseError("Control-sector probe failed.")
       }
-      usleep(10000)
+      wait()
     }
     var id = UInt32.random(in: 1...UInt32.max)
     while id == initial.word(12) { id = UInt32.random(in: 1...UInt32.max) }
     for symbol in frame(id: id, payload: payload) { try read(symbol) }
-    deadline = ProcessInfo.processInfo.systemUptime + 3
+    deadline = uptime() + 3
     repeat {
       let ack = try status()
       if ack.word(12) == id, ack.data[11] == 0, ack.data[9] == 3, ack.data[10] == 0,
@@ -104,8 +111,8 @@ enum ReadChannel {
       {
         return
       }
-      usleep(10000)
-    } while ProcessInfo.processInfo.systemUptime < deadline
+      wait()
+    } while uptime() < deadline
     throw PulseError("The Pro did not acknowledge the LED program.")
   }
 }
