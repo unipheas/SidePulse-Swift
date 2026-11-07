@@ -43,17 +43,18 @@ public enum ReplyClassifier {
     return labels.count == 1 ? labels.first! : "UNCERTAIN"
   }
   public static func generate(_ text: String) async throws -> String {
-    try await generate(text, model: availableModel())
+    let model = try requireModel(availableModel())
+    return try await model(text)
   }
-  static func generate(_ text: String, model: ((String) async throws -> String)?) async throws
-    -> String
+  static func requireModel(_ model: ((String) async throws -> String)?) throws
+    -> (String) async throws -> String
   {
     guard let model else {
       throw PulseError(
         "Local reply classification requires Apple Intelligence with its on-device model available."
       )
     }
-    return try await model(text)
+    return model
   }
   /// Resolve availability separately from generation so unavailable-model behavior can be tested
   /// without changing the user's Apple Intelligence preferences.
