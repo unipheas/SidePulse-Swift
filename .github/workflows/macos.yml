@@ -1,0 +1,23 @@
+name: macOS
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  native:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test native core
+        run: swift test
+      - name: Build and verify universal app
+        run: Scripts/package.sh --universal
+      - name: Exercise packaged CLI and resources
+        run: |
+          cli="dist/SidePulse Swift.app/Contents/MacOS/sidepulse-swift"
+          "$cli" --version
+          "$cli" animations | grep -Fx cyan-roll-8
+          lipo -verify_arch arm64 x86_64 "$cli"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SidePulse-Swift-macOS
+          path: dist/SidePulse-Swift-macOS.zip
