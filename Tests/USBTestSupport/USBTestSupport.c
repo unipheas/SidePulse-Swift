@@ -106,15 +106,15 @@ static int fake_stat(int fd, struct stat *info) {
     return scenario == 0 ? -1 : 0;
 }
 static int fake_ioctl(int fd, unsigned long request, void *value) {
-    if (scenario == 2) return -1;
+    if (scenario == 2 || (scenario == 8 && request == DKIOCGETBLOCKCOUNT)) return -1;
     if (request == DKIOCGETBLOCKSIZE) *(uint32_t *)value = scenario == 3 ? 4096 : 512;
     if (request == DKIOCGETBLOCKCOUNT) *(uint64_t *)value = scenario == 4 ? 0 : scenario == 5 ? 10000 : 128;
     return 0;
 }
 int test_raw_size_adapter(void) {
-    for (scenario = 0; scenario <= 7; scenario++) {
+    for (scenario = 0; scenario <= 8; scenario++) {
         int size = pulse_raw_size_using(0, fake_stat, fake_ioctl);
-        if (size != (scenario >= 6 ? 65536 : -1)) return scenario + 1;
+        if (size != ((scenario == 6 || scenario == 7) ? 65536 : -1)) return scenario + 1;
     }
     return 0;
 }

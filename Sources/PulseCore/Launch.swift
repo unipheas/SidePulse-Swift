@@ -102,15 +102,16 @@ public enum Jobs {
     _ domain: String, file: URL, run: CommandRunner,
     wait: (TimeInterval) -> Void = Thread.sleep(forTimeInterval:)
   ) throws {
-    for attempt in 0..<50 {
+    let arguments = ["bootstrap", domain, file.path]
+    for _ in 0..<49 {
       do {
-        _ = try run("/bin/launchctl", ["bootstrap", domain, file.path])
+        _ = try run("/bin/launchctl", arguments)
         return
       } catch {
-        guard attempt < 49 else { throw error }
         wait(0.1)
       }
     }
+    _ = try run("/bin/launchctl", arguments)
   }
   public static func takeControl() throws { try takeControl(run: SystemCommand.execute) }
   static func takeControl(run: (String, [String]) throws -> Data) throws {
