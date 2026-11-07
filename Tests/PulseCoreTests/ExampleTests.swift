@@ -194,11 +194,15 @@ extension ExampleTests {
     let authorized = await input.authorize()
     XCTAssertTrue(authorized)
     let level = AudioMeter.Level()
+    // A finite zero alone also passes when no hardware callback ever arrived.
+    level.lock.withLock { level.rms = -1 }
     try input.start(level)
     defer { input.stop() }
-    try await Task.sleep(for: .milliseconds(120))
+    for _ in 0..<100 where level.read() < 0 {
+      try await Task.sleep(for: .milliseconds(20))
+    }
     XCTAssertTrue(level.read().isFinite)
-    XCTAssertGreaterThanOrEqual(level.read(), 0)
+    XCTAssertGreaterThanOrEqual(level.read(), 0, "The authorized input must deliver an audio buffer")
   }
 }
 

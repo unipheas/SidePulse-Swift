@@ -42,8 +42,10 @@ public enum ReplyClassifier {
       { upper.substring(with: $0.range) })
     return labels.count == 1 ? labels.first! : "UNCERTAIN"
   }
-  public static func generate(_ text: String) async throws -> String {
-    let model = try requireModel(availableModel())
+  public static func generate(
+    _ text: String, model: ((String) async throws -> String)? = nil
+  ) async throws -> String {
+    let model = try requireModel(model ?? availableModel())
     return try await model(text)
   }
   static func requireModel(_ model: ((String) async throws -> String)?) throws
