@@ -37,9 +37,23 @@ for dependency in .build/classifier/SourcePackages/checkouts/*; do
 done
 cp -X Artwork/SidePulse.icns "$contents/Resources/"
 cp -X Artwork/Info.plist "$contents/"
-codesign --force --sign "${CODESIGN_IDENTITY:--}" "$contents/MacOS/sidepulse-classifier"
-codesign --force --sign "${CODESIGN_IDENTITY:--}" "$contents/MacOS/sidepulsectl"
-codesign --force --sign "${CODESIGN_IDENTITY:--}" "$app"
+identity="${CODESIGN_IDENTITY:--}"
+sign=(codesign --force --sign "$identity")
+if [[ "$identity" == "Developer ID Application:"* ]]; then
+  sign+=(--options runtime --timestamp)
+  # Sign embedded Sparkle code inside out with the application's team, retaining
+  # the official helper entitlements. Do not use --deep to create signatures.
+  sparkle="$contents/Frameworks/Sparkle.framework"
+  for helper in "$sparkle/Versions/B/XPCServices/Downloader.xpc" \
+    "$sparkle/Versions/B/XPCServices/Installer.xpc" \
+    "$sparkle/Versions/B/Updater.app" "$sparkle/Versions/B/Autoupdate"; do
+    "${sign[@]}" --preserve-metadata=entitlements "$helper"
+  done
+  "${sign[@]}" "$sparkle"
+fi
+"${sign[@]}" "$contents/MacOS/sidepulse-classifier"
+"${sign[@]}" "$contents/MacOS/sidepulsectl"
+"${sign[@]}" "$app"
 codesign --verify --deep --strict "$app"
 ditto -c -k --norsrc --noextattr --keepParent "$app" "$stage/SidePulse-macOS.zip"
 if [[ -d "dist/SidePulse.app" ]]; then mv "dist/SidePulse.app" "$stage/previous.app"; fi
