@@ -21,7 +21,13 @@ public enum Mode: String, Codable, CaseIterable, Sendable {
     case .unknown: return "Unknown"
     }
   }
-  var rank: Int { Self.allCases.firstIndex(of: self)! }
+  var rank: Int {
+    // A lost activity signal should not be hidden by a completed or idle session.
+    if self == .unknown { return 5 }
+    if self == .done { return 6 }
+    if self == .idle { return 7 }
+    return Self.allCases.firstIndex(of: self)!
+  }
 }
 
 public let providers = ["codex", "claude", "cursor", "grok", "junie"]
@@ -32,6 +38,7 @@ public struct Session: Codable, Identifiable, Equatable, Sendable {
   public let date: Date
   public var cwd: String? = nil, origin: String? = nil, threadID: String? = nil
   public var mode: Mode
+  public var leaseExpiresAt: Date? = nil
   public var id: String { provider + ":" + session }
 }
 
@@ -237,6 +244,7 @@ public final class Monitor {
     }
   }
   private let transcripts = TranscriptReader()
+  private let localAgents = LocalAgentEvents.Reader()
   private var tails = [URL: Tail]()
   private let sources: [(String, URL)]
   private let maxLines: Int
@@ -311,6 +319,7 @@ public final class Monitor {
     try? Audit.records(audit)
     for row in transcripts.read(settings: (try? Settings.read()) ?? [:])
     where latest[row.id].map({ $0.date < row.date }) ?? true { latest[row.id] = row }
+    for row in localAgents.sessions() { latest[row.id] = row }
     return latest.values.sorted { $0.date > $1.date }
   }
 
@@ -334,6 +343,12 @@ public final class Monitor {
     return sessions.compactMap { item -> Mode? in
       let age = max(0, now.timeIntervalSince(item.date))
       var mode = item.mode
+      if item.provider == "local" {
+        guard age < LocalAgentEvents.retention else { return nil }
+        if let lease = item.leaseExpiresAt, now >= lease { return .unknown }
+        if mode == .done { return age < done ? mode : nil }
+        return mode
+      }
       if mode == .working && item.event.lowercased() == "posttooluse" && age > 120 { mode = .done }
       if mode == .done { return age < done ? mode : nil }
       let toolTimeout = Settings.seconds(settings, "tool_running_timeout_seconds", default: 0)

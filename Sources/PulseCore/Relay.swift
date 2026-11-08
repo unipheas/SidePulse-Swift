@@ -101,7 +101,8 @@ public actor Relay {
       configuration = config
     }
     guard !config.outboundChannel.isEmpty else { return }
-    for item in sessions where !item.session.hasPrefix("relay:") && forwarded[item.id] != item.date
+    for item in sessions where item.provider != "local"
+      && !item.session.hasPrefix("relay:") && forwarded[item.id] != item.date
     {
       // Expired activity must not awaken the receiving device after restarting the sender.
       guard Date().timeIntervalSince(item.date) < 3600 else { continue }
