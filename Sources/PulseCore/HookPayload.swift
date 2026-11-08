@@ -39,6 +39,10 @@ enum HookPayload {
     raw["hook_event_name"] = event
     return raw
   }
+  static func hasRunningBackgroundTask(_ raw: JSONObject) -> Bool {
+    guard let tasks = raw["background_tasks"] as? [Any] else { return false }
+    return tasks.contains { ($0 as? JSONObject)?["status"] as? String == "running" }
+  }
   static func failed(_ value: Any?) -> Bool {
     if let result = value as? JSONObject {
       return result["success"] as? Bool == false || result["interrupted"] as? Bool == true
