@@ -41,6 +41,42 @@ pulse="/Applications/SidePulse.app/Contents/MacOS/sidepulsectl"
 - **History.** Export status changes with `history history.csv` or `history history.html`. Export individual hook events and their interpreted status with `audit events.csv` or `audit events.html`.
 - **Reply classification.** On supported Macs with Apple Intelligence available, `classify` uses Apple's on-device Foundation Models framework. Add `--json` for the label and raw model output.
 
+## Other local agents and Ollama
+
+Use `agent-event` or the optional [Python lifecycle adapter](Integrations/README.md)
+for local programs that do not provide coding-agent hooks. This is explicit
+instrumentation of a task, not automatic detection of every running model or
+cloud chat. A model remaining loaded in Ollama does not mean it is working.
+
+```sh
+run=$(uuidgen)
+started=$(date +%s)
+"$pulse" agent-event --source local-worker --run "$run" --started-at "$started" --state working --sequence 1
+"$pulse" agent-event --source local-worker --run "$run" --started-at "$started" --state completed --sequence 2
+```
+
+Use a fresh run ID and a fixed start timestamp for each operation, with increasing
+sequence numbers. Reuse the same start timestamp for every event of that run. Each run
+is independent, so finishing one cannot clear another. Send a heartbeat before
+the lease expires (60 seconds by default, configurable from 5 to 3,600 seconds).
+An expired active lease becomes Unknown, not Done. Explicit `waiting_for_input`
+and `blocked_error` remain visible until resumed or acknowledged with a newer
+state; all snapshots leave the active list after 24 hours without an update.
+A completed or acknowledged (`idle_ready`) run cannot be restarted. Use a new ID.
+
+Only source label, run ID, state, sequence, start/update timestamps and lease are
+stored locally. Storage is capped at 4,096 snapshots. At capacity, expired snapshots
+are pruned as needed when a new run is admitted, and old start timestamps prevent delayed events from
+recreating a pruned run. If the cap is reached, new telemetry is rejected while
+existing run updates continue; the best-effort adapter does not fail the job.
+Use fixed source labels, never user content. The interface accepts no prompts,
+responses, command arguments, paths or credentials, and local events are excluded
+from the existing network relay. No listener or startup service is installed.
+The command wrapper can report ordinary process work and exit failures; only an
+application's explicit lifecycle events can reliably report that it needs input.
+ChatGPT cloud conversations need a supported lifecycle source or explicit reporting;
+this integration does not claim universal cloud visibility.
+
 ## Build
 
 Open `Package.swift` in Xcode or use a Mac with Xcode 16 or later.

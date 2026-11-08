@@ -1,0 +1,65 @@
+{
+  "recorded_at": "2026-11-08T01:17:31.653541+00:00",
+  "base_revision": "494a3d3",
+  "scope": "Local-only explicit agent lifecycle integration; no live installation or actual model-client wiring.",
+  "checks": [
+    {
+      "command": "swift test --enable-code-coverage",
+      "status": "passed",
+      "tests": 285,
+      "skipped": 7,
+      "failures": 0
+    },
+    {
+      "command": "python3 -m unittest discover -s Integrations/tests -v",
+      "status": "passed",
+      "tests": 9
+    },
+    {
+      "command": "python3 Tests/Integration/local-agents.py .build/debug/sidepulsectl",
+      "status": "passed"
+    },
+    {
+      "command": "python3 Tests/Integration/cli.py .build/debug/sidepulsectl",
+      "status": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "status": "passed"
+    }
+  ],
+  "new_swift_source_line_coverage": {
+    "LocalAgentCommand.swift": {
+      "count": 26,
+      "covered": 26,
+      "percent": 100
+    },
+    "LocalAgentEvents.swift": {
+      "count": 191,
+      "covered": 191,
+      "percent": 100
+    }
+  },
+  "synthetic_capacity_sample": {
+    "snapshots": 4096,
+    "new_admission_ms": 148.9,
+    "cold_status_ms": 396.4,
+    "session_count": 4096,
+    "expired_prune_admission_ms": 13.7,
+    "remaining_snapshots": 4096
+  },
+  "limitations": [
+    "Whole-project 100% CI coverage, UI, classifier, sanitizers, universal packaging and installed-hardware acceptance were not rerun for this branch.",
+    "The capacity sample is one synthetic local run, not a sustained-load guarantee.",
+    "No automatic cloud-chat lifecycle source is provided.",
+    "Actual local client instrumentation and installation remain separate rollout steps."
+  ],
+  "sha256": {
+    "Sources/PulseCLI/CLI.swift": "cac304582e81eccbde77d9133b5f439bd5b04813ce3fcf0257eca3075278b139",
+    "Sources/PulseCLI/LocalAgentCommand.swift": "4d8ef753925424a07b80fdcffa30a52c1138419fffd0445d5a0a4e27c1968ae4",
+    "Sources/PulseCore/LocalAgentEvents.swift": "f75d5aa84bd345fb476ce661daf8408152eb92df16eff9bb16929dbc74fea746",
+    "Sources/PulseCore/Monitor.swift": "76dce9ee9a3d9f2255f48e8048a07000adfd49e13b182bba48db43965789bad0",
+    "Sources/PulseCore/Relay.swift": "f58e85326d567f39590c646ebce2c623f9da673484fe7b4b9d9769c7afc840d5",
+    "Integrations/sidepulse_agent.py": "975550cd7e4910ebb2ee1789fc57c405eea9ca63d628c0a9782944012aaf17fb"
+  }
+}

@@ -8,6 +8,8 @@ export XDG_CONFIG_HOME="$work/config" XDG_STATE_HOME="$work/state"
 swift test --enable-code-coverage -Xcc -fprofile-instr-generate -Xcc -fcoverage-mapping
 bin=$(swift build --show-bin-path)
 export LLVM_PROFILE_FILE="$work/cli-%m-%p.profraw"
+python3 -m unittest discover -s Integrations/tests -v
+python3 Tests/Integration/local-agents.py "$bin/sidepulsectl"
 python3 Tests/Integration/cli.py "$bin/sidepulsectl"
 python3 Tests/Integration/disk-image.py "$bin/sidepulsectl"
 python3 Tests/Integration/disk-support-test.py

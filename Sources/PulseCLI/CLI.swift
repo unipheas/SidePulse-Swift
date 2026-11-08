@@ -65,6 +65,8 @@ enum Args {
         [--device PATH] [--file-name NAME.LED] [--once] [--dry-run]
       agent-monitor install|uninstall [codex|claude|cursor|grok|junie|all]
         install|uninstall: [--log-dir PATH] [--PROVIDER-log PATH]
+      agent-event --source NAME --run ID --started-at UNIX_SECONDS --state STATE --sequence N
+        [--lease-seconds N]
       hook-log --provider NAME [--event NAME] [--log PATH] < event.json
       battery status [--json] | leds [--device PATH] [--file-name NAME.LED]
       battery configure [--display agent|battery] [--full-watts auto|WATTS]
@@ -154,6 +156,7 @@ enum Args {
       let sub = Args.pop() ?? "status"
       switch sub {
       case "status-bar": try appCommand()
+      case "agent-event": try localAgentEvent()
       case "hook-log":
         Args.words.insert("hook-log", at: 0)
         try await run()
@@ -195,6 +198,7 @@ enum Args {
       } else {
         print(result.label)
       }
+    case "agent-event": try localAgentEvent()
     case "hook-log":
       guard let provider = try Args.option("--provider") else {
         throw PulseError("Missing --provider.")

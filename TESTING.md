@@ -211,3 +211,29 @@ The user explicitly approved merging with the repository's original 80% gate whi
 100% work continues separately. The merge candidate restores that original gate,
 retains the stronger test suite and installed acceptance, and does not claim 100%.
 The exact-equality check remains available when MIN_COVERAGE=100 is selected.
+
+## Local agent integration
+
+The isolated local-agent tests cover private minimal snapshots, concurrent runs
+and writers, source namespacing, duplicate/out-of-order updates, terminal replay,
+heartbeat expiry to Unknown, latched attention, explicit acknowledgement, retention,
+unsafe/corrupt input, CLI parsing and exclusion from the existing remote relay.
+The Python adapter tests mock its telemetry and child processes. A separate real-CLI
+harness uses only temporary state and synthetic child processes, no hardware, models,
+installed services or network listeners:
+
+```sh
+swift test --filter LocalAgentTests
+python3 -m unittest discover -s Integrations/tests -v
+python3 Tests/Integration/local-agents.py "$(swift build --show-bin-path)/sidepulsectl"
+```
+
+The published coverage evidence above describes the earlier source fingerprint.
+It is not a coverage claim for these new source files. Installation and actual agent
+client wiring require a separately coordinated acceptance check.
+
+A local implementation checkpoint passed 285 native tests (7 opt-in/platform skips),
+9 adapter tests, the real-CLI local-agent harness, and the existing CLI regression
+harness. The two new Swift production files each reached 100% line coverage in
+that native run. This is not the whole-project CI coverage gate. See the
+[source fingerprints and scoped results](Tests/Evidence/local-agent-integration.json).
