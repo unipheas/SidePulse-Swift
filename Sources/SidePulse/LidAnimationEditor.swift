@@ -4,9 +4,15 @@ import SwiftUI
 struct LidAnimationEditor: View {
   @EnvironmentObject var model: Dashboard
   let state: String
-  @State private var expanded = true
-  @State private var source = ""
-  @State private var duration = 1.3
+  @State private var expanded: Bool
+  @State private var source: String
+  @State private var duration: Double
+  init(state: String) {
+    self.state = state
+    _expanded = State(initialValue: true)
+    _source = State(initialValue: "")
+    _duration = State(initialValue: 1.3)
+  }
   var body: some View {
     DisclosureGroup(state == "lid_open" ? "Lid opened" : "Lid closed", isExpanded: $expanded) {
       ProgramEditor(
@@ -24,9 +30,11 @@ struct LidAnimationEditor: View {
         DevicePreviewMenu(source: source)
         Button("Reset to default") {
           do {
-            source = try Programs.preset(state.replacingOccurrences(of: "_", with: "-"), count: 8)
-            duration = state == "lid_open" ? 1 : 1.3
-            try Settings.setLidAnimation(state, program: source, duration: duration)
+            let preset = try Programs.preset(state.replacingOccurrences(of: "_", with: "-"), count: 8)
+            let seconds = state == "lid_open" ? 1.0 : 1.3
+            try Settings.setLidAnimation(state, program: preset, duration: seconds)
+            source = preset
+            duration = seconds
             model.refresh()
           } catch { model.problem = error.localizedDescription }
         }.accessibilityIdentifier(state + "-reset")

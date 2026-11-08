@@ -4,6 +4,8 @@ import SwiftUI
 
 struct Animations: View {
   @EnvironmentObject var model: Dashboard
+  var selectImportURL: (NSOpenPanel) -> URL? = { $0.runModal() == .OK ? $0.url : nil }
+  var selectExportURL: (NSSavePanel) -> URL? = { $0.runModal() == .OK ? $0.url : nil }
   @State private var count = 8
   @State private var profileName = ""
   @State private var namingProfile = false
@@ -81,7 +83,7 @@ struct Animations: View {
   private func importProfile() {
     let panel = NSOpenPanel()
     panel.allowedContentTypes = [.json]
-    if panel.runModal() == .OK, let url = panel.url {
+    if let url = selectImportURL(panel) {
       do {
         try Profiles.load(from: url)
         model.refresh()
@@ -91,7 +93,7 @@ struct Animations: View {
   private func exportProfile() {
     let panel = NSSavePanel()
     panel.nameFieldStringValue = "SidePulse Profile.json"
-    if panel.runModal() == .OK, let url = panel.url {
+    if let url = selectExportURL(panel) {
       do { try Profiles.export(to: url) } catch { model.problem = error.localizedDescription }
     }
   }
@@ -107,10 +109,17 @@ private struct AnimationCard: View {
   @EnvironmentObject var model: Dashboard
   let mode: Mode
   let count: Int
-  @State private var editing = false
-  @State private var draft = ""
-  @State private var animationName = ""
+  @State private var editing: Bool
+  @State private var draft: String
+  @State private var animationName: String
   @State private var libraryID: String?
+  init(mode: Mode, count: Int) {
+    self.mode = mode
+    self.count = count
+    _editing = State(initialValue: false)
+    _draft = State(initialValue: "")
+    _animationName = State(initialValue: "")
+  }
   private var program: String {
     Programs.preview { try Programs.program(mode, count: count, settings: model.settings) }
   }
@@ -198,7 +207,13 @@ struct ProgramEditor: View {
   @Binding var source: String
   let count: Int
   var initialProgram: String? = nil
-  @State private var replay = UUID()
+  @State private var replay: UUID
+  init(source: Binding<String>, count: Int, initialProgram: String? = nil) {
+    _source = source
+    self.count = count
+    self.initialProgram = initialProgram
+    _replay = State(initialValue: UUID())
+  }
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
       HStack {

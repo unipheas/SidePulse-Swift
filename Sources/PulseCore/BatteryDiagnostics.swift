@@ -143,6 +143,9 @@ public struct BatteryDiagnostics {
     }
   }
   public static func read(fullWatts: Double = PowerRegistry.fullChargeWatts) -> Self? {
-    PowerRegistry.properties("AppleSmartBattery").map { Self(properties: $0, fullWatts: fullWatts) }
+    read(fullWatts: fullWatts, properties: { PowerRegistry.properties($0) })
+  }
+  static func read(fullWatts: Double, properties: (String) -> JSONObject?) -> Self? {
+    properties("AppleSmartBattery").map { Self(properties: $0, fullWatts: fullWatts) }
   }
 }

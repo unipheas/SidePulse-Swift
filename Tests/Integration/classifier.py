@@ -37,5 +37,8 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-classifier-test-") as folder:
         classification = json.loads(result.stdout)
         assert classification["label"] in {"REPLY_REQUIRED", "NO_REPLY_REQUIRED", "UNCERTAIN"}
         assert classification["raw_output"].strip() == expected, classification
+        plain = subprocess.run([str(stage / "sidepulsectl"), "classify", "--backend", "mlx", message],
+                               capture_output=True, text=True, check=True, timeout=180)
+        assert plain.stdout.strip() == classification["label"], plain.stdout
         print(message, classification)
 print("Native MLX helper and CLI integration passed")

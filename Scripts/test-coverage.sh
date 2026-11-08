@@ -10,6 +10,7 @@ bin=$(swift build --show-bin-path)
 export LLVM_PROFILE_FILE="$work/cli-%m-%p.profraw"
 python3 Tests/Integration/cli.py "$bin/sidepulsectl"
 python3 Tests/Integration/disk-image.py "$bin/sidepulsectl"
+python3 Tests/Integration/disk-support-test.py
 python3 Tests/Integration/eject-guard.py "$bin/sidepulsectl"
 if [[ "${RUN_INSTALLED_TESTS:-0}" == 1 ]]; then
   python3 Scripts/test-installed.py "$bin" "$work"

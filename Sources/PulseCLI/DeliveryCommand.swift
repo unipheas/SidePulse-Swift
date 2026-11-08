@@ -2,7 +2,10 @@ import Foundation
 import PulseCore
 
 extension CLI {
-  static func deliver(preferPhone: Bool) async throws {
+  static func deliver(
+    preferPhone: Bool, discover: () -> [Device] = Device.discover,
+    push: (String?, String?, String?, String?) async throws -> Void = Bridge.push
+  ) async throws {
     let path = try Args.option("--device")
     let fileName = try Args.option("--file-name") ?? "LEDS.LED"
     let all = Args.flag("--all")
@@ -19,7 +22,7 @@ extension CLI {
     if let path {
       devices = [try Device.inspect(URL(fileURLWithPath: path), fileName: fileName)]
     } else {
-      devices = try Device.discover().map { try Device.inspect($0.root, fileName: fileName) }
+      devices = try discover().map { try Device.inspect($0.root, fileName: fileName) }
     }
     let destinations = try Destination.select(
       devices: devices, phones: path == nil ? Bridge.phones() : [],
@@ -37,7 +40,7 @@ extension CLI {
           guard let source else { throw PulseError("Supply an LED program.") }
           try device.write(source)
         case .phone(let phone):
-          try await Bridge.push(to: phone.id, program: source, title: title, message: message)
+          try await push(phone.id, source, title, message)
         }
         print("Sent to " + target.name)
       } catch { failures.append(target.name + ": " + error.localizedDescription) }

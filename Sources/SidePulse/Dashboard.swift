@@ -29,13 +29,17 @@ import SwiftUI
   private let backgroundDiscover: @Sendable () -> [Device]
   private(set) var discoveryTask: Task<Void, Never>?
   private let outputInUse: (() -> Bool)?
+  private let backgroundOwnership: @Sendable () -> (previous: Bool, service: Bool)
   private(set) var ownershipTask: Task<Void, Never>?
   init(
     discover: (() -> [Device])? = nil,
     backgroundDiscover: @escaping @Sendable () -> [Device] = Device.discover,
     outputInUse: (() -> Bool)? = nil,
     poll: Bool = true, actions: MacActions? = nil,
-    sleepOverride: SleepOverride = SleepOverride(), phoneOutput: PhoneOutput = PhoneOutput()
+    sleepOverride: SleepOverride = SleepOverride(), phoneOutput: PhoneOutput = PhoneOutput(),
+    backgroundOwnership: @escaping @Sendable () -> (previous: Bool, service: Bool) = {
+      (previous: Output.legacyRunning(), service: Jobs.running(Jobs.prefix + "service"))
+    }
   ) {
     self.actions = actions ?? MacActions()
     self.sleepOverride = sleepOverride
@@ -43,6 +47,7 @@ import SwiftUI
     self.discover = discover
     self.backgroundDiscover = backgroundDiscover
     self.outputInUse = outputInUse
+    self.backgroundOwnership = backgroundOwnership
     do { try Settings.migrate() } catch { problem = error.localizedDescription }
     history = History.recent().suffix(500).map { ($0.date, $0.mode) }
     NotificationCenter.default.addObserver(
@@ -105,10 +110,9 @@ import SwiftUI
           if serviceRunning != service { serviceRunning = service }
         } else if ownershipTask == nil {
           // launchctl can wait for process teardown; never block animation frames.
+          let readOwnership = backgroundOwnership
           ownershipTask = Task { [weak self] in
-            let ownership = await Task.detached(priority: .utility) {
-              (previous: Output.legacyRunning(), service: Jobs.running(Jobs.prefix + "service"))
-            }.value
+            let ownership = await Task.detached(priority: .utility, operation: readOwnership).value
             let active = ownership.previous || ownership.service
             if self?.legacy != active { self?.legacy = active }
             if self?.serviceRunning != ownership.service {

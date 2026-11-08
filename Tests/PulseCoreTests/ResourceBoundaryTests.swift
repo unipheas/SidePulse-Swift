@@ -44,13 +44,14 @@ final class ResourceBoundaryTests: IsolatedTests {
   }
   func testUnavailableClassifierAndInjectedModelFailure() async throws {
     XCTAssertNil(ReplyClassifier.availableModel(enabled: false))
+    let output = try await ReplyClassifier.generate("Hello", model: { text in text + " result" })
+    XCTAssertEqual(output, "Hello result")
     do {
-      _ = try await ReplyClassifier.generate("Hello", model: nil)
+      _ = try ReplyClassifier.requireModel(nil)
       XCTFail("Unavailable model must be reported")
     } catch { XCTAssertTrue(error.localizedDescription.contains("Apple Intelligence")) }
     do {
-      _ = try await ReplyClassifier.generate(
-        "Hello", model: { _ in throw PulseError("Model stopped") })
+      _ = try await ReplyClassifier.generate("Hello", model: { _ in throw PulseError("Model stopped") })
       XCTFail("Generation failure must propagate")
     } catch { XCTAssertEqual(error.localizedDescription, "Model stopped") }
   }

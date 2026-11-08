@@ -13,12 +13,14 @@ public enum ReplyClassifier {
       case rawOutput = "raw_output"
     }
   }
-  public static func classify(_ text: String) async throws -> String {
-    try await result(text).label
+  public static func classify(
+    _ text: String, generate: (String) async throws -> String = { try await ReplyClassifier.generate($0) }
+  ) async throws -> String {
+    try await result(text, generate: generate).label
   }
   public static func result(
     _ text: String,
-    generate: (String) async throws -> String = generate
+    generate: (String) async throws -> String = { try await ReplyClassifier.generate($0) }
   ) async throws -> Classification {
     guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
       throw PulseError("Enter a message to classify.")
@@ -40,18 +42,21 @@ public enum ReplyClassifier {
       { upper.substring(with: $0.range) })
     return labels.count == 1 ? labels.first! : "UNCERTAIN"
   }
-  public static func generate(_ text: String) async throws -> String {
-    try await generate(text, model: availableModel())
+  public static func generate(
+    _ text: String, model: ((String) async throws -> String)? = nil
+  ) async throws -> String {
+    let model = try requireModel(model ?? availableModel())
+    return try await model(text)
   }
-  static func generate(_ text: String, model: ((String) async throws -> String)?) async throws
-    -> String
+  static func requireModel(_ model: ((String) async throws -> String)?) throws
+    -> (String) async throws -> String
   {
     guard let model else {
       throw PulseError(
         "Local reply classification requires Apple Intelligence with its on-device model available."
       )
     }
-    return try await model(text)
+    return model
   }
   /// Resolve availability separately from generation so unavailable-model behavior can be tested
   /// without changing the user's Apple Intelligence preferences.

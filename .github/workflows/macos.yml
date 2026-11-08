@@ -18,7 +18,7 @@ jobs:
       - name: Test macOS app, hardware protocols, and CLI
         run: Scripts/test-coverage.sh
         env:
-          MIN_COVERAGE: 80
+          MIN_COVERAGE: ${{ matrix.os == 'macos-15' && '100' || '80' }}
           RUN_UI_TESTS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
           RUN_INSTALLED_TESTS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
           RUN_CLASSIFIER_TESTS: ${{ matrix.os == 'macos-15' && '1' || '0' }}
@@ -53,7 +53,18 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+      - name: Diagnose isolated async classifier boundaries
+        if: matrix.sanitizer == 'address'
+        run: |
+          swift --version
+          xcodebuild -version
+          failures=0
+          for test in testDefaultClassifyReportsUnavailableModel testDefaultResultReportsUnavailableModel testClassifyPropagatesInjectedGeneratorFailure; do
+            swift test --sanitize=address --filter "$test" || failures=$((failures + 1))
+          done
+          test "$failures" = 0
       - name: Check memory safety and concurrent access
+        if: always()
         run: swift test --sanitize=${{ matrix.sanitizer }}
   interface:
     runs-on: macos-15

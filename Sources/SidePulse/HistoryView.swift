@@ -192,7 +192,12 @@ struct BackgroundServicePreference: View {
   @EnvironmentObject var model: Dashboard
   let job: String
   let title: String
-  @State private var running = false
+  @State private var running: Bool
+  init(job: String, title: String) {
+    self.job = job
+    self.title = title
+    _running = State(initialValue: false)
+  }
   var body: some View {
     HStack {
       VStack(alignment: .leading) {
