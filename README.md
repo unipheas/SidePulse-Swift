@@ -8,7 +8,7 @@ A native macOS companion for the SidePulse Pro SD card and SidePulse Dot USB dev
 
 ## Try it
 
-1. Unzip the release and drag **SidePulse** into Applications. The preview build is ad-hoc signed. You can also build it locally.
+1. Unzip the release and drag **SidePulse** into Applications. The 0.2.1 release is Developer ID signed and notarized. You can also build it locally.
 2. Open the app and connect a SidePulse. **Overview** shows the detected model, firmware, and current agent state.
 3. In **Settings**, set **Show Done for** to `15` seconds. The display returns to Idle when the timer expires and other agents are quiet.
 4. If you already run SidePulse, Swift previews its hook events and reads your existing animation settings. Click **Use this installation for device output** when you want to try the native writer. **Restore previous installation** hands the lights back. On a fresh setup, the welcome panel offers agent hooks, background monitoring, Pro eject protection, opening at login, and the optional sleep helper. Follow the provider's normal hook trust prompts.
@@ -56,7 +56,7 @@ open "/Applications/SidePulse.app"
 
 The install script registers one copy in `/Applications`, keeps the distribution ZIP, and removes the loose build copy to avoid duplicate search results.
 
-The package script builds both executables, includes their resources and icon, signs the bundle, and creates a ZIP in `dist`. The core uses Swift and Apple frameworks. A small C adapter provides access to the IOKit USB plug-in vtable. The build has no Python dependency. Sparkle provides the native updater; its license is included under `ThirdParty`. Publishing a signed update requires `Scripts/prepare-update.sh` and the release signing key stored in Keychain. The signed feed publishes SidePulse 0.2.0; installed apps can use **Check for Updates…**.
+The package script builds both executables, includes their resources and icon, signs the bundle, and creates a ZIP in `dist`. The core uses Swift and Apple frameworks. A small C adapter provides access to the IOKit USB plug-in vtable. The build has no Python dependency. Sparkle provides the native updater; its license is included under `ThirdParty`. Publishing a signed update requires `Scripts/prepare-update.sh` and the release signing key stored in Keychain. The signed feed publishes SidePulse 0.2.1 (build 6); installed apps can use **Check for Updates…**. Release archives use Developer ID signing and Apple notarization; local builds remain ad-hoc signed unless a signing identity is supplied.
 
 ## Attribution
 
