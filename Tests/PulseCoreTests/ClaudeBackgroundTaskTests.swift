@@ -82,6 +82,8 @@ final class ClaudeBackgroundTaskTests: IsolatedTests {
     XCTAssertEqual(first.mode, .progress)
     try record("Notification", seconds: 60, extras: ["notification_type": "idle_prompt",
                                                      "message": "Claude is waiting for your input"])
+    // The optional message may be absent; the event type still identifies the reminder.
+    try record("Notification", seconds: 90, extras: ["notification_type": "idle_prompt"])
     try record("Notification", seconds: 120, extras: ["notification_type": "idle_prompt",
                                                       "message": "Claude is waiting for your input"])
     XCTAssertEqual(monitor.sessions(), [first])
