@@ -133,8 +133,15 @@ public enum Events {
       case "userpromptsubmit", "beforesubmitprompt", "precompact", "postcompact", "subagentstart":
         mode = .working
       case "stop", "subagentstop":
-        mode =
-          HookPayload.asksQuestion(message) ? .waiting : .done
+        if HookPayload.asksQuestion(message) {
+          mode = .waiting
+        } else if provider == "claude", event == "Stop",
+          HookPayload.hasRunningBackgroundTask(raw)
+        {
+          mode = .progress
+        } else {
+          mode = .done
+        }
       case "sessionend": mode = .done
       case "sessionstart": mode = .idle
       case "notification":
@@ -235,6 +242,15 @@ public final class Monitor {
         if session.name == session.provider.capitalized { session.name = previous.name }
       }
       if previous?.mode == .done && session.event == "Notification" { return }
+      // Claude's idle reminder describes the ended turn, not its still-running jobs.
+      // Keep real permission, completion and explicit status notifications actionable.
+      if session.provider == "claude", previous?.mode == .progress, previous?.event == "Stop",
+        session.event == "Notification", raw["notification_type"] as? String == "idle_prompt",
+        Events.explicit(
+          raw, message: (raw["last_assistant_message"] ?? raw["message"]) as? String ?? "") == nil
+      {
+        return
+      }
       if previous?.event == "PermissionRequest", session.event != "PermissionRequest",
         permissions[key]?.isEmpty == false
       {

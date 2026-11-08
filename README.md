@@ -41,6 +41,17 @@ pulse="/Applications/SidePulse.app/Contents/MacOS/sidepulsectl"
 - **History.** Export status changes with `history history.csv` or `history history.html`. Export individual hook events and their interpreted status with `audit events.csv` or `audit events.html`.
 - **Reply classification.** On supported Macs with Apple Intelligence available, `classify` uses Apple's on-device Foundation Models framework. Add `--json` for the label and raw model output.
 
+## Claude background tasks
+
+When Claude's session `Stop` hook lists a background task with `status: "running"`,
+SidePulse keeps that session In progress and eligible for keep-awake instead of
+showing Done. Questions and explicit status overrides still take priority, and
+finished subagents do not acquire a background hold. Claude's `idle_prompt`
+reminders do not clear this state or extend its timestamp; actual permission
+requests, errors, completion notifications and later session events still apply.
+Without another event, the existing stale timeout still expires the session.
+This uses reported hook state, not independent process monitoring.
+
 ## Other local agents and Ollama
 
 Use `agent-event` or the optional [Python lifecycle adapter](Integrations/README.md)
