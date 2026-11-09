@@ -19,7 +19,9 @@ import QuartzCore
   static func program(
     settings: JSONObject, mode: Mode, battery: Battery?, previewingBattery: Bool = false
   ) throws -> String? {
-    guard settings["virtual_status_device_enabled"] as? Bool == true else { return nil }
+    guard settings["virtual_status_device_enabled"] as? Bool == true,
+      OutputProfiles.notchVisible(mode: mode, settings: settings)
+    else { return nil }
     let config =
       (settings["devices"] as? [JSONObject])?.first { $0["id"] as? String == deviceID } ?? [:]
     let display = config["led_display"] as? String ?? settings["led_display"] as? String ?? "agent"
@@ -28,7 +30,7 @@ import QuartzCore
     if display == "battery" || previewingBattery, let battery {
       program = battery.program(count: 8, settings: settings)
     } else {
-      program = try Programs.program(mode, count: 8, settings: settings)
+      program = try OutputProfiles.program(mode, target: .notch, settings: settings)
     }
     return Programs.brightness(program, level: config["brightness"] as? Int ?? 255)
   }

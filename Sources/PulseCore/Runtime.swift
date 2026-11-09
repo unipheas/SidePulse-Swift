@@ -14,10 +14,11 @@ public final class Output {
   private var holdClosed = false
   private var assertion: IOPMAssertionID = 0
   public init(
-    now: @escaping () -> Date = Date.init, lidClosed: @escaping () -> Bool? = Power.lidClosed
+    now: @escaping () -> Date = Date.init, lidClosed: @escaping () -> Bool? = Power.lidClosed,
+    write: @escaping (Device, String) throws -> Void = { try $0.write($1) }
   ) {
     self.now = now
-    self.programs = ProgramOutput(now: now)
+    self.programs = ProgramOutput(now: now, write: write)
     self.lidClosed = lidClosed
   }
   deinit { if assertion != 0 { IOPMAssertionRelease(assertion) } }
@@ -94,20 +95,12 @@ public final class Output {
         if display == "custom", let manual = config?["manual_program"] as? String {
           source = try Programs.normalize(manual)
         } else if now() < lidUntil || holdClosed {
-          let entry = (settings["agent_animations"] as? [String: JSONObject])?[lidState] ?? [:]
-          if let saved = (settings[lidState + "_animation"] as? JSONObject)?["program"] as? String,
-            !saved.isEmpty
-          {
-            source = try Programs.normalize(saved)
-          } else {
-            source = try Programs.resolve(
-              style: entry["style"] as? String ?? lidState.replacingOccurrences(of: "_", with: "-"),
-              entry: entry, count: device.count, settings: settings)
-          }
+          source = try OutputProfiles.lidProgram(
+            lidState, device: device, settings: settings)
         } else if display == "battery" || previewingBattery, let battery {
           source = battery.program(count: device.count, settings: settings)
         } else {
-          source = try Programs.program(mode, count: device.count, settings: settings)
+          source = try OutputProfiles.program(mode, device: device, settings: settings)
         }
         let program = Programs.brightness(source, level: config?["brightness"] as? Int ?? 255)
         try programs.send(program, to: device)
