@@ -318,4 +318,48 @@ final class OutputProfileTests: IsolatedTests {
       selections["future-output"] as? NSDictionary, ["version": 2, "enabled": true] as NSDictionary)
   }
 
+  func testFirstOutputSelectionCreatesRegistryAndCanRestoreInheritance() throws {
+    var original = settings()
+    original[OutputProfiles.settingsKey] = nil
+    try saveObject(original, to: Settings.url)
+    try OutputProfiles.select("ember", for: .dot)
+    var saved = try Settings.read()
+    XCTAssertEqual(OutputProfiles.selection(for: .dot, settings: saved), "ember")
+    XCTAssertEqual(OutputProfiles.selection(for: .pro, settings: saved), "global")
+    XCTAssertEqual(OutputProfiles.selection(for: .notch, settings: saved), "global")
+    saved[OutputProfiles.settingsKey] = nil
+    XCTAssertEqual(saved as NSDictionary, original as NSDictionary)
+    try OutputProfiles.select("global", for: .dot)
+    let restored = try Settings.read()
+    XCTAssertEqual(
+      try OutputProfiles.program(.working, target: .dot, settings: restored), "#123456")
+    XCTAssertTrue(try XCTUnwrap(restored[OutputProfiles.settingsKey] as? JSONObject).isEmpty)
+  }
+
+  @MainActor func testAllOutputPickersListSavedProfilesWithoutDuplicatingBuiltInChoices() throws {
+    var settings = settings()
+    settings["virtual_status_device_enabled"] = false
+    settings["agent_animation_profiles"] = [
+      "cyan": ["name": "Duplicate Cyan", "animations": ["working": "idle-pulse"]],
+      "profile:saved": ["name": "Saved profile", "animations": ["working": "idle-pulse"]],
+      "profile:unnamed": ["animations": ["working": "idle-pulse"]],
+    ]
+    try saveObject(settings, to: Settings.url)
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    let view = OutputProfileSettings().environmentObject(model)
+    let pickers = try view.inspect().findAll(ViewType.Picker.self)
+    XCTAssertEqual(pickers.count, 3)
+    let labels = try view.inspect().findAll(ViewType.Text.self).map { try $0.string() }
+    XCTAssertEqual(labels.filter { $0 == "Cyan" }.count, 3)
+    XCTAssertEqual(labels.filter { $0 == "Duplicate Cyan" }.count, 0)
+    XCTAssertEqual(labels.filter { $0 == "Saved profile" }.count, 3)
+    XCTAssertEqual(labels.filter { $0 == "profile:unnamed" }.count, 3)
+    for (picker, target) in zip(pickers, OutputProfiles.Target.allCases) {
+      try picker.select(value: "profile:saved")
+      XCTAssertEqual(
+        OutputProfiles.selection(for: target, settings: try Settings.read()), "profile:saved")
+    }
+    XCTAssertNil(model.problem)
+  }
+
 }
