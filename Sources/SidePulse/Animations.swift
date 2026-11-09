@@ -73,9 +73,15 @@ struct Animations: View {
           .accessibilityLabel("Delete profile").help("Delete this saved profile")
           .disabled(!profile.hasPrefix("profile:"))
         }.controlSize(.small)
+        Text("Global animations").font(.headline)
+        Text(
+          "Outputs use these animations unless assigned a profile below. Save a profile here, then choose it for an output."
+        )
+        .font(.caption).foregroundStyle(.secondary)
         LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
           ForEach(states, id: \.self) { AnimationCard(mode: $0, count: count) }
         }
+        OutputProfileSettings()
       }.padding(16).frame(maxWidth: 900, alignment: .leading).frame(
         maxWidth: .infinity, alignment: .topLeading)
     }
@@ -253,5 +259,67 @@ struct DevicePreviewMenu: View {
     }.disabled(
       (model.devices.isEmpty && phones.isEmpty)
         || (model.legacy && !model.serviceRunning))
+  }
+}
+
+/// Profile assignment is separate from the global editor, so choosing an output never changes it.
+struct OutputProfileSettings: View {
+  @EnvironmentObject var model: Dashboard
+  var body: some View {
+    GroupBox("Output profiles") {
+      VStack(alignment: .leading, spacing: 12) {
+        ForEach(OutputProfiles.Target.allCases) { target in
+          OutputProfilePicker(target: target)
+        }
+        Toggle(
+          "Show Notch only when attention is needed",
+          isOn: Binding(
+            get: { model.settings["notch_attention_only"] as? Bool ?? false },
+            set: { value in model.change { $0["notch_attention_only"] = value } }
+          )
+        ).accessibilityIdentifier("notch-attention-only")
+        Text(
+          "Needs input and Blocked show the Notch. Other states hide it, including battery previews. Manual display stays hidden."
+        )
+        .font(.caption).foregroundStyle(.secondary)
+      }.padding(6)
+    }
+  }
+}
+
+struct OutputProfilePicker: View {
+  @EnvironmentObject var model: Dashboard
+  let target: OutputProfiles.Target
+  var body: some View {
+    VStack(alignment: .leading, spacing: 3) {
+      Picker(
+        target.rawValue,
+        selection: Binding(
+          get: { OutputProfiles.selection(for: target, settings: model.settings) },
+          set: { selection in
+            do {
+              try OutputProfiles.select(selection, for: target)
+              model.refresh()
+            } catch { model.problem = error.localizedDescription }
+          }
+        )
+      ) {
+        Text("Use global animations").tag("global")
+        ForEach(["cyan", "ember", "purple"], id: \.self) { Text($0.capitalized).tag($0) }
+        let saved = model.settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]
+        ForEach(
+          saved.keys.sorted().filter { !["cyan", "ember", "purple"].contains($0) }, id: \.self
+        ) { id in
+          Text(saved[id]?["name"] as? String ?? id).tag(id)
+        }
+        let selection = OutputProfiles.selection(for: target, settings: model.settings)
+        if selection != "global" && !["cyan", "ember", "purple"].contains(selection)
+          && saved[selection] == nil
+        {
+          Text("Unavailable profile (using fallback)").tag(selection)
+        }
+      }.accessibilityIdentifier("output-profile-" + target.id)
+      Text(target.detail).font(.caption).foregroundStyle(.secondary)
+    }
   }
 }

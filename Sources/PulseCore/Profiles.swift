@@ -35,6 +35,7 @@ public enum Profiles {
       var saved = settings["agent_animation_profiles"] as? [String: JSONObject] ?? [:]
       guard saved.removeValue(forKey: id) != nil else { throw PulseError("Unknown profile.") }
       settings["agent_animation_profiles"] = saved
+      OutputProfiles.remove(id, from: &settings)
       if settings["swift_profile"] as? String == id { settings["swift_profile"] = "current" }
     }
   }

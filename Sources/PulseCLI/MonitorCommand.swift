@@ -77,7 +77,7 @@ extension CLI {
               for device in devices {
                 print(
                   device.id + "\n"
-                    + (try Programs.program(mode, count: device.count, settings: settings)))
+                    + (try OutputProfiles.program(mode, device: device, settings: settings)))
               }
             } else {
               settings = try Settings.remember(devices, settings: settings)

@@ -237,3 +237,18 @@ A local implementation checkpoint passed 285 native tests (7 opt-in/platform ski
 harness. The two new Swift production files each reached 100% line coverage in
 that native run. This is not the whole-project CI coverage gate. See the
 [source fingerprints and scoped results](Tests/Evidence/local-agent-integration.json).
+
+
+## Per-output animation profiles
+
+`swift test --filter OutputProfileTests` covers independent Dot/Pro/Notch selection,
+all eight states and LED counts, saved/custom/missing profiles, global fallback,
+settings preservation, deletion, simultaneous hardware routing, reconnects,
+unchanged-program suppression, and manual/battery/brightness/lid precedence.
+The Notch policy tests cover every state with battery and power-preview combinations;
+a hidden state returns no program so the existing display path hides its panel.
+ViewInspector exercises the actual picker and visibility-toggle actions with the
+Notch disabled and output ownership injected, without launching the installed app.
+All preferences and fake device files are isolated in temporary directories, and
+hardware writes in the new runtime tests are captured by an injected closure.
+These checks do not claim physical-device or rendered-window acceptance.
