@@ -3,12 +3,12 @@
     <channel>
         <title>SidePulse</title>
         <item>
-            <title>0.2.3</title>
-            <pubDate>Sun, 08 Nov 2026 17:01:06 +0000</pubDate>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.2.3</sparkle:shortVersionString>
+            <title>0.2.4</title>
+            <pubDate>Tue, 10 Nov 2026 16:36:05 +0000</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.2.4</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
-            <enclosure url="https://github.com/unipheas/SidePulse-Swift/releases/download/v0.2.3/SidePulse-macOS.zip" length="9815683" type="application/octet-stream" sparkle:edSignature="rK8lLclqvdHbgAZS4ewUlEMWAiJM/WBE9l1toZXOwaQtkuoPyLxlv2Bk57MzpBcA3VEM7gFOGTcsC4CRt502BQ==" />
+            <enclosure url="https://github.com/unipheas/SidePulse-Swift/releases/download/v0.2.4/SidePulse-macOS.zip" length="9868459" type="application/octet-stream" sparkle:edSignature="ihikcmqSeGsw36k/rarcpXMQspZFiilAOWZIa0Hz2Rf/PDQGeuuzVR0PeCSIIiURNpa7voubmtccQiLsfkvxAA==" />
         </item>
     </channel>
 </rss>
