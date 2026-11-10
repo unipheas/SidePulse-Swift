@@ -97,6 +97,8 @@ public final class Output {
         } else if now() < lidUntil || holdClosed {
           source = try OutputProfiles.lidProgram(
             lidState, device: device, settings: settings)
+        } else if display == "hybrid", device.model == "Pro" {
+          source = HybridDisplay.program(mode: mode, battery: battery)
         } else if display == "battery" || previewingBattery, let battery {
           source = battery.program(count: device.count, settings: settings)
         } else {

@@ -252,3 +252,14 @@ Notch disabled and output ownership injected, without launching the installed ap
 All preferences and fake device files are isolated in temporary directories, and
 hardware writes in the new runtime tests are captured by an injected closure.
 These checks do not claim physical-device or rendered-window acceptance.
+
+## Hybrid Pro display
+
+`HybridDisplayTests` checks the fixed battery bands, charging and unavailable
+states, all agent-state colors, and multi-cycle output through the bundled
+firmware simulator. It also checks model routing, unchanged-program suppression,
+brightness, lid and manual precedence, power-change behavior, mirror-off, and
+connected/disconnected picker persistence using isolated settings and injected
+writes. The renderer itself reached 41/41 instrumented lines in the focused run;
+that number is not a whole-project coverage measurement. No physical device
+writes or installation are performed by these tests.
