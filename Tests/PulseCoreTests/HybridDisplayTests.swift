@@ -123,4 +123,16 @@ final class HybridDisplayTests: IsolatedTests {
     XCTAssertEqual(Settings.device("/Volumes/Pro", in: try Settings.read())["led_display"] as? String, "hybrid")
   }
 
+  @MainActor func testConnectedDisplayPickersOfferHybridOnlyForPro() throws {
+    let pro = try volume("Pro"), dot = try volume("Dot")
+    let model = Dashboard(discover: { [] }, outputInUse: { true }, poll: false)
+    model.devices = [pro, dot]
+    for labels in [
+      try DeviceManagement().environmentObject(model).inspect().findAll(ViewType.Text.self).map { try $0.string() },
+      try Preferences().environmentObject(model).inspect().findAll(ViewType.Text.self).map { try $0.string() },
+    ] {
+      XCTAssertEqual(labels.filter { $0 == "Battery + agent status" }.count, 1)
+    }
+  }
+
 }
