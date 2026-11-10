@@ -13,7 +13,7 @@ struct DeviceManagement: View {
       Section("Connected devices") {
         ForEach(model.devices) { device in
           LabeledContent("SidePulse " + device.model, value: device.firmware)
-          DeviceDisplayPreference(id: device.id, title: "Display")
+          DeviceDisplayPreference(id: device.id, title: "Display", allowsHybrid: device.model == "Pro")
           DeviceBrightnessPreference(id: device.id)
           HStack {
             Button("Check firmware") { Task { await firmware.update(device, dry: true) } }.disabled(
@@ -47,7 +47,10 @@ struct DeviceManagement: View {
                   }
                 }.accessibilityIdentifier("forget-device-" + id)
               }
-              DeviceDisplayPreference(id: id, title: "Display")
+              DeviceDisplayPreference(
+                id: id, title: "Display",
+                allowsHybrid: Settings.device(id, in: model.settings)["led_display"] as? String == "hybrid"
+                  || Settings.device(id, in: model.settings)["swift_hybrid_capable"] as? Bool == true)
               DeviceBrightnessPreference(id: id)
             }
           }
@@ -123,17 +126,23 @@ struct DeviceDisplayPreference: View {
   let id: String
   let title: String
   var allowsBattery = true
+  var allowsHybrid = false
   var body: some View {
     Picker(
       title,
       selection: Binding(
         get: { Settings.device(id, in: model.settings)["led_display"] as? String ?? "agent" },
         set: { value in
-          model.change { Settings.editDevice(id, in: &$0, values: ["led_display": value]) }
+          model.change {
+            var values: JSONObject = ["led_display": value]
+            if allowsHybrid { values["swift_hybrid_capable"] = true }
+            Settings.editDevice(id, in: &$0, values: values)
+          }
         })
     ) {
       Text("Agent status").tag("agent")
       if allowsBattery { Text("Battery").tag("battery") }
+      if allowsHybrid { Text("Battery + agent status").tag("hybrid") }
       Text("Manual").tag("custom")
     }.accessibilityIdentifier("device-display-" + id)
   }

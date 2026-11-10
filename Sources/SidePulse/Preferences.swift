@@ -36,7 +36,8 @@ struct Preferences: View {
           isOn: Binding(
             get: { model.mirror }, set: { value in model.change { $0["swift_mirror"] = value } }))
         ForEach(model.devices) { device in
-          DeviceDisplayPreference(id: device.id, title: device.name)
+          DeviceDisplayPreference(
+            id: device.id, title: device.name, allowsHybrid: device.model == "Pro")
         }
       }
       BatteryPreferences()
