@@ -27,7 +27,9 @@ enum HookPayload {
     let key = spelling.lowercased().filter { $0.isLetter || $0.isNumber }
     guard var event = aliases[key] else { return nil }
     if provider == "cursor" {
-      if event == "PostToolUseFailure" { event = "StopFailure" }
+      if event == "PostToolUseFailure" || (event == "Stop" && raw["status"] as? String == "error") {
+        event = "StopFailure"
+      }
       raw["session_id"] = raw["conversation_id"] ?? raw["conversationId"] ?? raw["session_id"]
       let roots = (raw["workspace_roots"] ?? raw["workspaceRoots"]) as? [String]
       raw["cwd"] = roots?.first ?? raw["workspace_root"] ?? raw["cwd"]

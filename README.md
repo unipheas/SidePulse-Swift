@@ -44,6 +44,16 @@ pulse="/Applications/SidePulse.app/Contents/MacOS/sidepulsectl"
 - **History.** Export status changes with `history history.csv` or `history history.html`. Export individual hook events and their interpreted status with `audit events.csv` or `audit events.html`.
 - **Reply classification.** On supported Macs with Apple Intelligence available, `classify` uses Apple's on-device Foundation Models framework. Add `--json` for the label and raw model output.
 
+## Failed agent turns
+
+Claude Code's `StopFailure` hook and Cursor's `stop` event with `status: "error"`
+show Blocked / Error instead of leaving a turn Working or marking it Done.
+After upgrading, reinstall the Claude hooks from SidePulse's agent setup controls
+or run `sidepulsectl agent-monitor install claude` to register `StopFailure`.
+Existing Cursor hooks need no reinstall. Completed and aborted Cursor stops keep
+their existing behavior, and explicit SidePulse status overrides still take priority.
+This observes reported failures, not independent process or API health.
+
 ## Claude background tasks
 
 When Claude's session `Stop` hook lists a background task with `status: "running"`,
