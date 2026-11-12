@@ -8,7 +8,7 @@ import sys
 import tempfile
 import time
 
-from disk_support import eject_disk
+from disk_support import eject_disk, fixture_diagnostics
 
 cli = str(Path(sys.argv[1]).resolve())
 with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
@@ -21,6 +21,8 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
                         "-volname", name, str(image)], check=True)
     guard = None
     attached = {}
+    mounts = {}
+    failed = False
 
     def attach(image):
         info = plistlib.loads(subprocess.check_output([
@@ -30,6 +32,7 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
                     if re.fullmatch(r"/dev/disk[0-9]+", row["dev-entry"]))
         mount = Path(next(row["mount-point"] for row in info if "mount-point" in row))
         attached[disk] = image
+        mounts[disk] = mount
         return disk, mount
 
     def require_owned(disk, image):
@@ -41,8 +44,16 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
 
     def require_ejected(disk, context):
         image = attached[disk]
+        started = time.monotonic()
+        def run(command, **options):
+            attempt_started = time.monotonic()
+            result = subprocess.run(command, **options)
+            print(f"Normal eject {disk}: exit={result.returncode}, seconds={time.monotonic() - attempt_started:.3f}; " +
+                  (result.stdout + result.stderr)[-4096:], flush=True)
+            return result
         result = eject_disk(disk, allow_settle=True,
-                            before_attempt=lambda: require_owned(disk, image))
+                            before_attempt=lambda: require_owned(disk, image), run=run)
+        print(f"{context}: disk={disk}, exit={result.returncode}, seconds={time.monotonic() - started:.3f}", flush=True)
         assert result.returncode == 0, context + ": " + result.stdout + result.stderr
         attached.pop(disk)
 
@@ -77,12 +88,25 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         require_ejected(ordinary, "Ordinary fixture did not eject with native guard active")
         assert guard.poll() is None, "Native guard exited during ordinary-volume check"
         assert (protected_mount / "STATUS.TXT").exists(), "Ordinary eject disturbed the protected Pro"
+    except BaseException:
+        failed = True
+        for disk, image in attached.items():
+            try:
+                require_owned(disk, image)
+                print(f"Failure diagnostics for {image.name} ({disk}):\n" +
+                      fixture_diagnostics(disk, mounts[disk]), flush=True)
+            except Exception as error:
+                print(f"Fixture diagnostics unavailable: {type(error).__name__}: {error}", flush=True)
+        raise
     finally:
         cleanup_errors = []
         if guard is not None:
             try:
                 guard.terminate()
-                guard.communicate(timeout=5)
+                stdout, stderr = guard.communicate(timeout=5)
+                if failed:
+                    print("Guard stdout:\n" + stdout[-8192:].decode(errors="replace"), flush=True)
+                    print("Guard stderr:\n" + stderr[-8192:].decode(errors="replace"), flush=True)
                 assert guard.returncode == 0
             except Exception as error:
                 cleanup_errors.append("guard shutdown: " + str(error))

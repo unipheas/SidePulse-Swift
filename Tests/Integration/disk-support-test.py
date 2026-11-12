@@ -3,7 +3,7 @@ import subprocess
 from types import SimpleNamespace
 import unittest
 
-from disk_support import eject_disk
+from disk_support import eject_disk, fixture_diagnostics
 
 
 class EjectRetryTests(unittest.TestCase):
@@ -93,6 +93,33 @@ class EjectRetryTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertEqual(len(calls), 1)
         self.assertEqual(waits, [])
+
+    def test_diagnostics_are_read_only_scoped_and_bounded(self):
+        calls = []
+        def run(command, **options):
+            calls.append((command, options))
+            return SimpleNamespace(returncode=1, stdout="x" * 20000, stderr="end")
+        result = fixture_diagnostics('/dev/fixture', '/Volumes/Fixture', run=run)
+        self.assertEqual([c[0] for c in calls], [
+            ['diskutil', 'info', '/dev/fixture'],
+            ['lsof', '-nP', '+f', '--', '/Volumes/Fixture'],
+        ])
+        for _, options in calls:
+            self.assertEqual(options, dict(capture_output=True, text=True, timeout=5))
+        self.assertLess(len(result), 16500)
+        self.assertEqual(result.count('end'), 2)
+
+    def test_diagnostic_failure_does_not_hide_later_evidence(self):
+        calls = []
+        def run(command, **options):
+            calls.append(command)
+            if len(calls) == 1:
+                raise subprocess.TimeoutExpired(command, options['timeout'])
+            raise FileNotFoundError('missing')
+        result = fixture_diagnostics('/dev/fixture', '/Volumes/Fixture', run=run)
+        self.assertIn('disk: TimeoutExpired', result)
+        self.assertIn('holders: FileNotFoundError', result)
+        self.assertEqual(len(calls), 2)
 
 
 if __name__ == '__main__':
