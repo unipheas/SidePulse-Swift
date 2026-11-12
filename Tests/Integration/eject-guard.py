@@ -36,23 +36,32 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
         return disk, mount
 
     def require_owned(disk, image):
-        mounted = plistlib.loads(subprocess.check_output(["hdiutil", "info", "-plist"]))["images"]
+        mounted = plistlib.loads(subprocess.check_output(["hdiutil", "info", "-plist"], timeout=5))["images"]
         owned = any(Path(item.get("image-path", "")).resolve() == image.resolve()
                     and any(row.get("dev-entry") == disk for row in item.get("system-entities", []))
                     for item in mounted)
         assert owned, "Fixture disk identity changed before eject"
 
+    def run_eject(command, **options):
+        attempt_started = time.monotonic()
+        result = subprocess.run(command, **options)
+        print(f"Normal eject {command[-1]}: exit={result.returncode}, seconds={time.monotonic() - attempt_started:.3f}; " +
+              (result.stdout + result.stderr)[-4096:], flush=True)
+        return result
+
+    def diagnose(disk, image):
+        try:
+            require_owned(disk, image)
+            print(f"Failure diagnostics for {image.name} ({disk}):\n" +
+                  fixture_diagnostics(disk, mounts[disk]), flush=True)
+        except Exception as error:
+            print(f"Fixture diagnostics unavailable: {type(error).__name__}: {error}", flush=True)
+
     def require_ejected(disk, context):
         image = attached[disk]
         started = time.monotonic()
-        def run(command, **options):
-            attempt_started = time.monotonic()
-            result = subprocess.run(command, **options)
-            print(f"Normal eject {disk}: exit={result.returncode}, seconds={time.monotonic() - attempt_started:.3f}; " +
-                  (result.stdout + result.stderr)[-4096:], flush=True)
-            return result
         result = eject_disk(disk, allow_settle=True,
-                            before_attempt=lambda: require_owned(disk, image), run=run)
+                            before_attempt=lambda: require_owned(disk, image), run=run_eject)
         print(f"{context}: disk={disk}, exit={result.returncode}, seconds={time.monotonic() - started:.3f}", flush=True)
         assert result.returncode == 0, context + ": " + result.stdout + result.stderr
         attached.pop(disk)
@@ -91,22 +100,15 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
     except BaseException:
         failed = True
         for disk, image in attached.items():
-            try:
-                require_owned(disk, image)
-                print(f"Failure diagnostics for {image.name} ({disk}):\n" +
-                      fixture_diagnostics(disk, mounts[disk]), flush=True)
-            except Exception as error:
-                print(f"Fixture diagnostics unavailable: {type(error).__name__}: {error}", flush=True)
+            diagnose(disk, image)
         raise
     finally:
         cleanup_errors = []
+        stdout, stderr = b"", b""
         if guard is not None:
             try:
                 guard.terminate()
                 stdout, stderr = guard.communicate(timeout=5)
-                if failed:
-                    print("Guard stdout:\n" + stdout[-8192:].decode(errors="replace"), flush=True)
-                    print("Guard stderr:\n" + stderr[-8192:].decode(errors="replace"), flush=True)
                 assert guard.returncode == 0
             except Exception as error:
                 cleanup_errors.append("guard shutdown: " + str(error))
@@ -116,10 +118,14 @@ with tempfile.TemporaryDirectory(prefix="sidepulse-guard-") as directory:
             try:
                 if Path(disk).exists():
                     result = eject_disk(disk, allow_settle=True,
-                                        before_attempt=lambda: require_owned(disk, image))
+                                        before_attempt=lambda: require_owned(disk, image), run=run_eject)
                     assert result.returncode == 0, result.stdout + result.stderr
             except Exception as error:
                 cleanup_errors.append(image.name + ": " + str(error))
+                diagnose(disk, image)
+        if failed or cleanup_errors:
+            print("Guard stdout:\n" + stdout[-8192:].decode(errors="replace"), flush=True)
+            print("Guard stderr:\n" + stderr[-8192:].decode(errors="replace"), flush=True)
         if cleanup_errors:
             raise RuntimeError("Fixture cleanup failed: " + "; ".join(cleanup_errors))
 print("Native eject guard rejected a simulated Pro and allowed a distinct ordinary disk image.")
