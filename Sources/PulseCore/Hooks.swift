@@ -12,7 +12,7 @@ public enum Hooks {
   static let events = [
     "codex": base + more + ["PermissionRequest", "SubagentStart", "Interrupt"],
     "claude": base + more + [
-      "PostToolUseFailure", "PermissionRequest", "Notification", "SessionEnd",
+      "PostToolUseFailure", "PermissionRequest", "Notification", "StopFailure", "SessionEnd",
     ],
     "grok": base + more + [
       "PostToolUseFailure", "PermissionDenied", "Notification", "SubagentStart", "StopFailure",

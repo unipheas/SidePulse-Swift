@@ -11,6 +11,7 @@ export LLVM_PROFILE_FILE="$work/cli-%m-%p.profraw"
 python3 -m unittest discover -s Integrations/tests -v
 python3 Tests/Integration/local-agents.py "$bin/sidepulsectl"
 python3 Tests/Integration/claude-background.py "$bin/sidepulsectl"
+python3 Tests/Integration/provider-stop-errors.py "$bin/sidepulsectl"
 python3 Tests/Integration/cli.py "$bin/sidepulsectl"
 python3 Tests/Integration/disk-image.py "$bin/sidepulsectl"
 python3 Tests/Integration/disk-support-test.py

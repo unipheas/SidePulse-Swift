@@ -3,6 +3,22 @@ import subprocess
 import time
 
 
+def fixture_diagnostics(device, mount, *, run=subprocess.run):
+    """Read bounded details for an already ownership-verified fixture, never all disks."""
+    rows = []
+    for label, command in [
+        ("disk", ["diskutil", "info", device]),
+        ("holders", ["lsof", "-nP", "+f", "--", str(mount)]),
+    ]:
+        try:
+            result = run(command, capture_output=True, text=True, timeout=5)
+            rows.append(f"{label} (exit {result.returncode}):\n" +
+                        (result.stdout + result.stderr)[-8192:])
+        except (OSError, subprocess.TimeoutExpired) as error:
+            rows.append(f"{label}: {type(error).__name__}")
+    return "\n".join(rows)
+
+
 def eject_disk(device, *, allow_settle=False, run=subprocess.run,
                wait=time.sleep, before_attempt=lambda: None):
     # Ordinary images can briefly be held by Finder/Spotlight or Disk Arbitration.

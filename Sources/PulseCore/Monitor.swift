@@ -231,7 +231,7 @@ public final class Monitor {
       switch session.event {
       case "PermissionRequest": if let signature { permissions[key, default: []].insert(signature) }
       case "PostToolUse": if let signature { permissions[key]?.remove(signature) }
-      case "Stop", "Interrupt", "SessionEnd", "UserPromptSubmit":
+      case "Stop", "StopFailure", "Interrupt", "SessionEnd", "UserPromptSubmit":
         permissions.removeValue(forKey: key)
       default: break
       }
